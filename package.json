@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "e2e": "playwright test",
-    "setup": "node scripts/setup.mjs"
+    "setup": "node scripts/setup.mjs",
+    "key:sync": "tsx scripts/key-sync.ts",
+    "log:sync": "tsx scripts/log-sync.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
@@ -34,6 +36,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^5.0.3"
   }

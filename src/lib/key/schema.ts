@@ -205,3 +205,49 @@ export function rlsProblems(file: string, migrationsSql: string[]): string[] {
   }
   return problems;
 }
+
+// Who a record is about. A person's address is a field of type email or named contact_email. A team
+// member is a person_id, owner_id or manager_id holding an id from the people table. Phones live on
+// the contact. Forget and export (scripts/person.ts) find people through these names only.
+
+export const TEAM_ID_FIELDS = ["person_id", "owner_id", "manager_id"] as const;
+export type PersonRef = { app: string; table: string; column: string; how: "email" | "team_id"; forget: "delete" | "blank" };
+
+const entitiesOf = (definition: unknown): Obj[] =>
+  isObj(definition) && Array.isArray(definition.entities) ? (definition.entities.filter(isObj) as Obj[]) : [];
+const fieldsOf = (e: Obj): Obj[] => (Array.isArray(e.fields) ? (e.fields.filter(isObj) as Obj[]) : []);
+
+export function personFields(definition: unknown, app: string): PersonRef[] {
+  const refs: PersonRef[] = [];
+  for (const e of entitiesOf(definition)) {
+    if (typeof e.key !== "string") continue;
+    const forget = e.forget === "blank" ? "blank" : "delete";
+    for (const f of fieldsOf(e)) {
+      if (typeof f.key !== "string") continue;
+      if (f.type === "email" || f.key === "contact_email") refs.push({ app, table: e.key, column: f.key, how: "email", forget });
+      else if ((TEAM_ID_FIELDS as readonly string[]).includes(f.key)) refs.push({ app, table: e.key, column: f.key, how: "team_id", forget });
+    }
+  }
+  return refs;
+}
+
+const TEAMISH_ID = /(^|_)(person|owner|manager|member|employee|staff|assignee|user|teammate)_id$/;
+
+export function personFieldProblems(file: string, definition: unknown): string[] {
+  const problems: string[] = [];
+  for (const e of entitiesOf(definition)) {
+    const entity = String(e.key ?? "");
+    if (e.forget !== undefined && e.forget !== "delete" && e.forget !== "blank") problems.push(`${file}: entity "${entity}": forget must be delete or blank`);
+    for (const f of fieldsOf(e)) {
+      const k = String(f.key ?? "");
+      const t = String(f.type ?? "");
+      const at = `${file}: entity "${entity}": field "${k}"`;
+      if (/(^|_)email$/.test(k) && t !== "email") problems.push(`${at} holds an email, so its type must be email`);
+      if (/phone/.test(k)) problems.push(`${at} holds a phone. Phones live on the contact (contacts.phone), never in an app`);
+      if (t === "user" || t === "multi_user") problems.push(`${at} names a person with type ${t}. Use person_id, owner_id or manager_id holding a team member's id`);
+      if (TEAMISH_ID.test(k) && !(TEAM_ID_FIELDS as readonly string[]).includes(k)) problems.push(`${at} names a team member. Call it person_id, owner_id or manager_id`);
+      if ((TEAM_ID_FIELDS as readonly string[]).includes(k) && t !== "text") problems.push(`${at} holds a team member's id, so its type must be text`);
+    }
+  }
+  return problems;
+}

@@ -12,5 +12,7 @@ export const CORE_CARD_KINDS: CardKindDecl[] = [
   { kind: "contact", category: "command", subcategory: "inbox", label: "Message", always_human: false, decide: "done", expires_days: null, on_lapse: "stays", source: "core", routable: true },
   { kind: "check-failed", category: "command", subcategory: "alerts", label: "A check could not run", always_human: false, decide: "done", expires_days: 7, on_lapse: "closes", source: "core", routable: false },
   { kind: "brief", category: "command", subcategory: "home", label: "Weekly brief", always_human: false, decide: "done", expires_days: null, on_lapse: "stays", source: "core", routable: false },
+  // No expiry: a request to be forgotten waits for the owner, it never lapses away.
+  { kind: "person-forget", category: "risk", subcategory: "compliance", label: "Forget a person", always_human: true, decide: "approve", expires_days: null, on_lapse: "stays", source: "core", routable: false },
   { kind: "brief-blocked", category: "command", subcategory: "home", label: "The brief did not run", always_human: false, decide: "done", expires_days: null, on_lapse: "stays", source: "core", routable: false },
 ];

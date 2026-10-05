@@ -6,7 +6,7 @@ import { parseFrontMatter, SLUG } from "./frontmatter";
 import { CORE_TABLES, readDeclarations } from "./declarations";
 import { checkWebhook } from "@/lib/hooks/declaration";
 import { checkSender, SENDER_FILE } from "@/lib/outbox/sender";
-import { compareDefinition, rlsProblems } from "@/lib/key/schema";
+import { compareDefinition, personFieldProblems, rlsProblems } from "@/lib/key/schema";
 
 export const COMMIT_ID = /^[0-9a-f]{40}$/;
 export const CHARTER_HEADINGS = ["Role", "Who I serve", "How I work", "What I know", "What I never do", "Tasks", "Skills", "Memory"];
@@ -333,6 +333,7 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
     const sql = await Promise.all(migrations.map(read));
     problems.push(...compareDefinition(rel(f), text, sql));
     problems.push(...rlsProblems(rel(f), sql));
+    try { problems.push(...personFieldProblems(rel(f), parse(text))); } catch { /* checkDefinition reports invalid YAML */ }
     let def: unknown;
     try { def = parse(text); } catch { def = undefined; }
     if (isObj(def)) {

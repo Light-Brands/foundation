@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, cpSync, 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { FIELD_TYPES, checkKeyFolder } from "@/lib/key/formats";
-import { SQL_TYPE, tablesFromSql, compareDefinition, rlsProblems } from "@/lib/key/schema";
+import { SQL_TYPE, tablesFromSql, compareDefinition, rlsProblems, personFields, personFieldProblems } from "@/lib/key/schema";
 import { openPglite } from "@/lib/db/pglite";
 import { migrate } from "@/lib/db/migrate";
 
@@ -189,5 +189,49 @@ describe("an app with row level security still works on this computer", () => {
     const rows = await db.query<{ client_email: string }>("select client_email from bookings");
     expect(rows).toEqual([{ client_email: "ada@example.com" }]);
     await db.close();
+  });
+});
+
+describe("person fields", () => {
+  const def = (fields: unknown[], extra: Record<string, unknown> = {}) => ({ app: "x", entities: [{ key: "things", fields, ...extra }] });
+  it("finds every address and team member id", () => {
+    const d = def([
+      { key: "contact_email", type: "email" }, { key: "billing_email", type: "email" }, { key: "owner_id", type: "text" },
+      { key: "title", type: "text" },
+    ], { forget: "blank" });
+    expect(personFields(d, "x")).toEqual([
+      { app: "x", table: "things", column: "contact_email", how: "email", forget: "blank" },
+      { app: "x", table: "things", column: "billing_email", how: "email", forget: "blank" },
+      { app: "x", table: "things", column: "owner_id", how: "team_id", forget: "blank" },
+    ]);
+  });
+  it("finds a roster's work email and every team member id, deleting by default", () => {
+    const d = { app: "team", entities: [
+      { key: "people", fields: [{ key: "name", type: "text" }, { key: "manager_id", type: "text" }, { key: "work_email", type: "email" }] },
+      { key: "review_inputs", forget: "blank", fields: [{ key: "person_id", type: "text" }, { key: "owner_id", type: "text" }, { key: "words", type: "text" }] },
+    ] };
+    expect(personFields(d, "team")).toEqual([
+      { app: "team", table: "people", column: "manager_id", how: "team_id", forget: "delete" },
+      { app: "team", table: "people", column: "work_email", how: "email", forget: "delete" },
+      { app: "team", table: "review_inputs", column: "person_id", how: "team_id", forget: "blank" },
+      { app: "team", table: "review_inputs", column: "owner_id", how: "team_id", forget: "blank" },
+    ]);
+  });
+  it("refuses a person field outside the naming rule", () => {
+    const out = (fields: unknown[]) => personFieldProblems("d.yaml", def(fields)).join("\n");
+    expect(out([{ key: "customer_email", type: "text" }])).toMatch(/holds an email, so its type must be email/);
+    expect(out([{ key: "mobile_phone", type: "text" }])).toMatch(/Phones live on the contact/);
+    expect(out([{ key: "assignee", type: "user" }])).toMatch(/Use person_id, owner_id or manager_id/);
+    expect(out([{ key: "staff_id", type: "text" }])).toMatch(/Call it person_id, owner_id or manager_id/);
+    expect(out([{ key: "owner_id", type: "number" }])).toMatch(/holds a team member's id, so its type must be text/);
+    expect(personFieldProblems("d.yaml", def([], { forget: "archive" })).join()).toMatch(/forget must be delete or blank/);
+    expect(out([{ key: "work_email", type: "email" }, { key: "manager_id", type: "text" }])).toBe("");
+  });
+  it("fails the Key checker on an installed app with a person field outside the rule", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "person-rule-"));
+    cpSync(path.join(root, "tests/fixtures/key-ext"), dir, { recursive: true });
+    const f = path.join(dir, "key/apps/leads-demo/definition.yaml");
+    writeFileSync(f, readFileSync(f, "utf8").replace("{ key: contact_email, name: Contact email, type: email }", "{ key: contact_email, name: Contact email, type: text }"));
+    expect((await checkKeyFolder(dir)).join("\n")).toMatch(/field "contact_email" holds an email, so its type must be email/);
   });
 });

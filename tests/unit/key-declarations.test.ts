@@ -117,7 +117,7 @@ describe("a Key that cannot be read", () => {
     const text = d.problems.join("\n");
     expect(text).toMatch(/definition\.yaml: could not be read as YAML/);
     expect(text).toMatch(/lead-watch\.md: front matter could not be read as YAML/);
-    expect(d.kinds.map((k) => k.kind).sort()).toEqual(["brief", "brief-blocked", "check-failed", "contact"]);
+    expect(d.kinds.map((k) => k.kind).sort()).toEqual(["brief", "brief-blocked", "check-failed", "contact", "person-forget"]);
   });
   it("drops a kind whose category differs from its key.yaml entry", async () => {
     const root = copyFixture();

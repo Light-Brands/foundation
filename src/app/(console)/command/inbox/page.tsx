@@ -5,10 +5,15 @@ import { getProfile } from "@/lib/data/profile";
 import { readEnv } from "@/lib/env";
 import { formatCardTime } from "@/lib/time";
 import { PromptBox } from "@/components/PromptBox";
+import { loadCardKinds } from "@/lib/data/card-kinds";
+import { CardActions } from "./CardActions";
+
+const STATUS_LABEL = { new: "", decided: "Decided, waiting for its job to finish", done: "Done" } as const;
 
 export default async function InboxPage() {
   const db = await getDb();
   const items = await listInbox(db);
+  const kinds = await loadCardKinds();
   const { timezone } = await getProfile(db, readEnv().businessName);
   return (
     <div className="space-y-6">
@@ -39,6 +44,13 @@ export default async function InboxPage() {
               </div>
               {i.contact_email && <p className="text-sm text-mist">{i.contact_email}</p>}
               <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-300">{i.body}</p>
+              {i.status !== "new" && (
+                <p className="mt-2 text-xs text-mist">
+                  {i.decision === "approve" ? "Approved. " : i.decision === "decline" ? "Declined. " : ""}{STATUS_LABEL[i.status]}
+                </p>
+              )}
+              {i.always_human && i.status === "new" && <p className="mt-2 text-xs text-amber-200">Only the owner decides this one.</p>}
+              <CardActions id={i.id} status={i.status} mode={kinds.get(i.kind)?.decide ?? "done"} />
             </li>
           ))}
         </ul>

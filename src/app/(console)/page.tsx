@@ -11,7 +11,7 @@ import { formatCardTime } from "@/lib/time";
 export default async function Home() {
   const db = await getDb();
   const profile = await getProfile(db, readEnv().businessName);
-  const latest = await listInbox(db, 3);
+  const latest = await listInbox(db, 3, { status: "new" });
   const steps = stackStatus(process.env, { storage: storageMode() });
   const done = steps.filter((s) => s.status === "done").length;
   const nav = buildNav().filter((g) => g.id !== "command" && g.id !== "system");

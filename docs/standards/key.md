@@ -208,7 +208,7 @@ Ask Jo in the Inbox and change nothing.
 
 ## App definition
 
-`key/apps/<app>/definition.yaml` registers the app and describes its tables. Field types are limited to `text`, `number`, `date`, `select`, `multi_select`, `checkbox`, `user`, `multi_user`, `url`, `email` and `attachment`. A `select` or `multi_select` field needs `options`. An automation names a routine that exists. `migrations` is always `migrations/`. The SQL for each type is in `data.md`.
+`key/apps/<app>/definition.yaml` registers the app and describes its tables. Field types are limited to `text`, `number`, `date`, `select`, `multi_select`, `checkbox`, `user`, `multi_user`, `url`, `email` and `attachment`. A `select` or `multi_select` field needs `options`. An automation names a routine that exists. `migrations` is always `migrations/`. Every table the migrations create turns on row level security (see `data.md`). The SQL for each type is in `data.md`.
 
 ```yaml
 app: bookings

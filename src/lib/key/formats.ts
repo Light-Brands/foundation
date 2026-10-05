@@ -2,7 +2,7 @@ import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { parse } from "yaml";
 import { CATEGORIES } from "@/lib/layout/categories";
-import { compareDefinition } from "@/lib/key/schema";
+import { compareDefinition, rlsProblems } from "@/lib/key/schema";
 
 export const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export const COMMIT_ID = /^[0-9a-f]{40}$/;
@@ -19,6 +19,8 @@ const MEMORY_TYPES = ["preference", "feedback", "reference", "context"];
 const CATEGORY_IDS: string[] = CATEGORIES.map((c) => c.id);
 // A slug that would collide with the core migration names.
 const RESERVED_APP_SLUGS = ["core"];
+// Core tables live in the same database as every app. No entity may take one of their names.
+export const CORE_TABLES = ["business_profile", "contacts", "inbox_items", "pause", "form_hits", "check_runs", "outbox", "opt_outs", "connections", "accounts"];
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -246,6 +248,7 @@ export function checkDefinition(file: string, text: string, routineSlugs: string
     const ek = isObj(e) ? str(e.key) : "";
     if (!IDENTIFIER.test(ek)) bad(`entities[${ei}] entity key "${ek}" must be lowercase letters, digits and underscores, starting with a letter`);
     else if (entityKeys.has(ek)) bad(`entities[${ei}] entity key "${ek}" repeats`);
+    else if (CORE_TABLES.includes(ek)) bad(`entities[${ei}] entity key "${ek}" is a core table name. Name the entity after this app's own records`);
     entityKeys.add(ek);
     const seen = new Set<string>();
     list(isObj(e) ? e.fields : undefined).forEach((f, i) => {
@@ -337,6 +340,7 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
     const migrations = await files(path.join(path.dirname(f), "migrations"), ".sql");
     const sql = await Promise.all(migrations.map(read));
     problems.push(...compareDefinition(rel(f), text, sql));
+    problems.push(...rlsProblems(rel(f), sql));
     let def: unknown;
     try { def = parse(text); } catch { def = undefined; }
     if (isObj(def)) {

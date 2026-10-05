@@ -9,3 +9,4 @@ create table if not exists bookings (
   updated_at timestamptz not null default now(),
   unique (client_email, starts)
 );
+alter table bookings enable row level security;

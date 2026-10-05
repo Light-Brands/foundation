@@ -100,7 +100,7 @@ function keyRoot(over: Record<string, string | null> = {}): string {
     "key/routines/nightly-follow-up.md": routine,
     "key/apps/clients/definition.yaml": definition,
     "key/apps/clients/migrations/0001_clients_create.sql":
-      "create table clients (id uuid primary key, created_at timestamptz, updated_at timestamptz, stage text, notes text);",
+      "create table clients (id uuid primary key, created_at timestamptz, updated_at timestamptz, stage text, notes text);\nalter table clients enable row level security;",
   };
   for (const [f, text] of Object.entries({ ...files, ...over })) {
     if (text === null) continue;
@@ -268,6 +268,11 @@ ${fields}
 ${extra}migrations: migrations/
 `;
   it("passes the real shape", () => expect(checkDefinition("d.yaml", definition, ["nightly-follow-up"])).toEqual([]));
+  it("refuses an entity named like a core table", () => {
+    for (const t of ["contacts", "inbox_items", "outbox", "accounts"]) {
+      expect(checkDefinition("d.yaml", definition.replace("key: clients", `key: ${t}`), ["nightly-follow-up"]).join(), t).toMatch(/is a core table name/);
+    }
+  });
   it("rejects an unknown field type", () => {
     expect(checkDefinition("d.yaml", def("      - { key: n, name: N, type: json }"), []).join("\n")).toMatch(/type "json"/);
   });
@@ -301,7 +306,7 @@ describe("checkKeyFolder cross-checks", () => {
   });
   it("fails an app folder that key.yaml does not list", async () => {
     const other = definition.replace("app: clients", "app: extra");
-    const p = (await checkKeyFolder(keyRoot({ "key/apps/extra/definition.yaml": other, "key/apps/extra/migrations/0001_extra_create.sql": "create table clients (id uuid primary key, created_at timestamptz, updated_at timestamptz, stage text, notes text);" }))).join("\n");
+    const p = (await checkKeyFolder(keyRoot({ "key/apps/extra/definition.yaml": other, "key/apps/extra/migrations/0001_extra_create.sql": "create table clients (id uuid primary key, created_at timestamptz, updated_at timestamptz, stage text, notes text);\nalter table clients enable row level security;" }))).join("\n");
     expect(p).toMatch(/apps\/extra: app folder is not listed in key\.yaml/);
   });
   it("fails when the folder name and the definition app differ", async () => {

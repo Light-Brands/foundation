@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, cpSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, cpSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { FIELD_TYPES, checkKeyFolder } from "@/lib/key/formats";
-import { SQL_TYPE, tablesFromSql, compareDefinition } from "@/lib/key/schema";
+import { SQL_TYPE, tablesFromSql, compareDefinition, rlsProblems } from "@/lib/key/schema";
+import { openPglite } from "@/lib/db/pglite";
+import { migrate } from "@/lib/db/migrate";
 
 const root = process.cwd();
 const appDir = (name: string) => path.join(root, "tests/fixtures/key-apps", name);
@@ -107,5 +109,63 @@ describe("every app under key/ matches its definition", () => {
     expect(existsSync(path.join(tmp, "key/apps/drifted-app/definition.yaml"))).toBe(true);
     const problems = await checkKeyFolder(tmp);
     expect(problems.filter((m) => m.includes("drifted-app/definition.yaml") && m.includes("entity \"bookings\""))).toHaveLength(3);
+  });
+});
+
+const TABLE = "create table if not exists notes (id uuid primary key default gen_random_uuid(), created_at timestamptz not null default now(), updated_at timestamptz not null default now());";
+
+describe("row level security in app migrations", () => {
+  it("passes a migration that turns it on", () => {
+    expect(rlsProblems("m", [`${TABLE}\nalter table notes enable row level security;`])).toEqual([]);
+  });
+  it("fails a table without it, naming the line to add", () => {
+    expect(rlsProblems("m", [TABLE])).toEqual([
+      'm: table "notes" needs row level security. Add "alter table notes enable row level security" to a migration in this app.',
+    ]);
+  });
+  it("accepts it in a later migration file of the same app", () => {
+    expect(rlsProblems("m", [TABLE, "alter table if exists only notes enable row level security;"])).toEqual([]);
+  });
+  it("fails a policy for anon, for public, or with no role", () => {
+    for (const p of [
+      "create policy open on notes for select to anon using (true);",
+      'create policy "open" on notes to public using (true);',
+      "create policy open on notes using (true);",
+    ]) {
+      const out = rlsProblems("m", [`${TABLE} alter table notes enable row level security; ${p}`]);
+      expect(out.join(), p).toMatch(/opens it to anonymous visitors/);
+    }
+  });
+  it("accepts a policy for a signed in role", () => {
+    expect(rlsProblems("m", [`${TABLE} alter table notes enable row level security; create policy mine on notes for select to authenticated using (true);`])).toEqual([]);
+  });
+  it("fails a grant to anon and turning it off", () => {
+    expect(rlsProblems("m", [`${TABLE} alter table notes enable row level security; grant select on notes to anon;`]).join()).toMatch(/grant to anon or public/);
+    expect(rlsProblems("m", [`${TABLE} alter table notes enable row level security; alter table notes disable row level security;`]).join()).toMatch(/turns row level security off/);
+  });
+  it("ignores the words inside comments and strings", () => {
+    expect(rlsProblems("m", [`${TABLE} -- create table ghosts (x int);\nalter table notes enable row level security; select 'create table ghost (x int)';`])).toEqual([]);
+  });
+});
+
+describe("checkKeyFolder and row level security", () => {
+  it("fails an installed app whose table lacks it", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "rls-"));
+    mkdirSync(path.join(root, "key/apps/notes/migrations"), { recursive: true });
+    writeFileSync(path.join(root, "key/key.yaml"), "key: 1\nclient: harbor-studio\nstage: systems\nhome: repo\nroster: []\nskills: []\napps:\n  - slug: notes\n    definition: apps/notes/definition.yaml\n    category: command\nroutines: []\n");
+    writeFileSync(path.join(root, "key/apps/notes/definition.yaml"), "app: notes\nname: Notes\ncategory: command\nruntime: custom_app\nentities:\n  - key: notes\n    name: Note\n    fields: []\nmigrations: migrations/\n");
+    writeFileSync(path.join(root, "key/apps/notes/migrations/0001_notes_create.sql"), TABLE);
+    expect((await checkKeyFolder(root)).join("\n")).toMatch(/table "notes" needs row level security/);
+  });
+});
+
+describe("an app with row level security still works on this computer", () => {
+  it("reads and writes its own table", async () => {
+    const db = await openPglite();
+    await migrate(db, path.join(process.cwd(), "tests/fixtures/key-apps/good/migrations"), "bookings-app");
+    await db.query("insert into bookings (client_email) values ('ada@example.com')");
+    const rows = await db.query<{ client_email: string }>("select client_email from bookings");
+    expect(rows).toEqual([{ client_email: "ada@example.com" }]);
+    await db.close();
   });
 });

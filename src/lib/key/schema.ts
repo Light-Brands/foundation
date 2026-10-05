@@ -152,3 +152,43 @@ export function compareDefinition(file: string, definitionText: string, migratio
   }
   return problems;
 }
+
+const CREATE_TABLE = new RegExp(String.raw`^create\s+(?:unlogged\s+)?table\s+(?:if\s+not\s+exists\s+)?${QNAME}`, "i");
+const RLS_ON = new RegExp(String.raw`^alter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?${QNAME}\s+enable\s+row\s+level\s+security$`, "i");
+const RLS_OFF = /\b(?:disable|no\s+force)\s+row\s+level\s+security\b/i;
+const POLICY = new RegExp(String.raw`^create\s+policy\s+(?:"[^"]+"|[\w$]+)\s+on\s+${QNAME}([\s\S]*)$`, "i");
+const ANONYMOUS = new Set(["anon", "public"]);
+
+/** Problems where an app's migrations leave a table open to anonymous visitors. Never throws. */
+export function rlsProblems(file: string, migrationsSql: string[]): string[] {
+  const created = new Set<string>();
+  const enabled = new Set<string>();
+  const problems: string[] = [];
+  const masked = (s: string) => s.replace(/'(?:[^']|'')*'/g, "''");
+  for (const raw of splitTop(stripComments(migrationsSql.join("\n;\n")), ";")) {
+    const stmt = masked(raw).trim();
+    const create = CREATE_TABLE.exec(stmt);
+    if (create) { created.add(tableName(create[1])); continue; }
+    const on = RLS_ON.exec(stmt);
+    if (on) { enabled.add(tableName(on[1])); continue; }
+    if (/^alter\s+table\b/i.test(stmt) && RLS_OFF.test(stmt)) {
+      problems.push(`${file}: a migration turns row level security off. App tables keep it on.`);
+      continue;
+    }
+    const policy = POLICY.exec(stmt);
+    if (policy) {
+      const to = /\bto\s+([\s\S]*?)(?=\busing\b|\bwith\s+check\b|$)/i.exec(policy[2]);
+      const roles = to ? to[1].split(",").map((r) => unquote(r.trim())) : ["public"];
+      if (roles.some((r) => ANONYMOUS.has(r))) problems.push(`${file}: the policy on "${tableName(policy[1])}" opens it to anonymous visitors. Name a signed in role with "to", never anon or public.`);
+      continue;
+    }
+    const grant = /^grant\s[\s\S]*?\bto\s+([\s\S]*)$/i.exec(stmt);
+    if (grant && grant[1].split(",").some((r) => ANONYMOUS.has(unquote(r.trim().split(/\s+/)[0] ?? "")))) {
+      problems.push(`${file}: a grant to anon or public opens a table to anonymous visitors. Remove it.`);
+    }
+  }
+  for (const t of [...created].sort()) {
+    if (!enabled.has(t)) problems.push(`${file}: table "${t}" needs row level security. Add "alter table ${t} enable row level security" to a migration in this app.`);
+  }
+  return problems;
+}

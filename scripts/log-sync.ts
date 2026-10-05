@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { formatEntry, logFileFor, missingCommits, parseLog, type CommitInfo } from "../src/lib/key/log";
+import { formatEntry, logFileFor, logTitleFor, missingCommits, parseLog, type CommitInfo } from "../src/lib/key/log";
 import { checkLogText, COMMIT_ID } from "../src/lib/key/formats";
 import { parse } from "yaml";
 
@@ -84,7 +84,8 @@ for (const c of todo) {
   const text = formatEntry(final);
   const file = path.join(root, logFileFor(utc));
   mkdirSync(path.dirname(file), { recursive: true });
-  const lead = existsSync(file) && readFileSync(file, "utf8").length > 0 ? "\n" : "";
+  const started = existsSync(file) && readFileSync(file, "utf8").trim().length > 0;
+  const lead = started ? "\n" : `${logTitleFor(utc)}\n\n`;
   appendFileSync(file, lead + text);
   added++;
 }

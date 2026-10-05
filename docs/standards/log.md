@@ -4,7 +4,7 @@ The build log is the monthly set of files in `key/log/`, one entry for each thin
 
 ## Entry format
 
-One file per month, named `key/log/<YYYY-MM>.md`. Entries are only added, newest last. Each entry:
+One file per month, named `key/log/<YYYY-MM>.md`. The file starts with one title line, `# Build log, <Month YYYY>`, such as `# Build log, October 2026`, then a blank line, which is what `npm run log:sync` writes when it starts a month. Entries are only added, newest last. Each entry:
 
 ```markdown
 ## 2026-10-05 14:02 · Booking reminders
@@ -17,7 +17,7 @@ One file per month, named `key/log/<YYYY-MM>.md`. Entries are only added, newest
 - By: claude | member | light-brands
 ```
 
-Write the real value for `Kind` and for `By`, never the list. The heading is the date, the time (UTC when `log:sync` writes it), a middle dot and a short title.
+Write the real value for `Kind` and for `By`, never the list. The heading is the date, the time, a middle dot and a short title. The date and time are always in UTC, in an entry you write by hand as in one `log:sync` writes, and the month file is the UTC month. Why: one clock for every entry keeps the log in order, and it matches the commit times `log:sync` reads.
 
 ## Rules
 

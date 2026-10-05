@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { formatEntry, parseLog, missingCommits, logFileFor, type LogEntry } from "@/lib/key/log";
+import { formatEntry, parseLog, missingCommits, logFileFor, logTitleFor, type LogEntry } from "@/lib/key/log";
 import { checkLogText } from "@/lib/key/formats";
 
 const entry: LogEntry = {
@@ -26,6 +26,13 @@ describe("log entries", () => {
   });
   it("names the month file", () => {
     expect(logFileFor("2026-10-05T14:02:00Z")).toBe("key/log/2026-10.md");
+  });
+  it("titles the month file the way docs/standards/log.md says", () => {
+    expect(logTitleFor("2026-10-05T14:02:00Z")).toBe("# Build log, October 2026");
+    const doc = readFileSync("docs/standards/log.md", "utf8");
+    expect(doc).toContain("`# Build log, <Month YYYY>`");
+    expect(doc).toContain(`\`${logTitleFor("2026-10")}\``);
+    expect(doc).toContain("always in UTC");
   });
   it("a formatted entry passes the privacy check, an email fails it", () => {
     expect(checkLogText("x", formatEntry(entry))).toEqual([]);
@@ -100,6 +107,21 @@ describe("log:sync", () => {
     sync(dir);
     const nov = readFileSync(path.join(dir, "key/log/2026-11.md"), "utf8");
     expect(nov).toContain("## 2026-11-01 06:30 \u00b7 late");
+  }, 60000);
+
+  it("starts each new month file with its title line, once", () => {
+    const dir = repo("late", "2026-10-31T23:30:00-07:00");
+    sync(dir);
+    const nov = readFileSync(path.join(dir, "key/log/2026-11.md"), "utf8");
+    expect(nov.startsWith("# Build log, November 2026\n\n## 2026-11-01 06:30")).toBe(true);
+    const git = (...a: string[]) => execFileSync("git", a, { cwd: dir, stdio: "pipe" });
+    writeFileSync(path.join(dir, "a.txt"), "3");
+    git("add", "a.txt");
+    execFileSync("git", ["commit", "-qm", "later"], { cwd: dir, stdio: "pipe", env: { ...process.env, GIT_AUTHOR_DATE: "2026-11-02T10:00:00Z", GIT_COMMITTER_DATE: "2026-11-02T10:00:00Z" } });
+    sync(dir);
+    const after = readFileSync(path.join(dir, "key/log/2026-11.md"), "utf8");
+    expect(after.match(/^# Build log/gm)).toHaveLength(1);
+    expect(parseLog(after).map((e) => e.title)).toEqual(["late", "later"]);
   }, 60000);
 
   it("a work commit followed by a log-only commit naming it is not reported missing", () => {

@@ -63,6 +63,15 @@ export function missingCommits(logged: string[], commits: CommitInfo[]): CommitI
   return commits.filter((c) => !logged.some((l) => sameCommit(l, c.sha)));
 }
 
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+// The first line of a month file, such as "# Build log, October 2026".
+export function logTitleFor(date: string): string {
+  const m = /^(\d{4})-(\d{2})/.exec(date);
+  if (!m || !MONTHS[Number(m[2]) - 1]) throw new Error(`not a date: ${date}`);
+  return `# Build log, ${MONTHS[Number(m[2]) - 1]} ${m[1]}`;
+}
+
 export function logFileFor(date: string): string {
   const m = /^(\d{4}-\d{2})/.exec(date);
   if (!m) throw new Error(`not a date: ${date}`);

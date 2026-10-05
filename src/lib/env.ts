@@ -1,3 +1,4 @@
+import "server-only";
 import { BUILD_SECRET } from "@/generated/build-secret";
 
 export type FoundationEnv = {

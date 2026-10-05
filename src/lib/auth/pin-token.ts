@@ -1,3 +1,4 @@
+import "server-only";
 // The session is "v1.<expiry ms>.<HMAC>". The HMAC key is derived from the PIN
 // and the server secret, so only someone who knows both the PIN and the secret
 // can mint a session. Changing the PIN or the secret signs everyone out.

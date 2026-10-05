@@ -1,3 +1,4 @@
+import "server-only";
 import { cookies } from "next/headers";
 import { readEnv, type FoundationEnv } from "@/lib/env";
 import { SESSION_COOKIE, verifySession } from "@/lib/auth/pin-token";

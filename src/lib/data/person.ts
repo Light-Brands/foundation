@@ -3,15 +3,39 @@ import type { Db, Queryable } from "@/lib/db/types";
 import type { KindRegistry } from "@/lib/data/card-kinds";
 import { writeCard } from "@/lib/data/cards";
 import { readEnv } from "@/lib/env";
-import { emailHash, normalizeEmail, normalizedEmailSql as N } from "@/lib/email";
+import { emailHash, InvalidEmailError, MissingSecretError, normalizeEmail, normalizedEmailSql as N } from "@/lib/email";
 import { personFields, type PersonRef } from "@/lib/key/schema";
 import { readSources } from "@/lib/key/declarations";
+import { allows, type Actor } from "@/lib/auth/roles";
 
 // Seeing or removing what the business holds about one person. A person is found by their address, read by the
 // one strict parser in src/lib/email.ts and matched in every spelling its rule joins, and by their team member id,
 // read from the people rows their address finds. Forget is always-human: the first run raises a card, and nothing
 // changes until the owner approves it. Afterwards only the address's hash, keyed by FOUNDATION_SECRET, stays in
 // opt_outs with scope all, so no email of any kind reaches the person again.
+// Only the owner may look: anyone else is refused before any lookup, so nobody else learns who is held.
+// An export holds only this person: a row or card that also names someone else is cut down to what is about this
+// person, and says so. No error, refusal or card ever carries the address or anything found.
+
+const OWNER_ONLY = "Only the owner can see or remove a person's records.";
+export class OwnerOnlyError extends Error {
+  constructor() {
+    super(OWNER_ONLY);
+    this.name = "OwnerOnlyError";
+  }
+}
+export type PersonOptions = { actor: Actor | null; secret?: string | null };
+const isOwner = (o: PersonOptions | undefined) => !!o && allows(o.actor, "owner");
+
+/** Our own refusals pass through. Anything else, such as a database error that could quote a value, becomes one plain line. */
+async function plainErrors<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err instanceof InvalidEmailError || err instanceof MissingSecretError || err instanceof OwnerOnlyError) throw err;
+    throw new Error("The person command could not finish, and nothing was changed.", { cause: err });
+  }
+}
 
 const IDENT = /^[a-z][a-z0-9_]*$/;
 /** A checked table name, quoted. Column names are checked here too and passed bare, as N() requires. */
@@ -45,6 +69,24 @@ const OUTBOX_TO = (n: string, ids: string) => `(${N("to_email")} = ${n} or conta
 /** An opt-out row is this person's by today's hash, or by the address it keeps (one kept under an earlier secret). */
 const OPT_OUT_OF = `(email_hash = $1 or (email is not null and ${N("email")} = $2))`;
 
+const OTHER_ADDRESS = /[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g;
+/** Text with every address that is not this person's replaced. */
+const redactOthers = (text: string, n: string) => text.replace(OTHER_ADDRESS, (m) => (whoMatches(m, n) ? m : "[another address]"));
+const CARD_WITHHELD = "This card names the person in its text, which may name others too, so only that it exists is exported.";
+const ROW_WITHHELD = "This record also names someone else, so only the parts about this person are exported.";
+
+/** Core rows for an export: cards found only through their text, and email to another address, are cut down. */
+function coreForExport(core: Record<string, unknown[]>, ids: string[], n: string): Record<string, unknown[]> {
+  const contactIds = new Set(ids);
+  const cards = (core.inbox_items as Row[]).map((c) => {
+    if (!contactIds.has(String(c.contact_id))) return { id: c.id, kind: c.kind, created_at: c.created_at, withheld: CARD_WITHHELD };
+    const meta = JSON.parse(redactOthers(JSON.stringify(c.meta ?? {}), n)) as unknown;
+    return { ...c, title: redactOthers(String(c.title ?? ""), n), body: redactOthers(String(c.body ?? ""), n), meta };
+  });
+  const outbox = (core.outbox as Row[]).map((o) => (whoMatches(String(o.to_email ?? ""), n) ? o : { withheld: ROW_WITHHELD }));
+  return { ...core, inbox_items: cards, outbox };
+}
+
 async function findCore(db: Queryable, n: string, hash: string): Promise<{ ids: string[]; core: Record<string, unknown[]> }> {
   const contacts = await db.query<Record<string, unknown> & { id: string }>(`select * from contacts where ${N("email")} = $1`, [n]);
   const ids = contacts.map((c) => c.id);
@@ -72,23 +114,31 @@ async function teamIds(db: Queryable, refs: PersonRef[], n: string): Promise<str
 type Row = Record<string, unknown> & { id?: unknown };
 
 /**
- * One app table's rows that hold the person. A row is exported whole, except that another person's address or
- * team member id in it is left out. A row that is another person's own record (it holds their address, as a
- * roster row does) and names this person only by id, such as the row of someone they manage, gives only its id
- * and the columns that name this person.
+ * One app table's row that holds the person. The person's own record (a row holding their address) is exported
+ * whole, with any other person's address or team member id in it left out. A row that names this person only by
+ * id is exported whole when it names no one else. A row that also names someone else, such as a review one person
+ * wrote about another or the roster row of someone they manage, gives only the columns that name this
+ * person, and says so, because its other columns may be about the other person.
  */
 function forExport(row: Row, tableRefs: PersonRef[], n: string, team: Set<string>): Row {
   const emails = tableRefs.filter((r) => r.how === "email").map((r) => r.column);
   const ids = tableRefs.filter((r) => r.how === "team_id").map((r) => r.column);
-  const mine = (c: string) => typeof row[c] === "string" && whoMatches(row[c] as string, n);
-  if (emails.length && !emails.some(mine)) {
-    const out: Row = { id: row.id };
-    for (const c of ids) if (team.has(String(row[c]))) out[c] = row[c];
+  const filled = (c: string) => row[c] != null && row[c] !== "";
+  const mineEmail = (c: string) => typeof row[c] === "string" && whoMatches(row[c] as string, n);
+  const otherEmail = (c: string) => filled(c) && !mineEmail(c);
+  // owner_id may hold "owner", the business owner, who is not another team member.
+  const otherId = (c: string) => filled(c) && row[c] !== "owner" && !team.has(String(row[c]));
+  if (emails.some(mineEmail)) {
+    const out: Row = { ...row };
+    for (const c of emails) if (otherEmail(c)) out[c] = null;
+    for (const c of ids) if (otherId(c)) out[c] = null;
     return out;
   }
-  const out: Row = { ...row };
-  for (const c of emails) if (out[c] != null && out[c] !== "" && !mine(c)) out[c] = null;
-  for (const c of ids) if (out[c] != null && out[c] !== "" && !team.has(String(out[c]))) out[c] = null;
+  if (!emails.some(otherEmail) && !ids.some(otherId)) return row;
+  // Not even the row's id: on a roster row it is the other person's own id.
+  const out: Row = {};
+  for (const c of ids) if (team.has(String(row[c]))) out[c] = row[c];
+  out.withheld = ROW_WITHHELD;
   return out;
 }
 
@@ -117,10 +167,13 @@ async function findApps(db: Queryable, refs: PersonRef[], n: string): Promise<Re
 export type PersonExport = { generated_at: string; email_hash: string; core: Record<string, unknown[]>; apps: Record<string, unknown[]> };
 
 /** Everything held about one person, in core tables, in card text and in every installed app. Reads only. */
-export async function exportPerson(db: Db, refs: PersonRef[], email: string, now: Date, secret?: string | null): Promise<PersonExport> {
-  const { n, hash } = whoOf(email, secret);
-  const { core } = await findCore(db, n, hash);
-  return { generated_at: now.toISOString(), email_hash: hash, core, apps: await findApps(db, refs, n) };
+export async function exportPerson(db: Db, refs: PersonRef[], email: string, now: Date, opts: PersonOptions): Promise<PersonExport> {
+  if (!isOwner(opts)) throw new OwnerOnlyError();
+  const { n, hash } = whoOf(email, opts.secret);
+  return plainErrors(async () => {
+    const { ids, core } = await findCore(db, n, hash);
+    return { generated_at: now.toISOString(), email_hash: hash, core: coreForExport(core, ids, n), apps: await findApps(db, refs, n) };
+  });
 }
 
 export type ForgetCounts = Record<string, number>;
@@ -129,8 +182,9 @@ export type ForgetCounts = Record<string, number>;
  * What a forget would remove or blank, by table. An opt-out counts only while it still keeps the address,
  * because forget replaces it with the hash alone.
  */
-export async function planForget(db: Db, refs: PersonRef[], email: string, secret?: string | null): Promise<ForgetCounts> {
-  const { n, hash } = whoOf(email, secret);
+export async function planForget(db: Db, refs: PersonRef[], email: string, opts: PersonOptions): Promise<ForgetCounts> {
+  if (!isOwner(opts)) throw new OwnerOnlyError();
+  const { n, hash } = whoOf(email, opts.secret);
   const { core } = await findCore(db, n, hash);
   const counts: ForgetCounts = {};
   for (const [k, v] of Object.entries(core)) {
@@ -148,7 +202,7 @@ export function forgetSummary(counts: ForgetCounts): string {
 }
 
 export type ForgetOutcome =
-  | { status: "nothing" } | { status: "has_account" }
+  | { status: "owner_only" } | { status: "nothing" } | { status: "has_account" }
   | { status: "card_raised"; cardId: string; previous: "none" | "declined" | "closed" | "forgotten" }
   | { status: "waiting" } | { status: "done_before" } | { status: "forgotten"; counts: ForgetCounts };
 
@@ -169,8 +223,8 @@ async function hasAccount(db: Queryable, n: string): Promise<boolean> {
 
 type Previous = "none" | "declined" | "closed" | "forgotten";
 
-async function raiseForgetCard(db: Db, kinds: KindRegistry, refs: PersonRef[], email: string, runKey: string, previous: Previous, now: Date, secret: string | null | undefined): Promise<ForgetOutcome> {
-  const counts = await planForget(db, refs, email, secret);
+async function raiseForgetCard(db: Db, kinds: KindRegistry, refs: PersonRef[], email: string, runKey: string, previous: Previous, now: Date, opts: PersonOptions): Promise<ForgetOutcome> {
+  const counts = await planForget(db, refs, email, opts);
   if (Object.keys(counts).length === 0) return previous === "forgotten" ? { status: "done_before" } : { status: "nothing" };
   const lines = Object.entries(counts).map(([k, v]) => `${v} in ${k}`);
   const r = await writeCard(db, kinds, {
@@ -194,8 +248,13 @@ async function raiseForgetCard(db: Db, kinds: KindRegistry, refs: PersonRef[], e
  * Once that card is approved it removes or blanks every reference in one transaction, keeps only the hash in
  * opt_outs with scope all, and completes the card. Someone with an active account is never forgotten.
  */
-export async function forgetPerson(db: Db, kinds: KindRegistry, refs: PersonRef[], email: string, now: Date, secret?: string | null): Promise<ForgetOutcome> {
-  const { n, hash } = whoOf(email, secret);
+export async function forgetPerson(db: Db, kinds: KindRegistry, refs: PersonRef[], email: string, now: Date, opts: PersonOptions): Promise<ForgetOutcome> {
+  if (!isOwner(opts)) return { status: "owner_only" };
+  const { n, hash } = whoOf(email, opts.secret);
+  return plainErrors(() => forgetFor(db, kinds, refs, email, n, hash, now, opts));
+}
+
+async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: string, n: string, hash: string, now: Date, opts: PersonOptions): Promise<ForgetOutcome> {
   if (await hasAccount(db, n)) return { status: "has_account" };
   const prefix = `forget:${hash.slice(0, 16)}:`;
   const cards = await db.query<{ id: string; status: string; decision: string | null; run_key: string }>(
@@ -206,11 +265,11 @@ export async function forgetPerson(db: Db, kinds: KindRegistry, refs: PersonRef[
   const seq = cards.reduce((m, c) => Math.max(m, seqOf(c.run_key)), 0);
   const nextKey = `${prefix}${seq + 1}`;
   const card = cards.find((c) => seqOf(c.run_key) === seq);
-  if (!card) return raiseForgetCard(db, kinds, refs, email, nextKey, "none", now, secret);
+  if (!card) return raiseForgetCard(db, kinds, refs, email, nextKey, "none", now, opts);
   if (card.status === "new") return { status: "waiting" };
-  if (card.decision === "decline") return raiseForgetCard(db, kinds, refs, email, nextKey, "declined", now, secret);
-  if (card.decision === null) return raiseForgetCard(db, kinds, refs, email, nextKey, "closed", now, secret);
-  if (card.status === "done") return raiseForgetCard(db, kinds, refs, email, nextKey, "forgotten", now, secret);
+  if (card.decision === "decline") return raiseForgetCard(db, kinds, refs, email, nextKey, "declined", now, opts);
+  if (card.decision === null) return raiseForgetCard(db, kinds, refs, email, nextKey, "closed", now, opts);
+  if (card.status === "done") return raiseForgetCard(db, kinds, refs, email, nextKey, "forgotten", now, opts);
   // Approved and not yet carried out: do it now, in one transaction.
   const pattern = addressPattern(n);
   const counts = await db.transaction(async (tx) => {
@@ -253,14 +312,17 @@ export async function forgetPerson(db: Db, kinds: KindRegistry, refs: PersonRef[
   return { status: "forgotten", counts };
 }
 
-/** Where an export goes: .data/exports/ by default, or a folder outside the repository. */
+/**
+ * Where an export goes: .data/exports/ by default, or a folder the owner names inside .data/, which git ignores.
+ * The name holds the first 12 characters of the keyed hash and the date, never the address.
+ */
 export function exportTarget(root: string, out: string | null, emailHashHex: string, date: string): string {
+  if (!/^[0-9a-f]{64}$/.test(emailHashHex)) throw new TypeError("An export is named by the address's hash.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new TypeError("An export's date is YYYY-MM-DD.");
   const name = `person-${emailHashHex.slice(0, 12)}-${date}.json`;
-  if (!out) return path.join(root, ".data/exports", name);
-  const dir = path.resolve(out);
-  const rel = path.relative(path.resolve(root), dir);
-  const inside = rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
-  const exportsDir = path.join(".data", "exports");
-  if (inside && rel !== exportsDir && !rel.startsWith(exportsDir + path.sep)) throw new Error("Save exports in .data/exports or a folder outside this repository.");
+  const base = path.resolve(root);
+  const dir = out ? path.resolve(base, out) : path.join(base, ".data", "exports");
+  const rel = path.relative(path.join(base, ".data"), dir);
+  if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) throw new Error("Save exports in a folder inside .data, such as .data/exports.");
   return path.join(dir, name);
 }

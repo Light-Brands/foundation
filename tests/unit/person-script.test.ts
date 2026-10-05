@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { openPglite } from "@/lib/db/pglite";
@@ -15,11 +15,13 @@ const SECRET = "person-script-secret-of-at-least-32-chars";
 /** What the command said: its last line, after the build secret step's own line. */
 const said = (stdout: string) => stdout.trim().split("\n").at(-1) ?? "";
 
-function person(args: string[], dataDir: string) {
+function person(args: string[], dataDir: string, env: Record<string, string> = {}) {
   return spawnSync("npm", ["run", "-s", "person", "--", ...args], {
-    cwd: ROOT, encoding: "utf8", env: { ...process.env, FOUNDATION_DATA_DIR: dataDir, FOUNDATION_SECRET: SECRET },
+    cwd: ROOT, encoding: "utf8", env: { ...process.env, FOUNDATION_DATA_DIR: dataDir, FOUNDATION_SECRET: SECRET, ...env },
   });
 }
+/** A folder inside the repository's .data, which git ignores, removed by the caller. */
+const dataFolder = () => mkdtempSync(path.join(ROOT, ".data", "person-test-"));
 
 describe("npm run person", () => {
   it("is an npm script, with the build secret made first", () => {
@@ -36,24 +38,46 @@ describe("npm run person", () => {
     }
     expect(() => statSync(dir)).toThrow();
   }, 120_000);
-  it("exports to a folder outside the repository, and finds nothing to forget for a stranger", () => {
-    const base = mkdtempSync(path.join(tmpdir(), "person-script-"));
-    const dir = path.join(base, "pglite");
-    const out = path.join(base, "out");
-    const r = person(["export", "nobody@harbor.example", "--out", out], dir);
-    expect(said(r.stdout)).toMatch(/^Saved everything held about this person to .*person-[0-9a-f]{12}-\d{4}-\d{2}-\d{2}\.json\. Send it to them privately\./);
-    expect(r.status).toBe(0);
-    const [file] = readdirSync(out);
-    const data = JSON.parse(readFileSync(path.join(out, file), "utf8"));
-    expect(data.core).toEqual({ contacts: [], inbox_items: [], outbox: [], opt_outs: [] });
-    expect(statSync(path.join(out, file)).mode & 0o777).toBe(0o600);
-    const f = person(["forget", "nobody@harbor.example"], dir);
-    expect(said(f.stdout)).toBe("Nothing is held about this person.");
-    expect(f.status).toBe(1);
+  it("exports only inside .data, owner-readable, under a name without the address, and finds nothing for a stranger", () => {
+    mkdirSync(path.join(ROOT, ".data"), { recursive: true });
+    const out = dataFolder();
+    try {
+      const dir = path.join(mkdtempSync(path.join(tmpdir(), "person-script-")), "pglite");
+      const outside = path.join(tmpdir(), "person-outside");
+      const refused = person(["export", "nobody@harbor.example", "--out", outside], dir);
+      expect(said(refused.stdout)).toBe("The person command stopped: Save exports in a folder inside .data, such as .data/exports.");
+      expect(refused.status).toBe(1);
+      // A file already there with wider permissions is narrowed when it is written again.
+      const day = new Date().toISOString().slice(0, 10);
+      const r = person(["export", "nobody@harbor.example", "--out", out], dir);
+      expect(said(r.stdout)).toMatch(/^Saved everything held about this person to \.data\/person-test-\w+\/person-[0-9a-f]{12}-\d{4}-\d{2}-\d{2}\.json\. Send it to them privately\./);
+      expect(r.status).toBe(0);
+      const [file] = readdirSync(out);
+      expect(file).toMatch(new RegExp(`^person-[0-9a-f]{12}-${day}\\.json$`));
+      chmodSync(path.join(out, file), 0o644);
+      writeFileSync(path.join(out, file), "old");
+      expect(person(["export", "nobody@harbor.example", "--out", out], dir).status).toBe(0);
+      const data = JSON.parse(readFileSync(path.join(out, file), "utf8"));
+      expect(data.core).toEqual({ contacts: [], inbox_items: [], outbox: [], opt_outs: [] });
+      expect(statSync(path.join(out, file)).mode & 0o777).toBe(0o600);
+      const f = person(["forget", "nobody@harbor.example"], dir);
+      expect(said(f.stdout)).toBe("Nothing is held about this person.");
+      expect(f.status).toBe(1);
+    } finally {
+      rmSync(out, { recursive: true, force: true });
+    }
+  }, 120_000);
+  it("never prints the address it was given, even when it stops", () => {
+    const dir = path.join(mkdtempSync(path.join(tmpdir(), "person-script-")), "pglite");
+    const r = person(["forget", "ada.secret@harbor.example"], dir, { FOUNDATION_SECRET: "" });
+    expect(said(r.stdout)).toMatch(/^The person command stopped: Set FOUNDATION_SECRET/);
+    expect(r.status).toBe(1);
+    expect(r.stdout + r.stderr).not.toMatch(/ada\.secret|harbor\.example/);
   }, 120_000);
   it("forgets a person only after the owner approves the card, and prints a line that names no one", async () => {
     const dir = path.join(mkdtempSync(path.join(tmpdir(), "person-script-")), "pglite");
-    expect(said(person(["export", "ada@harbor.example", "--out", path.join(dir, "..", "out")], dir).stdout)).toMatch(/^Saved/);
+    // The first run makes and migrates the database, and finds no one.
+    expect(said(person(["forget", "ada@harbor.example"], dir).stdout)).toBe("Nothing is held about this person.");
     let db = await openPglite(dir);
     await submitContact(db, { name: "Ada", email: "ada@harbor.example", phone: "", message: "Please remove me" }, { now: new Date() });
     await db.close();

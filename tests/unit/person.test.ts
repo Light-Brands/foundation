@@ -7,13 +7,16 @@ import { migrate } from "@/lib/db/migrate";
 import { loadCardKinds } from "@/lib/data/card-kinds";
 import { submitContact, decideCard } from "@/lib/data/inbox";
 import { draftEmail, optOut } from "@/lib/data/outbox";
-import { PIN_OWNER } from "@/lib/auth/roles";
+import { PIN_OWNER, type Actor } from "@/lib/auth/roles";
 import { emailHash } from "@/lib/email";
 import { writeCard } from "@/lib/data/cards";
 import type { Db } from "@/lib/db/types";
 import type { KindRegistry } from "@/lib/data/card-kinds";
 import type { PersonRef } from "@/lib/key/schema";
-import { exportPerson, exportTarget, forgetPerson, forgetSummary, installedPersonRefs } from "@/lib/data/person";
+import { exportPerson, exportTarget, forgetPerson, forgetSummary, installedPersonRefs, OwnerOnlyError } from "@/lib/data/person";
+
+const OWNER = { actor: PIN_OWNER };
+const TEAM: Actor = { id: "acct:team", role: "team", via: "account", departments: ["risk", "team", "sell"] };
 
 const NOW = new Date("2026-10-05T16:00:00Z");
 const SECRET = "person-test-secret-of-at-least-32-chars";
@@ -92,6 +95,8 @@ async function seeded(): Promise<Seeded> {
   await db.query("insert into review_inputs (person_id, owner_id, words) values ($1, $2, 'Ada on Bo'), ($2, $1, 'Bo on Ada')", [ids.Bo, ids.Ada]);
   // A card that names Ada only in its text, in another spelling, with no contact attached.
   await writeCard(db, kinds, { kind: "lead-new", title: "Call back", body: "Call Ada+vip@Harbor.Example back tomorrow" }, NOW);
+  // A batch card that names Ada among others.
+  await writeCard(db, kinds, { kind: "lead-new", title: "Batch follow up", body: "Remind ada@harbor.example and Bo Lee at bo@harbor.example", meta: { to: ["ada@harbor.example", "bo@harbor.example"] } }, NOW);
   return { root, db, kinds, refs, ids };
 }
 
@@ -99,33 +104,46 @@ const count = async (db: Db, table: string) => (await db.query<{ n: number }>(`s
 
 describe("export", () => {
   it("exports one person whole, and nobody else", async () => {
-    const { db, refs } = await seeded();
-    const out = await exportPerson(db, refs, "ADA@harbor.example", NOW);
-    expect(Object.fromEntries(Object.entries(out.core).map(([k, v]) => [k, v.length]))).toEqual({ contacts: 1, inbox_items: 2, outbox: 1, opt_outs: 0 });
+    const { db, refs, ids } = await seeded();
+    const out = await exportPerson(db, refs, "ADA@harbor.example", NOW, OWNER);
+    expect(Object.fromEntries(Object.entries(out.core).map(([k, v]) => [k, v.length]))).toEqual({ contacts: 1, inbox_items: 3, outbox: 1, opt_outs: 0 });
     expect(Object.fromEntries(Object.entries(out.apps).map(([k, v]) => [k, v.length]))).toEqual({
       "leads-demo/leads_demo": 1, "team-demo/people": 2, "team-demo/chores": 1, "team-demo/review_inputs": 2, "team-demo/invoices_demo": 1,
     });
     expect(out.email_hash).toBe(hashOf("ada@harbor.example"));
     expect(out.generated_at).toBe(NOW.toISOString());
-    expect(JSON.stringify(out)).not.toMatch(/bo@harbor\.example|Hello from Bo|chore Bo|lead Bo/);
+    // Nobody else: no other address, name, id or words, even from a card or a row that names several people.
+    const text = JSON.stringify(out);
+    expect(text).not.toMatch(/bo@harbor\.example|Bo Lee|Hello from Bo|chore Bo|lead Bo|"Bo"|Ada on Bo|Bo on Ada/);
+    expect(text).not.toContain(ids.Bo);
+    // Rows that also name someone else are listed by id, and say why.
+    const cards = out.core.inbox_items as Record<string, unknown>[];
+    expect(cards.filter((c) => c.withheld)).toHaveLength(2);
+    expect(cards.find((c) => c.withheld)).toEqual({ id: expect.any(String), kind: "lead-new", created_at: expect.anything(), withheld: "This card names the person in its text, which may name others too, so only that it exists is exported." });
+    const reviews = out.apps["team-demo/review_inputs"] as Record<string, unknown>[];
+    expect(reviews.map((r) => Object.keys(r).sort())).toEqual([["owner_id", "withheld"], ["person_id", "withheld"]]);
+    expect((out.apps["team-demo/people"] as Record<string, unknown>[]).find((r) => r.withheld)).toEqual({ manager_id: ids.Ada, withheld: "This record also names someone else, so only the parts about this person are exported." });
     await db.close();
   });
-  it("keeps exports out of the repository", () => {
-    expect(exportTarget(ROOT, null, "a".repeat(64), "2026-10-05")).toBe(path.join(ROOT, ".data/exports/person-aaaaaaaaaaaa-2026-10-05.json"));
-    expect(exportTarget(ROOT, "/private/tmp/out", "a".repeat(64), "2026-10-05")).toBe("/private/tmp/out/person-aaaaaaaaaaaa-2026-10-05.json");
-    expect(exportTarget(ROOT, path.join(ROOT, ".data/exports/june"), "a".repeat(64), "2026-10-05")).toBe(path.join(ROOT, ".data/exports/june/person-aaaaaaaaaaaa-2026-10-05.json"));
-    expect(() => exportTarget(ROOT, path.join(ROOT, "key"), "a".repeat(64), "2026-10-05")).toThrow(/outside this repository/);
-    expect(() => exportTarget(ROOT, ROOT, "a".repeat(64), "2026-10-05")).toThrow(/outside this repository/);
-    expect(() => exportTarget(ROOT, path.join(ROOT, ".data/exports-old"), "a".repeat(64), "2026-10-05")).toThrow(/outside this repository/);
+  it("keeps exports inside .data, under a name that never holds the address", () => {
+    const h = "a".repeat(64);
+    expect(exportTarget(ROOT, null, h, "2026-10-05")).toBe(path.join(ROOT, ".data/exports/person-aaaaaaaaaaaa-2026-10-05.json"));
+    expect(exportTarget(ROOT, path.join(ROOT, ".data/exports/june"), h, "2026-10-05")).toBe(path.join(ROOT, ".data/exports/june/person-aaaaaaaaaaaa-2026-10-05.json"));
+    expect(exportTarget(ROOT, ".data/requests", h, "2026-10-05")).toBe(path.join(ROOT, ".data/requests/person-aaaaaaaaaaaa-2026-10-05.json"));
+    for (const out of ["/private/tmp/out", path.join(ROOT, "key"), ROOT, path.join(ROOT, ".data"), path.join(ROOT, ".data/../key"), path.join(ROOT, ".data-old")]) {
+      expect(() => exportTarget(ROOT, out, h, "2026-10-05")).toThrow("Save exports in a folder inside .data, such as .data/exports.");
+    }
+    expect(() => exportTarget(ROOT, null, "ada@harbor.example", "2026-10-05")).toThrow(TypeError);
+    expect(() => exportTarget(ROOT, null, h, "../x")).toThrow(TypeError);
   });
 });
 
 describe("forget", () => {
   it("raises a card first and changes nothing", async () => {
     const { db, kinds, refs } = await seeded();
-    const first = await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW);
+    const first = await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER);
     expect(first).toMatchObject({ status: "card_raised", previous: "none" });
-    expect(await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW)).toEqual({ status: "waiting" });
+    expect(await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER)).toEqual({ status: "waiting" });
     const [card] = await db.query<{ title: string; body: string; always_human: boolean; category: string }>("select title, body, always_human, category from inbox_items where kind = 'person-forget'");
     expect(card.title).toBe("Forget one person on request");
     expect(card.always_human).toBe(true);
@@ -140,10 +158,10 @@ describe("forget", () => {
   });
   it("a declined card forgets nothing, and the next request gets a new card", async () => {
     const { db, kinds, refs } = await seeded();
-    const r = await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW);
+    const r = await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER);
     if (r.status !== "card_raised") throw new Error("no card");
     await decideCard(db, kinds, { cardId: r.cardId, decision: "decline", actor: PIN_OWNER }, NOW);
-    const again = await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW);
+    const again = await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER);
     expect(again).toMatchObject({ status: "card_raised", previous: "declined" });
     expect(await count(db, "contacts")).toBe(2);
     const keys = await db.query<{ run_key: string }>("select run_key from inbox_items where kind = 'person-forget' order by run_key");
@@ -153,12 +171,12 @@ describe("forget", () => {
   });
   it("forgets every reference once approved, across two apps", async () => {
     const { db, kinds, refs, ids } = await seeded();
-    const r = await forgetPerson(db, kinds, refs, "Ada@Harbor.example", NOW);
+    const r = await forgetPerson(db, kinds, refs, "Ada@Harbor.example", NOW, OWNER);
     if (r.status !== "card_raised") throw new Error("no card");
     await decideCard(db, kinds, { cardId: r.cardId, decision: "approve", actor: PIN_OWNER }, NOW);
-    const done = await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW);
+    const done = await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER);
     expect(done).toEqual({ status: "forgotten", counts: {
-      inbox_items: 2, outbox: 1, contacts: 1, "leads-demo/leads_demo": 1,
+      inbox_items: 3, outbox: 1, contacts: 1, "leads-demo/leads_demo": 1,
       "team-demo/people": 2, "team-demo/chores": 1, "team-demo/review_inputs": 2, "team-demo/invoices_demo": 1,
     } });
     expect(await db.query("select email from contacts")).toEqual([{ email: "bo@harbor.example" }]);
@@ -166,7 +184,7 @@ describe("forget", () => {
       { title: "A forgotten person", body: "", contact_id: null },
       { title: "Bo sent a message", body: "Hello from Bo", contact_id: expect.any(String) },
     ]);
-    expect(await db.query("select title, body from inbox_items where title = 'Call back' or body like '%vip%'")).toEqual([]);
+    expect(await db.query("select title, body from inbox_items where title in ('Call back', 'Batch follow up') or body like '%ada%'")).toEqual([]);
     expect(await db.query("select to_email from outbox")).toEqual([{ to_email: "bo@harbor.example" }]);
     // The second app: a deleted row, a blanked id on a kept row, and a kept invoice with its address blanked.
     expect(await db.query("select message from leads_demo")).toEqual([{ message: "lead Bo" }]);
@@ -187,18 +205,18 @@ describe("forget", () => {
     expect(await db.query("select email, email_hash, scope, source from opt_outs")).toEqual([{ email: null, email_hash: hashOf("ada@harbor.example"), scope: "all", source: "forget" }]);
     expect(await draftEmail(db, { to: "ADA+again@harbor.example", subject: "Hi", body: "x", sendKey: "k/again" })).toEqual({ status: "opted_out" });
     expect(await db.query("select status, decision from inbox_items where kind = 'person-forget'")).toEqual([{ status: "done", decision: "approve" }]);
-    expect(await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW)).toEqual({ status: "done_before" });
+    expect(await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER)).toEqual({ status: "done_before" });
     // The person writes again: a fresh request raises a new card.
     await submitContact(db, { name: "Ada", email: "ada@harbor.example", phone: "", message: "Me again" }, { now: NOW });
-    expect(await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW)).toMatchObject({ status: "card_raised", previous: "forgotten" });
+    expect(await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER)).toMatchObject({ status: "card_raised", previous: "forgotten" });
     await db.close();
   });
   it("keeps the rows an entity keeps: turning blank into delete is caught", async () => {
     const { db, kinds, refs } = await seeded();
-    const r = await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW);
+    const r = await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER);
     if (r.status !== "card_raised") throw new Error("no card");
     await decideCard(db, kinds, { cardId: r.cardId, decision: "approve", actor: PIN_OWNER }, NOW);
-    await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW);
+    await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER);
     expect(await count(db, "invoices_demo")).toBe(2);
     expect(await count(db, "review_inputs")).toBe(2);
     await db.close();
@@ -207,12 +225,12 @@ describe("forget", () => {
     const { db, kinds, refs } = await seeded();
     const [cy] = await db.query<{ id: string }>("insert into people (name, work_email) values ('Cy', 'Cy@Harbor.example') returning id");
     await db.query("insert into chores (title, owner_id) values ('chore Cy', $1)", [cy.id]);
-    const out = await exportPerson(db, refs, "cy@harbor.example", NOW);
+    const out = await exportPerson(db, refs, "cy@harbor.example", NOW, OWNER);
     expect(Object.fromEntries(Object.entries(out.apps).filter(([, v]) => v.length).map(([k, v]) => [k, v.length]))).toEqual({ "team-demo/people": 1, "team-demo/chores": 1 });
-    const r = await forgetPerson(db, kinds, refs, "cy@harbor.example", NOW);
+    const r = await forgetPerson(db, kinds, refs, "cy@harbor.example", NOW, OWNER);
     if (r.status !== "card_raised") throw new Error("no card");
     await decideCard(db, kinds, { cardId: r.cardId, decision: "approve", actor: PIN_OWNER }, NOW);
-    expect(await forgetPerson(db, kinds, refs, "cy@harbor.example", NOW)).toEqual({ status: "forgotten", counts: { "team-demo/people": 1, "team-demo/chores": 1 } });
+    expect(await forgetPerson(db, kinds, refs, "cy@harbor.example", NOW, OWNER)).toEqual({ status: "forgotten", counts: { "team-demo/people": 1, "team-demo/chores": 1 } });
     expect(await db.query("select owner_id from chores where title = 'chore Cy'")).toEqual([{ owner_id: "" }]);
     expect(await count(db, "people")).toBe(2);
     await db.close();
@@ -221,17 +239,17 @@ describe("forget", () => {
     const { db, kinds, refs } = await seeded();
     await optOut(db, { email: "dee@harbor.example", source: "unsubscribe", scope: "marketing" }, NOW);
     expect(await db.query("select email, scope from opt_outs")).toEqual([{ email: "dee@harbor.example", scope: "marketing" }]);
-    const r = await forgetPerson(db, kinds, refs, "Dee@harbor.example", NOW);
+    const r = await forgetPerson(db, kinds, refs, "Dee@harbor.example", NOW, OWNER);
     if (r.status !== "card_raised") throw new Error("no card");
     await decideCard(db, kinds, { cardId: r.cardId, decision: "approve", actor: PIN_OWNER }, NOW);
-    expect(await forgetPerson(db, kinds, refs, "dee@harbor.example", NOW)).toEqual({ status: "forgotten", counts: { opt_outs: 1 } });
+    expect(await forgetPerson(db, kinds, refs, "dee@harbor.example", NOW, OWNER)).toEqual({ status: "forgotten", counts: { opt_outs: 1 } });
     expect(await db.query("select email, email_hash, scope from opt_outs")).toEqual([{ email: null, email_hash: hashOf("dee@harbor.example"), scope: "all" }]);
     expect(await draftEmail(db, { to: "dee@harbor.example", subject: "Receipt", body: "x", sendKey: "k/dee" })).toEqual({ status: "opted_out" });
     await db.close();
   });
   it("says nothing is held for a stranger, and writes nothing", async () => {
     const { db, kinds, refs } = await seeded();
-    expect(await forgetPerson(db, kinds, refs, "nobody@harbor.example", NOW)).toEqual({ status: "nothing" });
+    expect(await forgetPerson(db, kinds, refs, "nobody@harbor.example", NOW, OWNER)).toEqual({ status: "nothing" });
     expect(await count(db, "inbox_items where kind = 'person-forget'")).toBe(0);
     expect(await count(db, "opt_outs")).toBe(0);
     await db.close();
@@ -239,8 +257,8 @@ describe("forget", () => {
   it("refuses a person with no email plainly, and changes nothing", async () => {
     const { db, kinds, refs } = await seeded();
     for (const bad of ["", "Ada", "Ada <ada@harbor.example>", "ada@harbor.example, bo@harbor.example"]) {
-      await expect(forgetPerson(db, kinds, refs, bad, NOW)).rejects.toThrow("Use one plain email address, like name@example.com.");
-      await expect(exportPerson(db, refs, bad, NOW)).rejects.toThrow("Use one plain email address, like name@example.com.");
+      await expect(forgetPerson(db, kinds, refs, bad, NOW, OWNER)).rejects.toThrow("Use one plain email address, like name@example.com.");
+      await expect(exportPerson(db, refs, bad, NOW, OWNER)).rejects.toThrow("Use one plain email address, like name@example.com.");
     }
     expect(await count(db, "inbox_items where kind = 'person-forget'")).toBe(0);
     expect(await count(db, "contacts")).toBe(2);
@@ -249,8 +267,8 @@ describe("forget", () => {
   it("refuses to work without FOUNDATION_SECRET", async () => {
     const { db, kinds, refs } = await seeded();
     vi.stubEnv("FOUNDATION_SECRET", "");
-    await expect(forgetPerson(db, kinds, refs, "ada@harbor.example", NOW)).rejects.toThrow(/FOUNDATION_SECRET/);
-    await expect(exportPerson(db, refs, "ada@harbor.example", NOW)).rejects.toThrow(/FOUNDATION_SECRET/);
+    await expect(forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER)).rejects.toThrow(/FOUNDATION_SECRET/);
+    await expect(exportPerson(db, refs, "ada@harbor.example", NOW, OWNER)).rejects.toThrow(/FOUNDATION_SECRET/);
     expect(await count(db, "inbox_items where kind = 'person-forget'")).toBe(0);
     await db.close();
   });
@@ -260,10 +278,37 @@ describe("forget", () => {
     await db.query(`create table accounts (id uuid primary key default gen_random_uuid(), user_id uuid, email text not null,
       role text not null, departments text[] not null default '{}', added_at timestamptz not null default now(), removed_at timestamptz)`);
     await db.query("insert into accounts (email, role) values ('Ada@harbor.example', 'team')");
-    expect(await forgetPerson(db, kinds, refs, "ada+x@harbor.example", NOW)).toEqual({ status: "has_account" });
+    expect(await forgetPerson(db, kinds, refs, "ada+x@harbor.example", NOW, OWNER)).toEqual({ status: "has_account" });
     expect(await count(db, "inbox_items where kind = 'person-forget'")).toBe(0);
     await db.query("update accounts set removed_at = $1", [NOW]);
-    expect(await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW)).toMatchObject({ status: "card_raised" });
+    expect(await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER)).toMatchObject({ status: "card_raised" });
+    await db.close();
+  });
+  it("answers only the owner, and tells anyone else nothing about who exists", async () => {
+    const { db, kinds, refs } = await seeded();
+    for (const email of ["ada@harbor.example", "nobody@harbor.example", "not an address"]) {
+      expect(await forgetPerson(db, kinds, refs, email, NOW, { actor: TEAM })).toEqual({ status: "owner_only" });
+      await expect(exportPerson(db, refs, email, NOW, { actor: TEAM })).rejects.toThrow(OwnerOnlyError);
+      await expect(exportPerson(db, refs, email, NOW, { actor: null })).rejects.toThrow("Only the owner can see or remove a person's records.");
+    }
+    expect(await count(db, "inbox_items where kind = 'person-forget'")).toBe(0);
+    // No lookup runs before the check.
+    const silent = { query: async () => { throw new Error("queried"); } } as unknown as Db;
+    expect(await forgetPerson(silent, kinds, refs, "ada@harbor.example", NOW, { actor: TEAM })).toEqual({ status: "owner_only" });
+    await expect(exportPerson(silent, refs, "ada@harbor.example", NOW, { actor: TEAM })).rejects.toThrow(OwnerOnlyError);
+    await db.close();
+  });
+  it("never puts the address in an error", async () => {
+    const { db, kinds, refs } = await seeded();
+    const errs: string[] = [];
+    for (const bad of ["ada@harbor", "ada@@harbor.example"]) {
+      await forgetPerson(db, kinds, refs, bad, NOW, OWNER).catch((e: Error) => errs.push(e.message));
+      await exportPerson(db, refs, bad, NOW, OWNER).catch((e: Error) => errs.push(e.message));
+    }
+    vi.stubEnv("FOUNDATION_SECRET", "");
+    await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER).catch((e: Error) => errs.push(e.message));
+    expect(errs).toHaveLength(5);
+    expect(errs.join("\n")).not.toMatch(/ada|harbor/i);
     await db.close();
   });
   it("the summary never names the person", () => {

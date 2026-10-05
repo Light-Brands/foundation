@@ -1,0 +1,15 @@
+# Run your command center on your own computer
+
+Paste this into Claude Code (desktop or CLI).
+
+You are helping me run my Foundation command center on my own computer so it saves everything locally. Work one step at a time, say what I should see, and wait for me before the next step.
+
+1. Check that Node.js 20.9 or later and Git are installed. If either is missing, tell me exactly how to install it for my computer and wait.
+2. Ask me for my GitHub repository address for my command center. Clone it into a folder I choose, then open that folder.
+3. Run `npm install`.
+4. Run `npm run setup -- --name "<my business name>" --pin-prompt`. Ask me for my business name first. The PIN prompt lets me type my PIN into the terminal myself; never ask me to tell you my PIN.
+5. Run `npm run dev` and tell me to open http://localhost:3000. I enter my PIN and should see my Home.
+6. Ask me to open System, then Settings, fill in my business profile, and press Save. Confirm with me that it says Saved.
+7. Ask me to open http://localhost:3000/contact in another tab, send myself a test message, then open Command, then Inbox. Confirm with me that the message arrived.
+
+When all of that works, tell me: "Your command center is running and saving on your computer."

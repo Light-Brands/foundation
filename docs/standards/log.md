@@ -31,7 +31,7 @@ Write the real value for `Kind` and for `By`, never the list. The heading is the
 
 ## The system document
 
-`key/knowledge/system.md` is the plain-words record of what is running in each category, how each part works, which roles and skills it uses, and what changed recently.
+`key/knowledge/system.md` is the plain-words record of what is running in each category, how each part works, which roles and skills it uses, and what changed recently. When the member connects a workspace later, this document goes with it as knowledge for that workspace. The build log does not. Both stay free of customer details.
 
 - **Leave the inventory block to `npm run key:sync`.** It sits between `<!-- inventory:start -->` and `<!-- inventory:end -->` and is rebuilt from `key.yaml` with no judgment. Why: a hand edit there is lost on the next sync, and the sync is always right about what is listed.
 - **Leave the Summary and Recent changes sections to `prompts/update-system-docs.md`.** Claude rewrites them from the log in the member's words at the end of every build session, and whenever the member asks what has been built. Why: a person writes prose, and the machine writes lists.

@@ -13,7 +13,7 @@ These are the rules every builder follows in this repository, human or Claude. E
 - `prompts.md`: how member prompts are written.
 - `commits.md`: how changes are committed and checked before a push.
 - `log.md`: the build log and the system document.
-- `privacy.md`: what stays in this repository and what is never written down.
+- `privacy.md`: what stays in this repository, what travels with a connected workspace and what is never written down.
 
 ## How to read and change them
 

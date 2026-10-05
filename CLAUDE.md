@@ -24,7 +24,7 @@ Everything belongs to one of eleven categories, in this order: Command, Attract,
 
 ## The Key
 
-`key/` holds everything that makes this business's system yours: agents, skills, workflows and apps, plus `key/knowledge/` (the context block and `system.md`, the plain-words record of what is built) and `key/log/` (the monthly build log). It stays in this repository and never holds customer details, business records or secrets. `docs/standards/key.md` has the formats.
+`key/` holds everything that makes this business's system yours: agents, skills, workflows and apps, plus `key/knowledge/` (the context block and `system.md`, the plain-words record of what is built) and `key/log/` (the monthly build log). The build log stays in this repository. `system.md` goes only to your own workspace, when you connect one later. Neither holds customer details, business records or secrets. `docs/standards/key.md` has the formats.
 
 The Settings save is the only writer of `key/knowledge/context-block.yaml`, and it also sets `name` in `key/key.yaml` to the business name. `npm run key:sync` rebuilds the inventory in `system.md` and nothing else. A member upgrading from an earlier version opens System, then Settings, and presses Save once, so the Key holds the business details.
 
@@ -44,7 +44,7 @@ The rules every builder follows, each with its reason, live in `docs/standards/`
 - `docs/standards/prompts.md`: how member prompts are written.
 - `docs/standards/commits.md`: commits and the checks before a push.
 - `docs/standards/log.md`: the build log and the system document.
-- `docs/standards/privacy.md`: what never leaves the repository or goes into it.
+- `docs/standards/privacy.md`: what stays in the repository, what travels with a connected workspace and what is never written down.
 
 ## Commands
 

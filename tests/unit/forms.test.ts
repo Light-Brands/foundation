@@ -116,6 +116,38 @@ describe("a url field", () => {
 });
 
 describe("a form with contact: false", () => {
+  const noContactDeps = async () => {
+    const d = await deps();
+    const form: FormDecl = { ...(d.forms.get("get-in-touch") as FormDecl), key: "apply", contact: false };
+    return { ...d, forms: new Map([["apply", form]]) };
+  };
+  const send = (d: Awaited<ReturnType<typeof noContactDeps>>, data: Record<string, unknown>, clientKey = "203.0.113.9") =>
+    submitPublicForm(d, { formKey: "apply", data: { ...GOOD, _form: "apply", ...data }, clientKey }, NOW);
+  const contacts = async (d: Awaited<ReturnType<typeof noContactDeps>>) => (await d.db.query<{ n: number }>("select count(*)::int as n from contacts"))[0].n;
+  it("a duplicate submission creates no contact", async () => {
+    const d = await noContactDeps();
+    expect((await send(d, {})).status).toBe("saved");
+    expect((await send(d, {}, "198.51.100.7")).status).toBe("saved");
+    expect(await contacts(d)).toBe(0);
+    await d.db.close();
+  });
+  it("a rate-limited submission creates no contact", async () => {
+    const d = await noContactDeps();
+    for (let i = 0; i < FORM_LIMITS.perClient; i++) expect((await send(d, {})).status).toBe("saved");
+    expect(await send(d, { email: "other@example.com", name: "Grace" })).toEqual({ status: "limited" });
+    expect(await contacts(d)).toBe(0);
+    expect(await d.db.query("select count(*)::int as n from inbox_items")).toEqual([{ n: FORM_LIMITS.perClient }]);
+    await d.db.close();
+  });
+  it("an invalid or discarded submission creates no contact and no card", async () => {
+    const d = await noContactDeps();
+    expect((await send(d, { email: "not-an-email" })).status).toBe("invalid");
+    expect((await send(d, { name: "" })).status).toBe("invalid");
+    expect(await send(d, { website: "http://spam.example" })).toEqual({ status: "discarded" });
+    expect(await contacts(d)).toBe(0);
+    expect(await d.db.query("select count(*)::int as n from inbox_items")).toEqual([{ n: 0 }]);
+    await d.db.close();
+  });
   it("puts the name and email on the card and creates no core contact", async () => {
     const d = await deps();
     const form: FormDecl = { ...(d.forms.get("get-in-touch") as FormDecl), key: "apply", contact: false };

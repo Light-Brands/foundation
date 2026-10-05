@@ -4,7 +4,7 @@
 //   node scripts/setup.mjs --name "Harbor Studio" --pin 246810
 //   node scripts/setup.mjs --name "Harbor Studio" --pin-prompt   (you type the PIN yourself)
 //   node scripts/setup.mjs --pin-prompt --force                  (keeps the business name already saved)
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
@@ -34,15 +34,18 @@ function savedName() {
     .find((l) => l.startsWith("FOUNDATION_BUSINESS_NAME="));
   if (!line) return "";
   const raw = line.slice("FOUNDATION_BUSINESS_NAME=".length).trim();
-  if (raw.startsWith('"') && raw.endsWith('"') && raw.length >= 2) {
-    return raw.slice(1, -1).replace(/\\(["\\])/g, "$1");
-  }
+  const q = raw[0];
+  if (raw.length >= 2 && (q === '"' || q === "'") && raw.endsWith(q)) return raw.slice(1, -1);
   return raw;
 }
 
 let name = values.name ?? (values.force ? savedName() : "");
 let pin = values.pin ?? "";
 
+if ((!name || !pin) && !process.stdin.isTTY) {
+  if (!name) fail('Add --name "Your business".');
+  fail("Run this in your own terminal window so you can type your PIN, or pass --pin.");
+}
 if (!name || !pin) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   if (!name) name = await rl.question("Your business name: ");
@@ -55,7 +58,10 @@ pin = pin.trim();
 if (!name) fail("Add a business name.");
 if (!/^\d{6,12}$/.test(pin)) fail("Your PIN needs to be 6 to 12 digits.");
 
-const quote = (v) => `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+if (/[\u0000-\u001f\u007f]/.test(name)) fail("Use letters, numbers and punctuation in your business name.");
+if (name.includes('"') && name.includes("'")) fail("Your business name cannot contain both kinds of quote marks.");
+// Written raw: Next's env loader does not unescape backslashes, so pick the quote style that fits.
+const quote = (v) => (v.includes('"') ? `'${v}'` : `"${v}"`);
 writeFileSync(
   file,
   [
@@ -66,4 +72,5 @@ writeFileSync(
   ].join("\n"),
   { mode: 0o600 },
 );
+chmodSync(file, 0o600);
 console.log("Done. Run `npm run dev`, open http://localhost:3000 and enter your PIN.");

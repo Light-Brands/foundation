@@ -18,13 +18,14 @@ Everything belongs to one of eleven categories, in this order: Command, Attract,
 - Never ask the owner for a password, PIN, key or token in the chat. Tell them where to enter it themselves.
 - Never move money, sign anything, send a customer message, or delete records without the owner's approval.
 - Keep copy in US English, using commas, colons and periods with no long or short dashes, stating what things are.
+- This app runs Next.js 16. Before using a Next.js API you are unsure of, read the guides in node_modules/next/dist/docs/, because Next 16 changed several APIs (for example, middleware is now src/proxy.ts).
 - Before you finish: run `npm test`, `npm run typecheck` and `npm run build`, and fix anything that fails.
 
 ## Commands
 
 - `npm run setup -- --name "<business>" --pin-prompt`: create `.env.local`
 - `npm run dev`: run locally at http://localhost:3000
-- `npm test` · `npm run typecheck` · `npm run e2e`
+- `npm test` · `npm run typecheck` · `npm run lint` · `npm run e2e` (delete .data/e2e first for a clean run)
 
 ## What is coming
 

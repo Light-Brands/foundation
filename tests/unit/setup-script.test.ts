@@ -12,6 +12,32 @@ const SEED_KEY = path.join(__dirname, "../fixtures/key-seed");
 const run = (cwd: string, args: string[]) =>
   execFileSync("node", [SCRIPT, ...args], { cwd, encoding: "utf8", stdio: "pipe" });
 
+// Setup changes client, name, provenance.recorded and provenance.base. The repository ships the Key
+// untouched, so the fixture must match it whole, or tests run against a seed members never get.
+describe("the seed fixture", () => {
+  const ROOT = path.join(__dirname, "../..");
+  const shipped = parse(readFileSync(path.join(ROOT, "key/key.yaml"), "utf8"));
+  it("is the shipped seed: key/key.yaml is still unnamed in this repository", () => {
+    expect(shipped.client).toBe("your-business");
+    expect(shipped.provenance?.base).toBeUndefined();
+  });
+  it("matches the shipped key/key.yaml and context block whole", () => {
+    expect(parse(readFileSync(path.join(SEED_KEY, "key.yaml"), "utf8"))).toEqual(shipped);
+    expect(parse(readFileSync(path.join(SEED_KEY, "knowledge/context-block.yaml"), "utf8")))
+      .toEqual(parse(readFileSync(path.join(ROOT, "key/knowledge/context-block.yaml"), "utf8")));
+  });
+  it("matches the shipped seed in every field setup leaves alone", () => {
+    const untouched = (k: Record<string, unknown>) => {
+      const out: Record<string, unknown> = structuredClone(k);
+      const prov = (out.provenance ?? {}) as Record<string, unknown>;
+      for (const f of ["client", "name"]) delete out[f];
+      for (const f of ["recorded", "base"]) delete prov[f];
+      return out;
+    };
+    expect(untouched(parse(readFileSync(path.join(SEED_KEY, "key.yaml"), "utf8")))).toEqual(untouched(shipped));
+  });
+});
+
 describe("npm run setup", () => {
   it("writes .env.local from flags", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "fc-"));

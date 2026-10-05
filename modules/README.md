@@ -5,7 +5,7 @@ This folder is empty today. It holds the modules that arrive with the module eng
 A module is a product that sets up one sub-category of the business, such as booking inside Delivery. When the engine arrives, each module lives in its own folder:
 
 ```
-modules/<category>/<module>/
+modules/<department id>/<job id>/
   module.ts     what the module is, and what it needs
   ui/           the screens it adds
 ```

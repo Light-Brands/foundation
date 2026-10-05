@@ -12,13 +12,33 @@ const fake = (...parts: string[]) => parts.join("");
 
 describe("parseConnectionSetArgs", () => {
   it("reads a service, a status and an optional note", () => {
-    expect(parseConnectionSetArgs(["email-sending", "connected"])).toEqual({ ok: true, value: { service: "email-sending", status: "connected", note: "" } });
-    expect(parseConnectionSetArgs(["email-sending", "failing", "--note", "The provider refused the key."])).toEqual({ ok: true, value: { service: "email-sending", status: "failing", note: "The provider refused the key." } });
+    expect(parseConnectionSetArgs(["email-sending", "connected"])).toEqual({ ok: true, value: { service: "email-sending", status: "connected", note: "", tested: false } });
+    expect(parseConnectionSetArgs(["email-sending", "failing", "--note", "The provider refused the key."])).toEqual({ ok: true, value: { service: "email-sending", status: "failing", note: "The provider refused the key.", tested: false } });
   });
   it("refuses a missing status, an unknown flag or a note with no text", () => {
     for (const argv of [[], ["email-sending"], ["email-sending", "connected", "--note"], ["email-sending", "connected", "--x", "y"], ["email-sending", "connected", "extra"]]) {
       expect(parseConnectionSetArgs(argv).ok, argv.join(" ")).toBe(false);
     }
+  });
+});
+
+describe("connection:set --tested", () => {
+  it("reads --tested beside --note, in either order, only with connected", () => {
+    expect(parseConnectionSetArgs(["email-sending", "connected", "--tested"])).toEqual({ ok: true, value: { service: "email-sending", status: "connected", note: "", tested: true } });
+    expect(parseConnectionSetArgs(["email-sending", "connected", "--note", "Sent a test.", "--tested"])).toEqual({ ok: true, value: { service: "email-sending", status: "connected", note: "Sent a test.", tested: true } });
+    expect(parseConnectionSetArgs(["email-sending", "connected", "--tested", "--note", "Sent a test."]).ok).toBe(true);
+    expect(parseConnectionSetArgs(["email-sending", "failing", "--tested"]).ok).toBe(false);
+    expect(parseConnectionSetArgs(["email-sending", "connected", "--tested", "--tested"]).ok).toBe(false);
+  });
+  it("stamps tested_on with the business date, and leaves it alone without --tested", async () => {
+    const db = await coreDb();
+    await db.query("insert into business_profile (id, business, timezone) values (1, 'Harbor Studio', 'America/Los_Angeles')");
+    const lateSunday = new Date("2026-10-06T03:00:00Z"); // Sunday the 5th in Portland, Monday in UTC
+    await setConnectionStatus(db, { service: "email-sending", status: "connected", note: "", tested: true }, lateSunday);
+    expect((await listConnections(db))[0].tested_on).toBe("2026-10-05");
+    await setConnectionStatus(db, { service: "email-sending", status: "connected", note: "" }, new Date("2026-10-09T16:00:00Z"));
+    expect((await listConnections(db))[0].tested_on).toBe("2026-10-05");
+    await db.close();
   });
 });
 

@@ -1,5 +1,6 @@
 import type { Db } from "@/lib/db/types";
 import { SLUG } from "@/lib/key/frontmatter";
+import { businessDate } from "@/lib/time";
 import { looksLikeSecret } from "@/lib/key-shape";
 
 // One row per outside service: which door it came through, whether it works, and the NAME of the
@@ -80,33 +81,42 @@ export async function connectionStatuses(db: Db | null): Promise<Record<string, 
   return Object.fromEntries((await listConnections(db)).map((r) => [r.service, r.status]));
 }
 
-export const CONNECTION_SET_USAGE = "Use npm run connection:set -- <service> <status> [--note <text>], with a status of planned, connected, failing or disconnected.";
+export const CONNECTION_SET_USAGE = "Use npm run connection:set -- <service> <status> [--note <text>] [--tested], with a status of planned, connected, failing or disconnected. --tested goes only with connected.";
 
-/** Reads the arguments of npm run connection:set. */
+/** Reads the arguments of npm run connection:set. --tested says the connection was just tested and works. */
 export function parseConnectionSetArgs(argv: string[]):
-  | { ok: true; value: { service: string; status: ConnectionStatus; note: string } }
+  | { ok: true; value: { service: string; status: ConnectionStatus; note: string; tested: boolean } }
   | { ok: false; error: string } {
   const [service, status, ...rest] = argv;
   if (!service || !status) return { ok: false, error: CONNECTION_SET_USAGE };
-  let note = "";
-  if (rest.length) {
-    if (rest.length !== 2 || rest[0] !== "--note" || !rest[1].trim()) return { ok: false, error: CONNECTION_SET_USAGE };
-    note = rest[1].trim();
+  let note: string | null = null;
+  let tested = false;
+  for (let i = 0; i < rest.length; i++) {
+    if (rest[i] === "--note" && note === null && rest[i + 1]?.trim()) { note = rest[i + 1].trim(); i++; continue; }
+    if (rest[i] === "--tested" && !tested) { tested = true; continue; }
+    return { ok: false, error: CONNECTION_SET_USAGE };
   }
-  return { ok: true, value: { service, status: status as ConnectionStatus, note } };
+  if (tested && status !== "connected") return { ok: false, error: CONNECTION_SET_USAGE };
+  return { ok: true, value: { service, status: status as ConnectionStatus, note: note ?? "", tested } };
 }
 
 /**
  * The connection row writer an install or the owner runs: sets one connection's status and note, keeping
- * every other field. A service with no row yet gets one with door own. Writes through validateConnection,
- * so a bad slug, status or a key in the note throws and nothing is written.
+ * every other field. A service with no row yet gets one with door own. With tested, tested_on becomes today
+ * in the business's time zone. Writes through validateConnection, so a bad slug, status or a key in the note
+ * throws and nothing is written.
  */
-export async function setConnectionStatus(db: Db, input: { service: string; status: ConnectionStatus; note: string }, now: Date): Promise<void> {
+export async function setConnectionStatus(db: Db, input: { service: string; status: ConnectionStatus; note: string; tested?: boolean }, now: Date): Promise<void> {
   const [existing] = SLUG.test(input.service)
     ? await db.query<ConnectionRow>("select service, door, status, scopes, key_setting, tested_on::text as tested_on, owner, note from connections where service = $1", [input.service])
     : [];
   const base: ConnectionInput = existing ?? { service: input.service, door: "own", status: "planned", scopes: [], key_setting: "", tested_on: null, owner: "" };
-  await upsertConnection(db, { ...base, service: input.service, status: input.status, note: input.note }, now);
+  let testedOn = base.tested_on;
+  if (input.tested) {
+    const [p] = await db.query<{ timezone: string }>("select timezone from business_profile where id = 1");
+    testedOn = businessDate(p?.timezone, now);
+  }
+  await upsertConnection(db, { ...base, service: input.service, status: input.status, note: input.note, tested_on: testedOn }, now);
 }
 
 /** The connection that sends approved email on its own. */

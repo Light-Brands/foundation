@@ -120,7 +120,7 @@ describe("the run reads only what the check may read, whatever its declaration s
   it("refuses a core table off the list even when reads names it", async () => {
     expect(await refused(`${SELECT} from pause`, ["pause"], undefined, ["leads_demo", "pause"])).toMatch(/reads public\.pause/);
     expect(await refused(`${SELECT} from webhook_events`, ["webhook_events"], undefined, ["webhook_events"])).toMatch(/reads public\.webhook_events/);
-    expect(await refused(`${SELECT} from outbox`, ["outbox"], "create table outbox (id int)", ["outbox"])).toMatch(/reads public\.outbox/);
+    expect(await refused(`${SELECT} from outbox`, ["outbox"], undefined, ["outbox"])).toMatch(/reads public\.outbox/);
   });
   it("refuses another app's table even when reads names it", async () => {
     expect(await refused(`${SELECT} from other_rows`, ["leads_demo", "other_rows"], "create table other_rows (id int)")).toMatch(/reads public\.other_rows/);

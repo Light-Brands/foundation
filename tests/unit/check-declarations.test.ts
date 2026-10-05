@@ -50,6 +50,23 @@ describe("check SQL", () => {
       expect(checkSqlProblems(`select ${f}(status) is not null as raise, 'x' as title, '' as body from leads_demo`, ["leads_demo"]).join(), f).toMatch(new RegExp(`calls "${f}"`));
     }
   });
+  it("reads comments, strings, quoted names and dollar quotes the way Postgres does before scanning", () => {
+    const sneaks: [string, RegExp][] = [
+      // The reported bypass: a quote inside a comment opened a string that hid a second, writing statement.
+      ["select true as raise, 'x' as title, '' as body from leads_demo -- it's\n; delete from leads_demo; select 'a' as raise", /one statement[\s\S]*must only read|must only read[\s\S]*one statement/],
+      ["select true as raise /* ' */, md5(message) as title /* ' */, '' as body from leads_demo", /calls "md5"/],
+      ["select true as raise /* /* */ ' */, md5(message) as title, '' as body from leads_demo", /calls "md5"/],
+      ["select true as raise, E'\\'' , md5(message) as title, ' ' as body from leads_demo", /escape strings/],
+      ["select $a1$'$a1$ as raise, md5(message) as title, '' as body from leads_demo", /dollar quoting/],
+      ["select true as raise, pg_catalog.md5(message) as title, '' as body from leads_demo", /without a schema/],
+      ["select true as raise, \"md5\"(message) as title, '' as body from leads_demo", /quoted identifiers/],
+      ["with a as (table accounts) select true as raise, 'x' as title, '' as body from a", /from or join/],
+      ["SELECT TRUE AS RAISE, 'x' AS TITLE, '' AS BODY INTO SCRATCH FROM LEADS_DEMO", /must only read/],
+      ["select true as raise, 'x' as title, '' as body from leads_demo for share", /must only read/],
+      ["select true as raise, 'x' as title, '' as body from leads_demo /* never closed", /unclosed comment/],
+    ];
+    for (const [sql, want] of sneaks) expect(checkSqlProblems(sql, ["leads_demo"]).join("\n"), sql).toMatch(want);
+  });
   it("ignores words inside string literals", () => {
     expect(checkSqlProblems("select true as raise, 'delete from accounts; pg_class' as title, '' as body from leads_demo", ["leads_demo"])).toEqual([]);
   });

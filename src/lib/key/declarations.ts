@@ -321,29 +321,99 @@ const TABLE_NAME = /^[a-z][a-z0-9_]*$/;
 export type CheckDecl = { slug: string; key: string; name: string; period: "day" | "week"; card_kind: string; reads: string[]; sql: string; source: string; absent?: string[] };
 export type DraftDecl = { routine: string; handler: string; subcommands: string[] };
 
+/**
+ * Reads SQL the way Postgres's scanner does: comments (nested block comments too) become spaces, each
+ * string literal becomes '', a quoted name becomes the word q, and everything else folds to lower case.
+ * Escape strings, Unicode strings, quoted names, dollar quoting and an unclosed comment or string are
+ * reported, because each one can make text read one way here and another way in Postgres.
+ */
+export function normalizeSql(sql: string): { text: string; problems: string[] } {
+  const problems = new Set<string>();
+  let out = "";
+  let i = 0;
+  const n = sql.length;
+  while (i < n) {
+    const c = sql[i];
+    const next = sql[i + 1];
+    if (c === "-" && next === "-") {
+      while (i < n && sql[i] !== "\n") i++;
+      out += " ";
+      continue;
+    }
+    if (c === "/" && next === "*") {
+      let depth = 1;
+      i += 2;
+      while (i < n && depth > 0) {
+        if (sql[i] === "/" && sql[i + 1] === "*") { depth++; i += 2; }
+        else if (sql[i] === "*" && sql[i + 1] === "/") { depth--; i += 2; }
+        else i++;
+      }
+      if (depth > 0) problems.add("sql has an unclosed comment");
+      out += " ";
+      continue;
+    }
+    if (c === "'") {
+      // out is already lower case. A lone e or u& just before the quote changes how Postgres reads the string.
+      if (/(^|[^a-z0-9_$])e$/.test(out)) problems.add("sql must not use escape strings (E'...')");
+      if (/(^|[^a-z0-9_$])u&$/.test(out)) problems.add("sql must not use Unicode strings (U&'...')");
+      i++;
+      let closed = false;
+      while (i < n) {
+        if (sql[i] === "'" && sql[i + 1] === "'") { i += 2; continue; }
+        if (sql[i] === "'") { closed = true; i++; break; }
+        i++;
+      }
+      if (!closed) problems.add("sql has an unclosed string");
+      out += "''";
+      continue;
+    }
+    if (c === '"') {
+      problems.add("sql must not use quoted identifiers");
+      i++;
+      while (i < n) {
+        if (sql[i] === '"' && sql[i + 1] === '"') { i += 2; continue; }
+        if (sql[i] === '"') { i++; break; }
+        i++;
+      }
+      out += " q ";
+      continue;
+    }
+    if (c === "$") {
+      const tag = /^\$(?:[A-Za-z_\u0080-\uffff][A-Za-z0-9_\u0080-\uffff]*)?\$/.exec(sql.slice(i));
+      if (tag && !/[A-Za-z0-9_]$/.test(out)) {
+        problems.add("sql must not use dollar quoting");
+        const end = sql.indexOf(tag[0], i + tag[0].length);
+        i = end === -1 ? n : end + tag[0].length;
+        out += "''";
+        continue;
+      }
+    }
+    out += c.toLowerCase();
+    i++;
+  }
+  return { text: out, problems: [...problems] };
+}
+
 export function checkSqlProblems(sql: string, reads: readonly string[]): string[] {
-  const p = new Set<string>();
-  if (/\$[A-Za-z_]*\$/.test(sql)) p.add("sql must not use dollar quoting");
-  const text = sql
-    .replace(/'(?:[^']|'')*'/g, "''")
-    .replace(/--[^\n]*/g, " ")
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .trim()
-    .replace(/;\s*$/, "");
+  const norm = normalizeSql(sql);
+  const p = new Set<string>(norm.problems);
+  const text = norm.text.trim().replace(/;\s*$/, "");
   if (text.includes(";")) p.add("sql must be one statement");
-  if (!/^(select|with)\b/i.test(text)) p.add("sql must start with select or with");
-  if (text.includes('"')) p.add("sql must not use quoted identifiers");
+  if (!/^(select|with)\b/.test(text)) p.add("sql must start with select or with");
   const write = WRITE_WORDS.exec(text);
   if (write) p.add(`sql must only read: "${write[1].toLowerCase()}" is not allowed`);
-  if (/\b(pg_[a-z_]*|information_schema)\b/i.test(text)) p.add("sql must not read system catalogs");
-  for (const m of text.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)) {
-    const f = m[1].toLowerCase();
+  if (/\bfor\s+(no\s+key\s+update|update|share|key\s+share)\b/.test(text)) p.add("sql must only read: it may not lock rows");
+  if (/\btable\b/.test(text)) p.add("sql must name each table with from or join");
+  if (/\b(pg_[a-z0-9_]*|information_schema)\b/.test(text)) p.add("sql must not read system catalogs");
+  for (const m of text.matchAll(/\b([a-z_][a-z0-9_$]*)\s*\.\s*([a-z_][a-z0-9_$]*)\s*\(/g)) p.add(`sql must call functions without a schema ("${m[1]}.${m[2]}")`);
+  for (const m of text.matchAll(/\b([a-z_][a-z0-9_$]*)\s*\(/g)) {
+    const f = m[1];
     if (!CHECK_FUNCTIONS.has(f) && !SQL_WORDS.has(f)) p.add(`sql calls "${f}", which checks may not use`);
   }
-  for (const m of text.matchAll(/\$(\d+)(::[a-z]+)?/gi)) {
+  for (const m of text.matchAll(/\$(\d+)(::[a-z]+)?/g)) {
     if (m[1] !== "1" && m[1] !== "2") p.add("sql may use only $1::date and $2::timestamptz");
-    else if (m[1] === "1" && m[2]?.toLowerCase() !== "::date") p.add("write $1 as $1::date");
-    else if (m[1] === "2" && m[2]?.toLowerCase() !== "::timestamptz") p.add("write $2 as $2::timestamptz");
+    else if (m[1] === "1" && m[2] !== "::date") p.add("write $1 as $1::date");
+    else if (m[1] === "2" && m[2] !== "::timestamptz") p.add("write $2 as $2::timestamptz");
   }
   // Every table comes in through from or join, so a comma list of tables (an old-style join) is refused.
   if (/\bfrom\s+[a-z_][a-z0-9_]*(\s+(as\s+)?(?!where\b|join\b|left\b|right\b|inner\b|full\b|cross\b|group\b|order\b|limit\b|on\b)[a-z_][a-z0-9_]*)?\s*,/i.test(text)) p.add("sql must join tables with join, never a comma");

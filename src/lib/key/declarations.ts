@@ -125,6 +125,8 @@ export type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
 export const RESERVED_FIELD_KEYS: readonly string[] = ["website", "_form", "source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "referrer"];
 const DEFAULT_MAX: Record<FormFieldType, number> = { text: 200, long_text: 4000, email: 254, phone: 40, date: 10, number: 30, select: 120, checkbox: 3 };
 const FIELD_KEY = /^[a-z][a-z0-9_]*$/;
+/** The longest name a form may ask for: CARD_LIMITS.title and CARD_LIMITS.contactName are both 200. */
+export const NAME_MAX = 200;
 
 export type FormField = { key: string; label: string; type: FormFieldType; required: boolean; max: number; options: string[] };
 export type FormDecl = { key: string; title: string; intro: string; submit: string; thanks: string; card_kind: string; fields: FormField[]; source: string };
@@ -184,6 +186,8 @@ export function checkForms(src: Pick<DeclSource, "file" | "slug">, raw: unknown,
     if (!has("email", "email")) bad("needs a required email field of type email");
     if (fields.some((x) => x.key === "phone" && x.type !== "phone")) bad("a phone field must have type phone");
     if (fields.some((x) => x.key === "email" && x.max > 254)) bad("an email field's max is at most 254");
+    // The name makes the contact and starts the card title, so it can never be longer than either holds.
+    if (fields.some((x) => x.key === "name" && x.max > NAME_MAX)) bad(`a name field's max is at most ${NAME_MAX}`);
     if (problems.length === before) forms.push({ key, title, intro, submit, thanks, card_kind: kind, fields, source: src.slug });
   });
   return { forms, problems };

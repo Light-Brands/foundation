@@ -5,7 +5,8 @@ import path from "node:path";
 import { loadDeclarations } from "@/lib/key/load";
 import { KEY_EXT } from "../support/db";
 import { checkKeyFolder } from "@/lib/key/formats";
-import { checkCardKinds, checkForms, readDeclarations, readSources } from "@/lib/key/declarations";
+import { checkCardKinds, checkForms, readDeclarations, readSources, NAME_MAX } from "@/lib/key/declarations";
+import { CARD_LIMITS } from "@/lib/data/cards";
 
 function copyFixture(): string {
   const root = mkdtempSync(path.join(tmpdir(), "keyext-"));
@@ -171,6 +172,9 @@ describe("public forms in the Key", () => {
     expect(bad({ fields: [...base.fields, { key: "pick", label: "Pick", type: "select" }] })).toMatch(/select needs 1 to 30 options/);
     expect(bad({ fields: [...base.fields, { key: "big", label: "Big", type: "long_text", max: 5000 }] })).toMatch(/max must be a whole number from 1 to 4000/);
     expect(bad({ fields: [...base.fields, { key: "name", label: "Again", type: "text" }] })).toMatch(/field key "name" repeats/);
+    expect(bad({ fields: [{ ...base.fields[0], max: 201 }, base.fields[1]] })).toMatch(/a name field's max is at most 200/);
+    expect(bad({ fields: [{ ...base.fields[0], max: 200 }, base.fields[1]] })).toBe("");
+    expect(NAME_MAX).toBeLessThanOrEqual(Math.min(CARD_LIMITS.title, CARD_LIMITS.contactName));
   });
   it("holds the words to the copy rules", () => {
     expect(bad({ thanks: "Thanks; talk soon." })).toMatch(/thanks must hold no long or short dash and no semicolon/);

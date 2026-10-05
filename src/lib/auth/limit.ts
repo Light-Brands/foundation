@@ -33,7 +33,17 @@ export function createLimiter(map: LimitMap = new Map()) {
 
 export const gateLimiter = createLimiter();
 
+/**
+ * The visitor's address, as the host in front of the app reports it: Vercel's own
+ * x-vercel-forwarded-for, then x-real-ip, then the first x-forwarded-for entry, else "local".
+ * These headers are trusted only because the app runs behind Vercel, which sets them itself, or on
+ * 127.0.0.1, where only the owner's computer can reach it. Anywhere else a visitor could write them.
+ */
 export function clientKeyFromHeaders(h: { get(name: string): string | null }): string {
+  const vercel = h.get("x-vercel-forwarded-for")?.split(",")[0]?.trim();
+  if (vercel) return vercel;
+  const real = h.get("x-real-ip")?.trim();
+  if (real) return real;
   const first = h.get("x-forwarded-for")?.split(",")[0]?.trim();
   return first || "local";
 }

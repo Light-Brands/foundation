@@ -19,12 +19,14 @@ Everything belongs to one of eleven categories, in this order: Command, Attract,
 - Never move money, sign anything, send a customer message, or delete records without the owner's approval.
 - Keep copy in US English, using commas, colons and periods with no long or short dashes, stating what things are.
 - This app runs Next.js 16. Before using a Next.js API you are unsure of, read the guides in node_modules/next/dist/docs/, because Next 16 changed several APIs (for example, middleware is now src/proxy.ts).
-- After every build step, add an entry to the build log in key/log/ (format in docs/standards/log.md), then run npm run key:sync. At the end of a build session, run prompts/update-system-docs.md.
+- After every build step, make the work commit, then add an entry to the build log in key/log/ (format in docs/standards/log.md) in its own log-only commit made right after it, naming the work commit's id, then run npm run key:sync. At the end of a build session, run prompts/update-system-docs.md.
 - Before you finish: run `npm test`, `npm run typecheck` and `npm run build`, and fix anything that fails.
 
 ## The Key
 
 `key/` holds everything that makes this business's system yours: agents, skills, workflows and apps, plus `key/knowledge/` (the context block and `system.md`, the plain-words record of what is built) and `key/log/` (the monthly build log). It stays in this repository and never holds customer details, business records or secrets. `docs/standards/key.md` has the formats.
+
+The Settings save is the only writer of `key/knowledge/context-block.yaml`, and it also sets `name` in `key/key.yaml` to the business name. `npm run key:sync` rebuilds the inventory in `system.md` and nothing else. A member upgrading from an earlier version opens System, then Settings, and presses Save once, so the Key holds the business details.
 
 ## Standards
 

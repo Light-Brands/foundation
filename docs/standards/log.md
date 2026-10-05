@@ -21,13 +21,13 @@ Write the real value for `Kind` and for `By`, never the list. The heading is the
 
 ## Rules
 
-- **Add an entry after every build step.** Claude writes it, and every prompt ends with that step (see `prompts.md`). Why: the log is how the member, and the next session, learn what was built and how it was checked.
+- **Add an entry after every build step, in a log-only commit made right after the work commit.** Claude writes it, and every prompt ends with that step (see `prompts.md`). The entry's `Commit` is the work commit's id, never the log commit's. Why: an entry cannot hold the id of the commit that contains it, and the log is how the member, and the next session, learn what was built and how it was checked.
 - **Write what was built and how it was checked.** Name the files and the commit. Why: an entry that cannot be verified is a story.
 - **Never put customer details, business records or secrets in an entry.** No names of customers, no email addresses, no phone numbers. A format test (`checkLogText` in `src/lib/key/formats.ts`) fails on an email address or a phone number. Why: the log is documentation of the system, and the data stays in the database (see `privacy.md`).
 - **Add entries only; never rewrite an old one.** Why: the log is the history, and a history that changes is not one.
 - **Use `Kind` from `lesson`, `module`, `connection`, `setup` and `change`.** Use `By` from `claude`, `member` and `light-brands`. Why: the "What you have built" page and the system document read those words.
-- **Run `npm run log:sync` when commits are missing from the log.** It adds an entry for each recent commit with no entry, skips commits that only touch the log, and writes the time in UTC. Why: a skipped step leaves no gap.
-- **Run `npm run key:sync` after you add an entry or change the Key.** Why: it rebuilds the inventory in the system document and writes the context block from the profile.
+- **Run `npm run log:sync` when commits are missing from the log.** It adds an entry for each recent commit with no entry, skips commits that only touch the log, holds back a commit subject that fails the privacy check or names the workspace platform, and writes the time in UTC. Why: a skipped step leaves no gap.
+- **Run `npm run key:sync` after you add an entry or change the Key.** It rebuilds the inventory in the system document from `key.yaml` and writes nothing else. Why: the inventory is the only part of the system document a machine owns, and the Settings save is the only writer of the context block (see `key.md`).
 
 ## The system document
 

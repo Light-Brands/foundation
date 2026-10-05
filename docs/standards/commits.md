@@ -7,4 +7,4 @@
 - **Write the commit message to say why.** The first line says what changed, in plain words, and the lines after say the reason. Why: the diff already shows what, and only the message can say why.
 - **Make one fix per review finding.** Name the finding in the message and add its test in the same commit. Why: a reviewer can then confirm each finding is closed by reading one commit.
 - **Never commit `.env.local`, `.data/` or any secret.** Why: a secret in history stays in history (see `security.md`).
-- **Record the build step in the build log in the same change as the work.** See `log.md`. Why: the log entry points at the commit, and a log that lags behind the work stops being trusted.
+- **Record the build step in the build log in a log-only commit made right after the work commit, and name the work commit's id in the entry.** See `log.md`. Why: an entry cannot hold the id of the commit that contains it, so the entry follows the work and points back at it.

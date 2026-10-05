@@ -44,11 +44,14 @@ provenance:
 ```
 
 - **Keep `key.yaml` in step with the files.** Add the entry when you add the file, and run `npm run key:sync` afterward. Why: the system document's inventory is built from this file.
-- **Set `charter` to `agents/<role>/charter.md` for every roster entry.** Why: the format test fails on any other path.
+- **Set `charter` to `agents/<role>/charter.md` for every roster entry, and give it a `persona`.** Why: the format test fails on any other path, and the converter reads the persona as the agent's display name.
+- **Give every skill and workflow a `path` and every app a `definition`, and make each file exist.** Every file `key.yaml` names must be on disk. Why: the converter builds its manifest from these entries, and a missing file fails there instead of here.
+- **Keep every app folder in `key/apps/` listed in `key.yaml`, and name the folder, the definition's `app` and the `key.yaml` slug the same.** Why: a folder `key.yaml` does not list never reaches the manifest, and three names for one app leave nothing to find it by.
+- **Give every `record_change` workflow an `entity` that some app's definition defines.** Why: a trigger on an entity nobody defines never fires.
 
 ## The context block
 
-`key/knowledge/context-block.yaml` is the single source of business facts. The database's `business_profile` table has the same fields under the same names, with `owner` stored as `owner_name`, `owner_first` and `owner_role`. `npm run key:sync` copies the row into this file with no mapping.
+`key/knowledge/context-block.yaml` is the single source of business facts. The database's `business_profile` table has the same fields under the same names, with `owner` stored as `owner_name`, `owner_first` and `owner_role`. The Settings save is the only writer of this file: it copies the saved row into it with no mapping, and sets `name` in `key.yaml` to the business name. `client` stays as set at setup. `npm run key:sync` rebuilds the inventory in `system.md` and writes neither.
 
 ```yaml
 business: Harbor Studio
@@ -69,7 +72,7 @@ stated_by: Jo Harbor
 recorded: 2026-10-05
 ```
 
-- **Change a business fact through the profile, then run `npm run key:sync`.** Never edit the file by hand. Why: the database row is the source, and a hand edit is overwritten on the next sync.
+- **Change a business fact in System, then Settings, and press Save.** Never edit the file by hand. Why: Settings is the only writer, and the next Save rewrites the file from the database row.
 
 ## Charter
 
@@ -137,7 +140,7 @@ The booking appears on the calendar and the client has the confirmation.
 | trigger | fields it needs |
 |---|---|
 | `cron` | `cron`, a schedule such as `0 9 * * *` |
-| `every` | `every`, an interval such as `1 day` |
+| `every` | `every`, a number and a unit, such as `1 day` or `30 minutes` (`second`, `minute`, `hour`, `day` or `week`, with an optional `s`) |
 | `at` | `at`, a date and time |
 | `record_change` | `entity` and `events` |
 

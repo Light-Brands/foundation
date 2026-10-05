@@ -13,7 +13,7 @@ Every folder has one job. Put a file where its job is listed, and never where th
   - `key/workflows/<slug>.md`: one workflow per file.
   - `key/apps/<app>/`: `definition.yaml` and `migrations/` for each data app.
   - `key/log/<YYYY-MM>.md`: the monthly build log. Never edited out of order.
-- `core/db/migrations/`: the tables every business has: contacts, cards (the Inbox), the event log and the business profile. Never an app's tables.
+- `core/db/migrations/`: the tables every business has: contacts, cards (the Inbox) and the business profile. Never an app's tables.
 - `modules/<category>/<module>/`: a module's `module.ts` and `ui/`, arriving with the module engine. Never anything else yet.
 - `src/app/`: pages, layouts, route handlers and server actions. Never logic you could test without a page.
 - `src/components/`: shared interface pieces. Never data access.

@@ -167,7 +167,7 @@ function checkOptionsFrom(v: unknown, self: string, ctx: FormContext | undefined
   let issues = 0;
   const bad = (m: string) => { issues += 1; fb(m); };
   if (!isObj(v)) { bad("options_from must be a mapping with app, entity, label and where"); return null; }
-  if (Object.keys(v).some((k) => !OPTIONS_FROM_KEYS.includes(k))) bad("options_from holds only app, entity, label and where");
+  for (const k of Object.keys(v)) if (!OPTIONS_FROM_KEYS.includes(k)) bad(`options_from ${UNKNOWN_KEY}: "${k}". Update the Foundation first`);
   const app = str(v.app);
   const entity = str(v.entity);
   const label = str(v.label);

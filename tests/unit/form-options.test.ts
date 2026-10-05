@@ -93,7 +93,7 @@ describe("options_from in the Key", () => {
     expect(await bad("{ app: offers-demo, entity: offers_demo, label: name }")).toMatch(/options_from label "name" is not a text field of offers_demo/);
     expect(await bad("{ app: offers-demo, entity: offers_demo, label: title, where: starts }")).toMatch(/options_from where "starts" is not a checkbox field of offers_demo/);
     expect(await bad("{ app: offers-demo, entity: offers_demo, label: title }", "options: [A], ")).toMatch(/takes options or options_from, never both/);
-    expect(await bad("{ app: offers-demo, entity: offers_demo, label: title, sql: x }")).toMatch(/options_from holds only app, entity, label and where/);
+    expect(await bad("{ app: offers-demo, entity: offers_demo, label: title, sql: x }")).toMatch(/options_from has a key this Foundation does not know: "sql"\. Update the Foundation first/);
   });
   it("is only for a select field", async () => {
     const out = (await checkKeyFolder(keyWith({ field: `      - { key: offer, label: Which offer, type: text, ${OPTIONS_FROM} }` }))).join("\n");

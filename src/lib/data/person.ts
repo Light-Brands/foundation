@@ -29,13 +29,16 @@ export class OwnerOnlyError extends Error {
 export type PersonOptions = { actor: Actor | null; secret?: string | null };
 const isOwner = (o: PersonOptions | undefined) => !!o && allows(o.actor, "owner");
 
-/** Our own refusals pass through. Anything else, such as a database error that could quote a value, becomes one plain line. */
+/**
+ * Our own refusals pass through. Anything else, such as a database error that could quote a value, becomes one
+ * plain line with no cause attached, so nothing that logs or serializes the error can reach the original.
+ */
 async function plainErrors<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
   } catch (err) {
     if (err instanceof InvalidEmailError || err instanceof MissingSecretError || err instanceof OwnerOnlyError || err instanceof SecretMismatchError) throw err;
-    throw new Error("The person command could not finish, and nothing was changed.", { cause: err });
+    throw new Error("The person command could not finish, and nothing was changed.");
   }
 }
 
@@ -235,6 +238,10 @@ export type ForgetCounts = { about: Record<string, number>; linked: Record<strin
 export async function planForget(db: Db, refs: PersonRef[], email: string, opts: PersonOptions): Promise<ForgetCounts> {
   if (!isOwner(opts)) throw new OwnerOnlyError();
   const { n, hash, key } = whoOf(email, opts.secret);
+  return plainErrors(() => planFor(db, refs, n, hash, key));
+}
+
+async function planFor(db: Db, refs: PersonRef[], n: string, hash: string, key: string): Promise<ForgetCounts> {
   await checkSecretFingerprint(db, key);
   const { core } = await findCore(db, n, hash);
   const counts: ForgetCounts = { about: {}, linked: {} };

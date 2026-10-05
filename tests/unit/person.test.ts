@@ -13,7 +13,7 @@ import { writeCard } from "@/lib/data/cards";
 import type { Db } from "@/lib/db/types";
 import type { KindRegistry } from "@/lib/data/card-kinds";
 import type { PersonRef } from "@/lib/key/schema";
-import { exportPerson, exportTarget, forgetPerson, forgetSummary, installedPersonRefs, OwnerOnlyError } from "@/lib/data/person";
+import { exportPerson, exportTarget, forgetPerson, forgetSummary, installedPersonRefs, OwnerOnlyError, planForget } from "@/lib/data/person";
 
 const OWNER = { actor: PIN_OWNER };
 const TEAM: Actor = { id: "acct:team", role: "team", via: "account", departments: ["risk", "team", "sell"] };
@@ -445,6 +445,30 @@ describe("forget", () => {
     await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER).catch((e: Error) => errs.push(e.message));
     expect(errs).toHaveLength(5);
     expect(errs.join("\n")).not.toMatch(/ada|harbor/i);
+    await db.close();
+  });
+  it("wraps a database error in one plain line that keeps no cause, planning included", async () => {
+    const { db, kinds, refs } = await seeded();
+    const leaky: Db = {
+      ...db,
+      query: (async (sql: string, params?: unknown[]) => {
+        if (/from contacts/.test(sql)) throw new Error("duplicate key value ada@harbor.example");
+        return db.query(sql, params);
+      }) as Db["query"],
+      transaction: db.transaction.bind(db),
+      exec: db.exec.bind(db),
+      close: db.close.bind(db),
+    };
+    const caught: unknown[] = [];
+    await planForget(leaky, refs, "ada@harbor.example", OWNER).catch((e) => caught.push(e));
+    await exportPerson(leaky, refs, "ada@harbor.example", NOW, OWNER).catch((e) => caught.push(e));
+    await forgetPerson(leaky, kinds, refs, "ada@harbor.example", NOW, OWNER).catch((e) => caught.push(e));
+    expect(caught).toHaveLength(3);
+    for (const e of caught) {
+      expect((e as Error).message).toBe("The person command could not finish, and nothing was changed.");
+      expect((e as Error).cause).toBeUndefined();
+      expect(JSON.stringify(e, Object.getOwnPropertyNames(e))).not.toMatch(/ada|harbor/i);
+    }
     await db.close();
   });
   it("the summary never names the person", () => {

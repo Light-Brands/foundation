@@ -22,9 +22,11 @@ describe("every prompt keeps the build log", () => {
     expect(files.length).toBeGreaterThanOrEqual(6);
   });
   for (const f of files) {
-    it(`${f} ends with the log step`, () => {
+    it(`${f} ends with the conditional log step`, () => {
       const step = lastStep(readFileSync(f, "utf8"));
+      expect(step).toContain("If your command center folder is open in Claude Code,");
       expect(step).toContain("key/log/");
+      expect(step).toContain("log-only commit");
       expect(step).toContain("npm run key:sync");
     });
   }

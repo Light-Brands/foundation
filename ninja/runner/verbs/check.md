@@ -4,16 +4,16 @@ Check says where the business stands and what is ready to go further: what is wo
 
 ## What differs from the full runner
 
-- **Read only.** Check writes nothing in the Key, changes no code and keeps no run brief, so the questionnaire's consent question is skipped.
+- **Read only.** Check writes nothing in the Key, changes no code, keeps no run brief and never commits, so the questionnaire's consent question is skipped. When Orient finds changes setup or a Preferences save left uncommitted, check names them in its read and offers the setup commit as a next move. Run branches not yet in `main` are named the same way, with going live as a next move.
 - **It stops after stage 3.** Stage 3 holds every installed entry in scope against its bar.
 
 ## Stages
 
-1. **Orient,** in full, including the dictionary version check.
+1. **Orient,** in full, including the dictionary version check, and making no commit.
 2. **Questionnaire,** the first question only: the whole business, one department, or one entry. "Check my system" means the whole business.
 3. **Target.** For each installed entry in scope, the [run lead](../../crew/run-lead.md) and the reviewers read and report:
    - **Working.** In a Foundation, `npm test` reads every file in `key/` and runs the Key checks. In a Ninja home there is no npm: read `key.yaml` directly and check the shape [the Ninja home](../../foundation/ninja-home.md) defines. In both, every file `key.yaml` names is on disk, including each row's `files` and `code` in `installed`.
-   - **Current.** Each row in `installed` whose entry has a newer version in the current dictionary than the one its `from` names, for its Key files and its code files alike.
+   - **Current.** For each row in `installed`, compare the row's `version` with the `version` in the entry's front matter in the current dictionary. A larger number in the dictionary means a newer version of the entry, for its Key files and its code files alike. A row written before rows carried `version` is current when its `from` names the current dictionary version.
    - **Within the rules.** Anything that breaks [the rules](../../foundation/rules.md), such as customer details in the build log or the system document.
    - **Fit.** Whether the entry still fits the business as the context block describes it today.
 

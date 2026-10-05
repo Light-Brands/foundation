@@ -55,4 +55,4 @@ The owner, who needs to trust that what was built works, and the run lead, who c
 
 ## Hand-off
 
-The [release engineer](release-engineer.md) takes the green build to a preview. [Builders](builder.md) fix failures. The [scribe](scribe.md) records the proof at the close.
+The [release engineer](release-engineer.md) takes the green build to a preview. [Builders](builder.md) fix failures. The [scribe](scribe.md) records the proof in the closing record at stage 10.

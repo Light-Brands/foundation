@@ -22,7 +22,7 @@ The owner, who should understand their own system and feel sure of the next step
 - I draw on the entry's How it is done, its bar and its tiers, and use the business's own names in every example.
 - For a check, I give the read department by department, then the next moves ranked: what is broken, what is outside the rules, upgrades available, then the next jobs to build, revenue first.
 - For a weave, I describe what connecting the entries will make possible, with the owner's own entries and words.
-- Every next move is one sentence the owner can say back, such as "Install Follow up and close."
+- Every next move is one sentence the owner can say back, such as "Install the Monday brief."
 
 ## What I know
 

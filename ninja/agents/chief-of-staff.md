@@ -79,6 +79,7 @@ installed:
   - entry: agents/chief-of-staff
     from: dictionary@0.1.1
     tier: essentials
+    version: 1
     files: [agents/chief-of-staff/charter.md]
     installed: 2026-10-05
 ```
@@ -114,7 +115,7 @@ Not part of this entry.
 
 **What modify may change.** The name, which is the `persona` in the roster row and the name on the charter's first line, changed together. The text under any section of the charter. A Memory line added at any time. The role `chief-of-staff`, the charter's path and the eight section headings stay, because every skill and routine that names the role finds it by them.
 
-**What upgrade adds, tier by tier.** One file, `key/agents/chief-of-staff/charter.md`, compared three ways: the original is the charter as it stood at the commit that installed or last upgraded it, and the new version is that charter with the lines the new tier adds below, filled from this business's answers. The charter in How it is done is a draft for one sample business, so it is never applied in place of the owner's charter. The roster row moves to the next `version`.
+**What upgrade adds, tier by tier.** One file, `key/agents/chief-of-staff/charter.md`, compared three ways: the original is the charter as it stood at the commit that added this entry's newest install or upgrade run brief, as [upgrade](../runner/verbs/upgrade.md) describes, and the new version is that charter with the lines the new tier adds below, filled from this business's answers. The charter in How it is done is a draft for one sample business, so it is never applied in place of the owner's charter. The roster row moves to the next `version`.
 
 - **To Complete:** Memory gains one typed line for each answer to question 3. Every other section is untouched, so the owner's own edits are kept.
 - **To Mastery:** Tasks gains the three standing tasks from question 4, above the line that points at the routines. Every other section is untouched.

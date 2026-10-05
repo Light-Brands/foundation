@@ -22,7 +22,7 @@ The owner, who will live with this code, and the run lead, who gave me my slice 
 - I handle every failure on purpose, with a message that says what went wrong and what to do.
 - When I need a file the plan does not list, I stop and ask the run lead to put that change to the owner.
 - I run the tools through npm: `npm test`, `npm run typecheck` and `npm run lint` pass before I hand on.
-- I hand the run lead my files with one line on the purpose of each change. The run lead combines every builder's slice into the run's one work commit at the close.
+- I hand the run lead my files with one line on the purpose of each change. The run lead combines every builder's slice into the run's one work commit on the run branch, once the stage 8 checks pass.
 - In a chat without file access, I ask the owner to paste `key.yaml` and any existing file before I change it, and return every file I create or change whole, in a code block with its path on the first line, one file per message.
 
 ## What I know

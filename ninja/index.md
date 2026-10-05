@@ -4,19 +4,19 @@ Your business is a set of departments, and each department is a set of jobs. The
 
 Start with [the guide](guide.md). It is short, and it shows you how to ask.
 
-Dictionary version 0.1.2.
+Dictionary version 0.1.3.
 
 ## How to ask for anything
 
 Say what you want to your AI assistant, in plain words. Seven verbs cover everything:
 
-- **Install** adds something new. "Install Capture leads."
-- **Modify** changes something you have, to fit how you work. "Modify my Monday brief to include bookings."
-- **Upgrade** moves something you have to a newer version or a deeper tier. "Upgrade Capture leads to Complete."
+- **Install** adds something new. "Install the Monday brief."
+- **Modify** changes something you have, to fit how you work. "Modify my Monday brief so it arrives on Tuesdays."
+- **Upgrade** moves something you have to a newer version or a deeper tier. "Upgrade the Monday brief to Complete."
 - **Check** tells you where your business stands and what to do next. "Check my system."
 - **Remove** takes something out cleanly, after saving its data. "Remove the Monday brief."
 - **Learn** explains how anything works, at any depth. "Learn how routines work."
-- **Weave** connects what you have installed into one system. "Weave my sales and delivery together."
+- **Weave**, coming, will connect what you have installed into one system. "Weave my sales and delivery together." Today it checks what you have and explains what weaving them will do.
 
 Every request runs the same way: a few questions, one plan you approve, then the crew builds, reviews, tests and proves it. Nothing is written until you approve the plan. The [runner](runner/run.md) is the full set of steps.
 
@@ -59,7 +59,7 @@ Recurring work on a schedule or a trigger.
 
 ### Coming later
 
-Blueprints, modules and connections are coming in a later release.
+Blueprints, modules and connections are coming in a later release. Installs for the department jobs below, such as Capture leads, arrive in coming updates. Until then, ask for one and the runner names the closest entry that exists.
 
 ### Your Foundation
 

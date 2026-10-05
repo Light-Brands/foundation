@@ -16,11 +16,12 @@ The owner, who reads the receipt and the system record, the next session, which 
 
 ## How I work
 
-- I draft the run brief for `key/runs/` as the first file of the approved plan, then move its `stage` forward and tick its Plan as each step is done.
+- I draft the run brief for `key/runs/` as the first file of the approved plan, then move its `stage` forward and tick its Plan as each step is done. Its Plan ends with the commit, the proof and going live, each ticked when it happens.
+- Once the stage 8 checks pass, I draft the entry's row in `installed`: `entry`, `from`, `tier`, `version` (the `version` in the entry's front matter), `files`, `code` when the entry created app code, and `installed`, and add its roles, skills, routines and apps to their lists. Then I bring `key/knowledge/system.md` up to date with `prompts/update-system-docs.md`, which reads the run brief, and the owner confirms it. Then I move the brief to stage 8, with every Plan item done so far ticked. All of it goes to the run lead before `npm run key:sync` and the work commit.
 - For the run's one work commit, I draft the message: a summary line under 72 characters saying what changed and why, then a short body only when the reason is not obvious.
-- I draft its build log entry for `key/log/<YYYY-MM>.md` in the shape `docs/standards/log.md` sets, naming the work commit's id, with the line `- Entry: <entry id>` on every log entry for the run: what was built, in plain words, why, and what the owner can now do. I write its Checked line after stage 8, so it names only checks that have run, and the proof once it has passed. The run lead commits it on its own, right after the work commit. The `- Entry:` line is how a later upgrade or modify finds this commit.
-- At the close, I draft the entry's row in `installed`: `entry`, `from`, `tier`, `files` and `installed`, and add its roles, skills, routines and apps to their lists. Then I bring `key/knowledge/system.md` up to date with `prompts/update-system-docs.md`, and the owner confirms it. Only then do I set the run brief to stage 10 with the proof and every plan item ticked.
-- In a Ninja home, I write `key.yaml` directly: the new rows, an `installed` row with `files` as paths relative to the home folder, and a `runs` row for a task that ran and passed its check. Then I rebuild `starter-kit.html`.
+- I draft its build log entry for `key/log/<YYYY-MM>.md` in the shape `docs/standards/log.md` sets, naming the work commit's id, with the line `- Entry: <entry id>`: what was built, in plain words, why, and what the owner can now do. Its Checked line names the stage 8 checks, which have all run by then. The run lead commits it on its own, right after the work commit, on the run branch.
+- At stage 10, only after the log-only commit and the owner's answer to the go live question, I write the closing record: the proof in the brief, the commit, the proof and going live ticked, going live only on the owner's yes, and `stage: 10`. The run lead commits the brief alone. A later upgrade finds this run by the commit that added its install or upgrade brief.
+- In a Ninja home, I write `key.yaml` directly: the new rows, an `installed` row with `version` and with `files` as paths relative to the home folder, and a `runs` row for a task that ran and passed its check. Then I rebuild `starter-kit.html`.
 - In a chat without file access, I ask the owner to paste `key.yaml` and any existing file before I change it, and return every file whole, in a code block with its path on the first line, one file per message.
 - The receipt says what changed, at which tier, and what it costs to run, as the entry states it. For an entry with no running cost, such as Prep or Home, it says "no running cost".
 
@@ -44,12 +45,14 @@ The owner, who reads the receipt and the system record, the next session, which 
 | Stage | I receive | I return |
 |---|---|---|
 | 2 and 5 | The run brief draft and the approved plan | The run brief for `key/runs/<date>-<verb>-<entry>.md`, handed to the run lead |
-| 6 to 9 | Each builder's files and purpose | The run brief kept current, and the work commit's message and build log entry drafted once stage 8 has run |
-| 10. Close | The proof, the files the entry put in place and the dictionary version | The `installed` row, the updated system record and the stage 10 brief, handed to the run lead, then the receipt. In a Ninja home, `key.yaml` and `starter-kit.html` written |
+| 6 and 7 | Each builder's files and purpose | The run brief kept current |
+| 8. Test and preview | The green checks, the files the entry put in place and the dictionary version | The `installed` row, the updated system record, the brief at stage 8, the work commit's message and its build log entry, handed to the run lead |
+| 9. Proof | The QA lead's result | The proof, ready for the closing record |
+| 10. Close | The owner's answer to the go live question | The closing record in the brief at stage 10, handed to the run lead, then the receipt. In a Ninja home, `key.yaml` and `starter-kit.html` written |
 
 ## Gates I enforce
 
-None of my own. I close only after the **proof** gate the QA lead owns has passed, as [the gates](../runner/gates.md) describe.
+None of my own. I write the closing record only after the **proof** gate the QA lead owns has passed, as [the gates](../runner/gates.md) describe.
 
 ## Hand-off
 

@@ -34,15 +34,15 @@ The gates are the steering that makes the speed safe. Each one has an owner in t
 
 - **Stage:** 8, for the preview only.
 - **Owner:** the [release engineer](../crew/release-engineer.md).
-- **Passes when:** the test gate has passed and the owner gave the preview consent.
+- **Passes when:** the test gate has passed, the run's work commit and log-only commit are on its run branch, and the owner gave the preview consent. The preview is a push of the run branch, which Vercel builds as a preview deployment. A Foundation without a remote has no preview, and its proof runs on the owner's computer.
 - **When it does not pass:** without the consent: "Everything is green. Would you like a preview, a separate copy of your command center on its own link, to try it before it goes live?" With checks failing: "The preview waits until every check is green."
 
 ## Production
 
 - **Stage:** 10, after the run's work commit, because production goes out from committed work.
 - **Owner:** the [release engineer](../crew/release-engineer.md).
-- **Passes when:** the owner says yes to going live at that moment, after the preview is checked. An earlier yes, including the preview consent, never counts.
-- **When it does not pass:** "The preview is ready at <link>. When you have tried it and want your customers to see it, say 'go live' and I will put it live."
+- **Passes when:** the owner says yes to going live at that moment, after the preview is checked, or after the proof on a Foundation without a remote. An earlier yes, including the preview consent, never counts. Going live is merging the run branch into `main` and pushing `main`, or the local merge into `main` without a remote. Nothing reaches `main` without this yes.
+- **When it does not pass:** "The preview is ready at <link>. When you have tried it and want your customers to see it, say 'go live' and I will put it live." Without a remote: "It is proven on your computer. When you want it in your command center for good, say 'go live' and I will add it." Until then the work waits on its run branch.
 
 ## Proof
 

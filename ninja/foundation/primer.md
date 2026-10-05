@@ -47,7 +47,7 @@ The Key is the `key/` folder. It holds the business's knowledge, roles, skills, 
 - `apps`: every app, with its `slug`, `definition` and `category`.
 - `routines`: every routine, with its `slug`, `path`, `agent` and `category`.
 - `runs`: a list every `key.yaml` carries, empty in a new Foundation. The run briefs themselves are files in `key/runs/`, one per run of this dictionary, in the format `docs/standards/key.md` defines.
-- `installed`: every entry installed from this dictionary, with `entry`, `from` (such as `dictionary@0.1.0`), `tier`, `files` (paths relative to `key/`) and `installed` (the date). This is how `upgrade` keeps the owner's own edits.
+- `installed`: every entry installed from this dictionary, with `entry`, `from` (such as `dictionary@0.1.0`), `tier`, `version` (the `version` in the entry's front matter), `files` (paths relative to `key/`), `code` (the app files the entry created, as paths from the repository root under `src/` or `modules/`, left out when there are none) and `installed` (the date). This is how `upgrade` keeps the owner's own edits, and how `check` knows an entry has a newer version.
 
 Names are slugs: lowercase letters and digits joined by single hyphens. A role's slug is its key everywhere. Every file `key.yaml` names must exist. A Key that still says `workflows` is told to rename it to `routines`.
 
@@ -84,4 +84,4 @@ Field types are `text`, `number`, `date`, `select`, `multi_select`, `checkbox`, 
 
 Always run the tools through npm. The build secret is generated before `dev`, `build`, `test` and `typecheck`, and calling the tools directly skips that step and fails.
 
-Before you commit: `npm test`, `npm run typecheck` and `npm run build` all pass. At the close of each run: run `npm run key:sync`, make the run's one work commit, then add a build log entry in its own log-only commit that names the work commit's id and carries the line `- Entry: <entry id>`.
+Before you commit: `npm test`, `npm run typecheck`, `npm run lint` and `npm run build` all pass, and `npm run e2e` too when the run changes a screen or app code. Each run works on its own branch, `run/<date>-<verb>-<entry>`, made from `main` once the plan is approved. When the checks pass: run `npm run key:sync`, make the run's one work commit, then add a build log entry in its own log-only commit that names the work commit's id and carries the line `- Entry: <entry id>`. A preview is a push of that branch. Going live is merging it into `main` and pushing `main`, only on the owner's yes at that moment, as [the runner](../runner/run.md) describes.

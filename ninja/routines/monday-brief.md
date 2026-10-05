@@ -136,16 +136,19 @@ installed:
   - entry: agents/chief-of-staff
     from: dictionary@0.1.1
     tier: essentials
+    version: 1
     files: [agents/chief-of-staff/charter.md]
     installed: 2026-10-05
   - entry: skills/write-the-brief
     from: dictionary@0.1.1
     tier: essentials
+    version: 1
     files: [skills/write-the-brief/SKILL.md]
     installed: 2026-10-05
   - entry: routines/monday-brief
     from: dictionary@0.1.1
     tier: essentials
+    version: 1
     files: [routines/monday-brief.md, apps/briefs/definition.yaml, apps/briefs/migrations/0001_briefs_create.sql]
     code: [src/lib/data/briefs.ts, src/lib/data/briefs-command.ts]
     installed: 2026-10-05
@@ -198,7 +201,7 @@ One row in briefs for the week, and one Inbox card titled "Your week of <month a
 Write no brief. Run `npm run brief -- blocked --step <the step that stopped> --reason "<what it printed>"`, which puts one card in the Inbox titled with the day this routine runs, such as "The Monday brief did not run", saying which step stopped, what it printed and the fix to try. Tell the owner the same. When the database itself cannot be opened, no card can be written: tell the owner to close the Foundation and ask for the brief again.
 ```
 
-**The schedule.** The `cron` line reads minute 0, hour 8, any day of the month, any month, day 1 of the week, which is Monday. The Foundation's Key checker requires a `cron` line for a `cron` trigger and nothing more. The time zone is the `timezone` in `key/knowledge/context-block.yaml`, the same value as the business profile's `timezone`, so the routine carries no time zone of its own.
+**The schedule.** The `cron` line reads minute 0, hour 8, any day of the month, any month, day 1 of the week, which is Monday. The Foundation's Key checker requires a `cron` line for a `cron` trigger and validates it: five fields, each within its own range, minute 0 to 59, hour 0 to 23, day of the month 1 to 31, month 1 to 12 and day of the week 0 to 7, where 0 and 7 are both Sunday. The time zone is the `timezone` in `key/knowledge/context-block.yaml`, the same value as the business profile's `timezone`, so the routine carries no time zone of its own.
 
 **The week and the window.** The week is the Monday of the current week in the business's time zone, at the moment the brief runs. A brief that runs late on a Sunday belongs to the week that began the Monday before. The numbers count the seven days ending at the moment the brief runs, in the business's time zone, so a brief at 8:00 on a Monday counts from 8:00 the Monday before.
 
@@ -304,7 +307,7 @@ Your week, October 5
 
 The week still starts on Monday whatever day the brief arrives, so `week` stays the Monday's date. Anything beyond the table is an upgrade or a different entry: the comparison, the email copy, the plan and the flags are deeper tiers, and changing the `briefs` table or the code is an upgrade.
 
-**What upgrade adds, tier by tier.** Upgrading the routine upgrades its parts first, each to the routine's tier, in its own run, with its own `installed` row: [Chief of staff](../agents/chief-of-staff.md), then [Write the brief](../skills/write-the-brief.md). Each part's file is listed and compared under its own run, as its own entry describes. A Monday brief installed from dictionary 0.1.0 lists the chief of staff's charter in the routine's row: the chief of staff's run takes the charter into its own row, and the routine's run drops it from the routine's row, as [upgrade](../runner/verbs/upgrade.md) describes. Then the routine's run compares each file in its row's `files` and `code` three ways, the original from the commit that installed or last upgraded it, and the migrations already applied stay as they are.
+**What upgrade adds, tier by tier.** Upgrading the routine upgrades its parts first, each to the routine's tier, in its own run, with its own `installed` row: [Chief of staff](../agents/chief-of-staff.md), then [Write the brief](../skills/write-the-brief.md). Each part's file is listed and compared under its own run, as its own entry describes. A Monday brief installed from dictionary 0.1.0 lists the chief of staff's charter in the routine's row: the chief of staff's run takes the charter into its own row, and the routine's run drops it from the routine's row, as [upgrade](../runner/verbs/upgrade.md) describes. Then the routine's run compares each file in its row's `files` and `code` three ways, the original from the commit that added the routine's newest install or upgrade brief, and the migrations already applied stay as they are.
 
 To Complete, the two part runs first, then the routine's run:
 
@@ -315,12 +318,12 @@ To Complete, the two part runs first, then the routine's run:
 - `src/lib/data/briefs-command.ts`: the `--compare` option for `numbers` and the `--numbers` option for `save`.
 - `tests/unit/briefs.test.ts`, named in the plan: the comparison, the stored numbers and the drafted copy.
 
-To Mastery, from Complete, the skill's run first, then the routine's run:
+To Mastery, from Complete, the two part runs first, the chief of staff's and then the skill's, then the routine's run. Every part moves to Mastery with the routine, so all three rows record the same tier:
 
 - `key/routines/monday-brief.md`: inside the Steps section, after the numbered steps, a Targets list with one line per number the owner chose at question 5, such as "- new leads: 5". Step 3 passes `--title "Your week of <month and day>: <count> off track"` when anything is off track.
 - No data change. Mastery creates no code file and changes none, because `save` takes `--title` from Essentials on.
 
-**What remove exports first.** Every row of `briefs`, the week and the brief, into one file the owner keeps, inside the Foundation folder, outside `key/` and never committed. The brief cards stay in the Inbox. Remove then takes out the routine, the two code files in `code` and the `brief` script line, and the `briefs` table is kept unless the owner says to drop it, which is a new migration. The skill and the chief of staff stay unless the owner removes them too.
+**What remove exports first.** Every row of `briefs`, the week and the brief, into one file the owner keeps, inside the Foundation folder, outside `key/` and never committed. The brief cards stay in the Inbox. It goes in `.data/exports/`, which git ignores. Remove then takes out the routine, the two code files in `code`, the unit tests in `tests/unit/briefs.test.ts` and the `brief` script line in `package.json`, so `npm test` stays green, and the `briefs` table is kept unless the owner says to drop it, which is a new migration. The skill and the chief of staff stay unless the owner removes them too.
 
 ## How it is done
 

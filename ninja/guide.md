@@ -9,18 +9,19 @@ Talk to your AI assistant the way you would talk to a capable colleague. Name wh
 - **In Claude Code, inside your Foundation folder,** just say it. The dictionary is already inside your Foundation.
 - **Anywhere else,** add "with the Ninja framework from dojo.lightbrands.ai" so your assistant knows where to look.
 
-Eight sentences that work:
+Seven sentences that work today:
 
 1. "Install the Ninja framework into my environment."
-2. "Install Capture leads."
-3. "Modify my Monday brief so it also lists this week's bookings."
-4. "Upgrade Book appointments to Complete."
+2. "Install the Monday brief."
+3. "Modify my Monday brief so it arrives on Tuesdays."
+4. "Upgrade the Monday brief to Complete."
 5. "Check my system."
 6. "Remove the Monday brief."
 7. "Learn how routines work."
-8. "Weave Sales and Delivery so a signed contract starts a project."
 
-You never need the exact name. "Something to catch my leads" finds Capture leads. If two entries fit, your assistant asks which one you mean.
+And one that is coming: "Weave Sales and Delivery so a signed contract starts a project." Weaving arrives in a coming update. Today your assistant checks what you have and explains what the weave will do. Installs for the department jobs, such as Capture leads, arrive in coming updates too.
+
+You never need the exact name. "Something that sums up my week" finds the Monday brief. If two entries fit, your assistant asks which one you mean.
 
 ## What happens next
 

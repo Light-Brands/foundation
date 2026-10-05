@@ -306,7 +306,7 @@ export const CHECK_FUNCTIONS: ReadonlySet<string> = new Set([
   "make_interval", "age", "now", "abs", "round", "floor", "ceil", "ceiling", "bool_or", "bool_and", "jsonb_build_object", "jsonb_agg",
 ]);
 // Words that may stand before an opening parenthesis without being a function call.
-const SQL_WORDS = new Set([
+export const SQL_WORDS: ReadonlySet<string> = new Set([
   "and", "or", "not", "in", "exists", "any", "all", "some", "filter", "over", "values", "on", "using", "from", "join",
   "where", "select", "when", "then", "else", "by", "as", "with", "case", "numeric", "decimal", "between", "having", "is", "distinct", "row", "cast", "lateral",
 ]);
@@ -318,7 +318,12 @@ const TABLE_NAME = /^[a-z][a-z0-9_]*$/;
  * that are not installed, when the check reads a table none of the installed apps or the core list holds:
  * such a check waits, and the runner records a skip for it each period and raises no card.
  */
-export type CheckDecl = { slug: string; key: string; name: string; period: "day" | "week"; card_kind: string; reads: string[]; sql: string; source: string; absent?: string[] };
+export type CheckDecl = {
+  slug: string; key: string; name: string; period: "day" | "week"; card_kind: string; reads: string[]; sql: string; source: string;
+  /** Every table this check's file may read: its app's tables, its installed uses_apps' tables and CHECK_CORE_TABLES. The run refuses anything else. */
+  may_read: string[];
+  absent?: string[];
+};
 export type DraftDecl = { routine: string; handler: string; subcommands: string[] };
 
 /**
@@ -474,7 +479,7 @@ export function checkChecks(
     else for (const m of checkSqlProblems(sql, reads)) bad(m);
     if (problems.length === before) {
       checks.push({
-        slug: `${src.slug}/${key}`, key, name, period: period as "day" | "week", card_kind: kind, reads, sql, source: src.slug,
+        slug: `${src.slug}/${key}`, key, name, period: period as "day" | "week", card_kind: kind, reads, sql, source: src.slug, may_read: [...allowed],
         ...(waits ? { absent: absentApps } : {}),
       });
     }

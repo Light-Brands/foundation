@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { extDb, KEY_EXT } from "../support/db";
-import { readDeclarations, type CheckDecl } from "@/lib/key/declarations";
+import { CHECK_FUNCTIONS, readDeclarations, type CheckDecl } from "@/lib/key/declarations";
 import { registryFrom } from "@/lib/data/card-kinds";
 import { writeCard } from "@/lib/data/cards";
 import { setPause } from "@/lib/data/pause";
@@ -10,6 +10,7 @@ const TZ = "America/Los_Angeles";
 const MON = new Date("2026-10-05T16:00:00Z"); // Monday 09:00 in Portland
 const later = (ms: number, from = MON) => new Date(from.getTime() + ms);
 const DAY = 86_400_000;
+const widen = (...f: string[]) => ({ functions: new Set([...CHECK_FUNCTIONS, ...f]) });
 
 async function setup(checks?: CheckDecl[]): Promise<RunnerDeps> {
   const d = await readDeclarations(KEY_EXT);
@@ -55,7 +56,8 @@ describe("runCheckSql", () => {
     const deps = await setup();
     await deps.db.exec("create sequence check_probe");
     const bumps = { ...deps.checks[0], sql: "select nextval('check_probe') > 0 as raise, 'x' as title, '' as body" };
-    await expect(runCheckSql(deps.db, bumps, "2026-10-05", MON)).rejects.toThrow(/read-only/);
+    await expect(runCheckSql(deps.db, bumps, "2026-10-05", MON)).rejects.toThrow(/calls nextval/);
+    await expect(runCheckSql(deps.db, bumps, "2026-10-05", MON, widen("nextval"))).rejects.toThrow(/read-only/);
     expect(await deps.db.query("select last_value::int as v, is_called from check_probe")).toEqual([{ v: 1, is_called: false }]);
     await deps.db.close();
   });
@@ -84,7 +86,7 @@ describe("the run is the boundary, whatever slips past the Key checker", () => {
   it("always rolls the check's transaction back, even when it succeeds", async () => {
     const deps = await setup();
     const probe = { ...deps.checks[0], sql: "select set_config('foundation.probe', 'leaked', false) is not null as raise, 'x' as title, '' as body" };
-    expect(await runCheckSql(deps.db, probe, "2026-10-05", MON)).toEqual({ raise: true, title: "x", body: "" });
+    expect(await runCheckSql(deps.db, probe, "2026-10-05", MON, widen("set_config"))).toEqual({ raise: true, title: "x", body: "" });
     const [row] = await deps.db.query<{ v: string | null }>("select current_setting('foundation.probe', true) as v");
     expect(row.v ?? "").toBe("");
     await deps.db.close();
@@ -94,8 +96,52 @@ describe("the run is the boundary, whatever slips past the Key checker", () => {
     // The limit is set on every run all the same, and this proves it is in place while the check runs.
     const deps = await setup();
     const probe = { ...deps.checks[0], sql: "select current_setting('statement_timeout') = '5s' as raise, 'x' as title, '' as body" };
-    expect(await runCheckSql(deps.db, probe, "2026-10-05", MON)).toEqual({ raise: true, title: "x", body: "" });
+    expect(await runCheckSql(deps.db, probe, "2026-10-05", MON, widen("current_setting"))).toEqual({ raise: true, title: "x", body: "" });
     await deps.db.close();
+  });
+});
+
+describe("the run reads only what the check may read, whatever its declaration says", () => {
+  const SELECT = "select count(*) > 0 as raise, 'x' as title, '' as body";
+  async function refused(sql: string, reads: string[], prep?: string, mayRead?: string[]): Promise<string> {
+    const deps = await setup();
+    if (prep) await deps.db.exec(prep);
+    const check = { ...deps.checks[0], reads, sql, ...(mayRead ? { may_read: mayRead } : {}) };
+    try {
+      await runCheckSql(deps.db, check, "2026-10-05", MON);
+      return "ran";
+    } catch (e) {
+      return (e as Error).message;
+    } finally {
+      await deps.db.close();
+    }
+  }
+  it("refuses a core table off the list even when reads names it", async () => {
+    expect(await refused(`${SELECT} from pause`, ["pause"], undefined, ["leads_demo", "pause"])).toMatch(/reads public\.pause/);
+    expect(await refused(`${SELECT} from webhook_events`, ["webhook_events"], undefined, ["webhook_events"])).toMatch(/reads public\.webhook_events/);
+    expect(await refused(`${SELECT} from outbox`, ["outbox"], "create table outbox (id int)", ["outbox"])).toMatch(/reads public\.outbox/);
+  });
+  it("refuses another app's table even when reads names it", async () => {
+    expect(await refused(`${SELECT} from other_rows`, ["leads_demo", "other_rows"], "create table other_rows (id int)")).toMatch(/reads public\.other_rows/);
+  });
+  it("refuses an undeclared table reached by a schema name, a quoted name, a view or a shadowing alias", async () => {
+    expect(await refused(`${SELECT} from public.contacts`, ["leads_demo"])).toMatch(/reads public\.contacts/);
+    expect(await refused(`${SELECT} from "contacts"`, ["leads_demo"])).toMatch(/reads public\.contacts/);
+    expect(await refused(`${SELECT} from leads_view`, ["leads_demo", "leads_view"], "create view leads_view as select * from contacts")).toMatch(/reads public\.contacts/);
+    expect(await refused(`with leads_demo as (select * from contacts) ${SELECT} from leads_demo`, ["leads_demo"])).toMatch(/reads public\.contacts/);
+  });
+  it("refuses a function that reads a table out of sight of the plan", async () => {
+    expect(await refused("select query_to_xml('select * from contacts', true, true, '') is not null as raise, 'x' as title, '' as body", ["leads_demo"])).toMatch(/calls query_to_xml/);
+    expect(await refused("select length(current_setting('foundation.x', true)) > 0 as raise, 'x' as title, '' as body", ["leads_demo"])).toMatch(/calls current_setting/);
+  });
+  it("refuses SQL the first Key checker read differently from Postgres, by its plan", async () => {
+    // The tokenizer at 2811380 read $a1$'$a1$ as the start of a string that hid version() and the subquery.
+    expect(await refused("select $a1$'$a1$ as t, version() as junk, true as raise, 'x' as title, '' as body from leads_demo", ["leads_demo"])).toMatch(/calls version/);
+    expect(await refused("select $a1$'$a1$ as t, (select count(*) from contacts) as junk, true as raise, 'x' as title, '' as body from leads_demo", ["leads_demo"])).toMatch(/reads public\.contacts/);
+  });
+  it("still runs every allowed function", async () => {
+    const sql = "select count(*) >= 0 or bool_or(true) as raise, concat_ws(' ', upper(min(status)), lower(max(status)), btrim(' a '), left('ab', 1), to_char(now(), 'YYYY'), coalesce(null, 'z'), greatest(1, 2)::text, date_trunc('day', $2::timestamptz)::text, age($2::timestamptz, $2::timestamptz)::text, make_interval(days => 1)::text, round(abs(-1.5))::text) as title, string_agg(contact_email, ', ') as body from leads_demo where created_at <= $2::timestamptz and starts_ok(1)";
+    expect(await refused(sql.replace(" and starts_ok(1)", ""), ["leads_demo"])).toBe("ran");
   });
 });
 

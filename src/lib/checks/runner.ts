@@ -1,6 +1,6 @@
 import type { Db, Tx } from "@/lib/db/types";
 import type { KindRegistry } from "@/lib/data/card-kinds";
-import type { CheckDecl } from "@/lib/key/declarations";
+import { CHECK_CORE_TABLES, CHECK_FUNCTIONS, CORE_TABLES, SQL_WORDS, normalizeSql, type CheckDecl } from "@/lib/key/declarations";
 import { writeCard, CARD_LIMITS } from "@/lib/data/cards";
 import { getPause } from "@/lib/data/pause";
 import { businessDate, businessWeekStart } from "@/lib/time";
@@ -34,6 +34,28 @@ export function planRelations(plan: unknown): { schema: string; name: string }[]
   return out;
 }
 
+// Words Postgres prints before a parenthesis in a plan that are syntax, never a function it calls.
+const PLAN_WORDS: ReadonlySet<string> = new Set([...SQL_WORDS, "array", "coalesce", "greatest", "least", "nullif", "extract", "subplan", "initplan", "partition", "within", "group", "order", "only"]);
+// Core tables a check never reads, whatever its declaration says. The outbox is one of them.
+const NEVER_READ: ReadonlySet<string> = new Set(CORE_TABLES.filter((t) => !CHECK_CORE_TABLES.includes(t)));
+
+/** Every function a Postgres verbose JSON plan shows it will call, read from every expression it prints. */
+export function planFunctions(plan: unknown): string[] {
+  const found = new Set<string>();
+  const scan = (text: string) => {
+    // Literals and quoted names fold away first, then type names after :: (such as numeric(10,2)).
+    const t = normalizeSql(text).text.replace(/::\s*[a-z_][a-z0-9_ ]*(\(\s*\d+(\s*,\s*\d+)?\s*\))?(\[\])?/g, " ");
+    for (const m of t.matchAll(/([a-z_][a-z0-9_$]*)\s*\(/g)) if (!PLAN_WORDS.has(m[1])) found.add(m[1]);
+  };
+  const walk = (v: unknown): void => {
+    if (typeof v === "string") { scan(v); return; }
+    if (Array.isArray(v)) { v.forEach(walk); return; }
+    if (v && typeof v === "object") Object.values(v as Record<string, unknown>).forEach(walk);
+  };
+  walk(plan);
+  return [...found];
+}
+
 class CheckRefused extends Error {}
 
 // Thrown to end a check's transaction with a rollback whatever happened inside it, carrying the result out.
@@ -51,9 +73,13 @@ type Hit = { raise: boolean; title: string; body: string } | null;
  * writes cannot even be parsed, and rolled back whatever happens. $1 is today in the business's time
  * zone and $2 is now.
  */
-export async function runCheckSql(db: Db, check: CheckDecl, today: string, now: Date): Promise<Hit> {
+export async function runCheckSql(
+  db: Db, check: CheckDecl, today: string, now: Date,
+  // Tests only: widen the function list to prove the read-only transaction and the rollback hold alone.
+  layers: { functions?: ReadonlySet<string> } = {},
+): Promise<Hit> {
   try {
-    await db.transaction(async (tx) => { throw new RolledBack(await readCheck(tx, check, today, now)); }, { readOnly: true });
+    await db.transaction(async (tx) => { throw new RolledBack(await readCheck(tx, check, today, now, layers.functions ?? CHECK_FUNCTIONS)); }, { readOnly: true });
   } catch (e) {
     if (e instanceof RolledBack) return e.value as Hit;
     throw e;
@@ -63,14 +89,19 @@ export async function runCheckSql(db: Db, check: CheckDecl, today: string, now: 
 
 // This, not the Key checker, is the boundary: one wrapped statement with parameters (so a second statement
 // cannot run), in a read-only transaction with a statement limit, always rolled back.
-async function readCheck(tx: Tx, check: CheckDecl, today: string, now: Date): Promise<Hit> {
+async function readCheck(tx: Tx, check: CheckDecl, today: string, now: Date, functions: ReadonlySet<string>): Promise<Hit> {
   const inner = check.sql.trim().replace(/;\s*$/, "");
   const sql = `select * from (${inner}) as check_result where $1::date is not null and $2::timestamptz is not null`;
   const params = [today, now];
   await tx.exec(`set local statement_timeout = '${STATEMENT_TIMEOUT}'`);
   const [plan] = await tx.query<Record<string, unknown>>(`explain (format json, verbose) ${sql}`, params);
+  // Postgres has parsed the statement, resolved views, CTEs and names: its plan is what will run.
   for (const r of planRelations(plan?.["QUERY PLAN"])) {
-    if (r.schema !== "public" || !check.reads.includes(r.name)) throw new CheckRefused(`reads ${r.schema}.${r.name}, which is not in its reads list`);
+    const ok = r.schema === "public" && check.reads.includes(r.name) && (check.may_read ?? []).includes(r.name) && !NEVER_READ.has(r.name) && /^[a-z]/.test(r.name);
+    if (!ok) throw new CheckRefused(`reads ${r.schema}.${r.name}, which is not in its reads list`);
+  }
+  for (const f of planFunctions(plan?.["QUERY PLAN"])) {
+    if (!functions.has(f)) throw new CheckRefused(`calls ${f}, which checks may not use`);
   }
   const rows = await tx.query<{ raise?: unknown; title?: unknown; body?: unknown }>(sql, params);
   if (rows.length === 0) return null;

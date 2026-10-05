@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, cpSync, 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { FIELD_TYPES, checkKeyFolder } from "@/lib/key/formats";
-import { SQL_TYPE, tablesFromSql, compareDefinition, rlsProblems, personFields, personFieldProblems } from "@/lib/key/schema";
+import { SQL_TYPE, tablesFromSql, compareDefinition, rlsProblems, personFields, personFieldProblems, ownedPersonRefs, CORE_TABLES } from "@/lib/key/schema";
 import { openPglite } from "@/lib/db/pglite";
 import { migrate } from "@/lib/db/migrate";
 
@@ -226,6 +226,37 @@ describe("person fields", () => {
     expect(out([{ key: "owner_id", type: "number" }])).toMatch(/holds a team member's id, so its type must be text/);
     expect(personFieldProblems("d.yaml", def([], { forget: "archive" })).join()).toMatch(/forget must be delete or blank/);
     expect(out([{ key: "work_email", type: "email" }, { key: "manager_id", type: "text" }])).toBe("");
+  });
+  it("keeps person fields to the declaring app's own tables", () => {
+    const app = (slug: string, entities: unknown[], sql: string) => ({ slug, file: `key/apps/${slug}/definition.yaml`, definition: { app: slug, entities }, migrationsSql: [sql] });
+    const mine = "create table things (id uuid primary key, contact_email text, created_at timestamptz, updated_at timestamptz)";
+    const { refs, problems } = ownedPersonRefs([
+      app("a", [{ key: "things", fields: [{ key: "contact_email", type: "email" }] }, { key: "opt_outs", fields: [{ key: "email", type: "email" }] }], mine),
+      app("b", [{ key: "things", fields: [{ key: "contact_email", type: "email" }] }, { key: "own", fields: [{ key: "id", type: "email" }] }],
+        "alter table things add column x text; create table own (id text primary key)"),
+    ]);
+    expect(refs.map((r) => `${r.app}:${r.table}.${r.column}`)).toEqual(["a:things.contact_email"]);
+    const text = problems.join("\n");
+    expect(text).toMatch(/entity "opt_outs": field "email" is on a core table/);
+    expect(text).toMatch(/b\/definition.yaml: entity "things": field "contact_email" is on a table this app's migrations do not create/);
+    expect(text).toMatch(/entity "own": field "id" is a system column/);
+    // Two apps creating one table: neither may use it.
+    const both = ownedPersonRefs([app("a", [{ key: "things", fields: [{ key: "contact_email", type: "email" }] }], mine), app("b", [{ key: "things", fields: [{ key: "contact_email", type: "email" }] }], mine)]);
+    expect(both.refs).toEqual([]);
+    expect(both.problems.join()).toMatch(/a and b both create/);
+  });
+  it("lists every core table as off limits", async () => {
+    const dir = path.join(root, "core/db/migrations");
+    const sql = readdirSync(dir).filter((f) => f.endsWith(".sql")).map((f) => readFileSync(path.join(dir, f), "utf8")).join("\n;\n");
+    const core = Object.keys(tablesFromSql(sql));
+    for (const t of core) expect(CORE_TABLES).toContain(t);
+  });
+  it("fails the Key checker on an app that declares a person field on a core table", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "person-own-"));
+    cpSync(path.join(root, "tests/fixtures/key-ext"), dir, { recursive: true });
+    const f = path.join(dir, "key/apps/leads-demo/definition.yaml");
+    writeFileSync(f, readFileSync(f, "utf8").replace("entities:\n", "entities:\n  - key: opt_outs\n    name: Opt out\n    fields:\n      - { key: email, name: Email, type: email }\n"));
+    expect((await checkKeyFolder(dir)).join("\n")).toMatch(/entity "opt_outs": field "email" is on a core table/);
   });
   it("fails the Key checker on an installed app with a person field outside the rule", async () => {
     const dir = mkdtempSync(path.join(tmpdir(), "person-rule-"));

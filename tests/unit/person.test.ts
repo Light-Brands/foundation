@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { coreDb, KEY_EXT, ROOT } from "../support/db";
@@ -102,6 +102,77 @@ async function seeded(): Promise<Seeded> {
 
 const count = async (db: Db, table: string) => (await db.query<{ n: number }>(`select count(*)::int as n from ${table}`))[0].n;
 
+// An installed app that declares person fields on tables it does not own: a core table, another app's table, a
+// table it only alters, and a system column. None of them may ever be reached by forget or export.
+const INTRUDER_DEF = `app: intruder-demo
+name: Intruder demo
+category: team
+runtime: custom_app
+entities:
+  - key: opt_outs
+    name: Opt out
+    fields:
+      - { key: email, name: Email, type: email }
+  - key: core_settings
+    name: Setting
+    fields:
+      - { key: value, name: Value, type: email }
+  - key: invoices_demo
+    name: Invoice
+    fields:
+      - { key: contact_email, name: Contact email, type: email }
+  - key: leads_demo
+    name: Lead
+    fields:
+      - { key: contact_email, name: Contact email, type: email }
+  - key: intruder_notes
+    name: Note
+    fields:
+      - { key: id, name: Id, type: email }
+      - { key: contact_email, name: Contact email, type: email }
+migrations: migrations/
+`;
+const INTRUDER_SQL = `create table if not exists intruder_notes (id text primary key, contact_email text, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
+alter table intruder_notes enable row level security;
+alter table leads_demo add column if not exists intruder_flag text;`;
+
+function withIntruder(root: string): void {
+  mkdirSync(path.join(root, "key/apps/intruder-demo/migrations"), { recursive: true });
+  writeFileSync(path.join(root, "key/apps/intruder-demo/definition.yaml"), INTRUDER_DEF);
+  writeFileSync(path.join(root, "key/apps/intruder-demo/migrations/0001_intruder_demo_create.sql"), INTRUDER_SQL);
+  const ring = path.join(root, "key/key.yaml");
+  writeFileSync(ring, readFileSync(ring, "utf8").replace("routines: []", "  - slug: intruder-demo\n    definition: apps/intruder-demo/definition.yaml\n    category: team\nroutines: []"));
+}
+
+describe("person fields reach only the declaring app's own tables", () => {
+  it("never collects a core table, another app's table, an altered table or a system column", async () => {
+    const root = personRoot();
+    withIntruder(root);
+    const refs = await installedPersonRefs(root);
+    const intruder = refs.filter((r) => r.app === "intruder-demo").map((r) => `${r.table}.${r.column}`);
+    expect(intruder).toEqual(["intruder_notes.contact_email"]);
+    // The installed apps' own refs stay.
+    expect(refs.some((r) => r.app === "team-demo" && r.table === "invoices_demo")).toBe(true);
+    expect(refs.some((r) => r.app === "leads-demo" && r.table === "leads_demo")).toBe(true);
+  });
+  it("forget under an intruding declaration leaves core tables and other apps' kept rows alone", async () => {
+    const x = await seeded();
+    withIntruder(x.root);
+    await migrate(x.db, path.join(x.root, "key/apps/intruder-demo/migrations"), "intruder-demo");
+    const refs = await installedPersonRefs(x.root);
+    await optOut(x.db, { email: "zed@harbor.example", source: "owner", scope: "all" }, NOW);
+    const r = await forgetPerson(x.db, x.kinds, refs, "ada@harbor.example", NOW, OWNER);
+    if (r.status !== "card_raised") throw new Error("no card");
+    await decideCard(x.db, x.kinds, { cardId: r.cardId, decision: "approve", actor: PIN_OWNER }, NOW);
+    expect(await forgetPerson(x.db, x.kinds, refs, "ada@harbor.example", NOW, OWNER)).toMatchObject({ status: "forgotten" });
+    // team-demo keeps its invoices with the address blanked: the intruder's delete never ran on them.
+    expect(await count(x.db, "invoices_demo")).toBe(2);
+    expect(await count(x.db, "core_settings")).toBe(1);
+    expect(await count(x.db, "opt_outs")).toBe(2);
+    await x.db.close();
+  });
+});
+
 describe("export", () => {
   it("exports one person whole, and nobody else", async () => {
     const { db, refs, ids } = await seeded();
@@ -140,6 +211,46 @@ describe("export", () => {
 });
 
 describe("forget", () => {
+  /** Raises Ada's card and approves it, so the next forgetPerson carries it out. */
+  async function approvedForget(x: Seeded) {
+    const r = await forgetPerson(x.db, x.kinds, x.refs, "ada@harbor.example", NOW, OWNER);
+    if (r.status !== "card_raised") throw new Error("no card");
+    await decideCard(x.db, x.kinds, { cardId: r.cardId, decision: "approve", actor: PIN_OWNER }, NOW);
+  }
+  it("waits while an email to the person is being sent, and changes nothing", async () => {
+    const x = await seeded();
+    await approvedForget(x);
+    await x.db.query("update outbox set status = 'approved', approved_at = $1 where send_key = 'k/Ada'", [NOW]);
+    await x.db.query("update outbox set status = 'sending', claimed_at = $1 where send_key = 'k/Ada'", [NOW]);
+    expect(await forgetPerson(x.db, x.kinds, x.refs, "ada@harbor.example", NOW, OWNER)).toEqual({ status: "sending" });
+    expect(await count(x.db, "contacts")).toBe(2);
+    expect(await count(x.db, "opt_outs")).toBe(0);
+    expect(await x.db.query("select status from inbox_items where kind = 'person-forget'")).toEqual([{ status: "decided" }]);
+    // Once the send settles, the same approved card carries it out.
+    await x.db.query("update outbox set status = 'sent', sent_at = $1 where send_key = 'k/Ada'", [NOW]);
+    expect(await forgetPerson(x.db, x.kinds, x.refs, "ada@harbor.example", NOW, OWNER)).toMatchObject({ status: "forgotten" });
+    await x.db.close();
+  });
+  it("blanks every detail of a sent email, the send key, error, provider reference and source among them", async () => {
+    const x = await seeded();
+    await approvedForget(x);
+    await x.db.query("update outbox set status = 'approved', approved_at = $1, source_app = 'leads-demo', source_id = 'ada-row' where send_key = 'k/Ada'", [NOW]);
+    await x.db.query("update outbox set status = 'sending', claimed_at = $1 where send_key = 'k/Ada'", [NOW]);
+    await x.db.query("update outbox set status = 'sent', provider_ref = 'ref-ada@harbor.example', last_error = 'retry for ada@harbor.example', sent_at = $1 where send_key = 'k/Ada'", [NOW]);
+    // A second sent email to the same person, so two blanked send keys must not clash.
+    const d = await draftEmail(x.db, { to: "ada@harbor.example", subject: "Again", body: "x", sendKey: "k/Ada/2" });
+    if (d.status !== "drafted") throw new Error("not drafted");
+    await x.db.query("update outbox set status = 'sent', sent_at = $1 where id = $2", [NOW, d.id]);
+    expect(await forgetPerson(x.db, x.kinds, x.refs, "ada@harbor.example", NOW, OWNER)).toMatchObject({ status: "forgotten" });
+    const rows = await x.db.query<Record<string, unknown>>("select id, to_email, subject, body, send_key, last_error, provider_ref, source_id, status from outbox where to_email <> 'bo@harbor.example' order by send_key");
+    expect(rows).toHaveLength(2);
+    for (const r of rows) {
+      expect(r).toMatchObject({ to_email: "", subject: "", body: "", last_error: "", provider_ref: null, source_id: null, status: "sent" });
+      expect(r.send_key).toBe(`forgotten:${r.id}`);
+    }
+    expect(JSON.stringify(rows)).not.toMatch(/ada|k\/Ada/i);
+    await x.db.close();
+  });
   it("raises a card first and changes nothing", async () => {
     const { db, kinds, refs } = await seeded();
     const first = await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER);

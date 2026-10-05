@@ -1,10 +1,11 @@
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Db, Queryable } from "@/lib/db/types";
 import type { KindRegistry } from "@/lib/data/card-kinds";
 import { writeCard } from "@/lib/data/cards";
 import { readEnv } from "@/lib/env";
 import { emailHash, InvalidEmailError, MissingSecretError, normalizeEmail, normalizedEmailSql as N } from "@/lib/email";
-import { personFields, type PersonRef } from "@/lib/key/schema";
+import { ownedPersonRefs, type InstalledApp, type PersonRef } from "@/lib/key/schema";
 import { readSources } from "@/lib/key/declarations";
 import { allows, type Actor } from "@/lib/auth/roles";
 import { checkSecretFingerprint, SecretMismatchError } from "@/lib/data/secret-check";
@@ -60,11 +61,22 @@ function whoOf(email: string, secret: string | null | undefined): { n: string; h
   return { n, hash, key: key as string };
 }
 
+/**
+ * The person fields of every installed app, each only on a table that app's own migrations create (ownedPersonRefs
+ * in src/lib/key/schema.ts), so no declaration can point forget or export at a core table, another app's table or
+ * a system column. Read from the app's migrations folder beside its definition, as the Key checker reads it.
+ */
 export async function installedPersonRefs(root: string): Promise<PersonRef[]> {
   const { sources } = await readSources(root);
-  const refs: PersonRef[] = [];
-  for (const s of sources) if (s.type === "app") refs.push(...personFields(s.data, s.slug));
-  return refs;
+  const apps: InstalledApp[] = [];
+  for (const s of sources) {
+    if (s.type !== "app") continue;
+    const dir = path.join(root, path.dirname(s.file), "migrations");
+    let names: string[] = [];
+    try { names = (await readdir(dir)).filter((f) => f.endsWith(".sql")).sort(); } catch { /* no migrations: no tables of its own */ }
+    apps.push({ slug: s.slug, file: s.file, definition: s.data, migrationsSql: await Promise.all(names.map((f) => readFile(path.join(dir, f), "utf8"))) });
+  }
+  return ownedPersonRefs(apps).refs;
 }
 
 const CARDS_ABOUT = "kind <> 'person-forget' and (contact_id = any($1::uuid[]) or title ~* $2 or body ~* $2 or meta::text ~* $2)";
@@ -102,6 +114,10 @@ async function findCore(db: Queryable, n: string, hash: string): Promise<{ ids: 
       opt_outs: await db.query(`select * from opt_outs where ${OPT_OUT_OF}`, [hash, n]),
     },
   };
+}
+
+async function contactIds(db: Queryable, n: string): Promise<string[]> {
+  return (await db.query<{ id: string }>(`select id from contacts where ${N("email")} = $1`, [n])).map((c) => c.id);
 }
 
 /** The person's ids as a team member: the ids of the people rows whose email field is theirs. */
@@ -209,7 +225,7 @@ export function forgetSummary(counts: ForgetCounts): string {
 export type ForgetOutcome =
   | { status: "owner_only" } | { status: "nothing" } | { status: "has_account" }
   | { status: "card_raised"; cardId: string; previous: "none" | "declined" | "closed" | "forgotten" }
-  | { status: "waiting" } | { status: "done_before" } | { status: "forgotten"; counts: ForgetCounts };
+  | { status: "waiting" } | { status: "sending" } | { status: "done_before" } | { status: "forgotten"; counts: ForgetCounts };
 
 const reEscape = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -279,10 +295,14 @@ async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: 
   if (card.status === "done") return raiseForgetCard(db, kinds, refs, email, nextKey, "forgotten", now, opts);
   // Approved and not yet carried out: do it now, in one transaction.
   const pattern = addressPattern(n);
-  const counts = await db.transaction(async (tx) => {
+  const counts = await db.transaction(async (tx): Promise<ForgetCounts | null> => {
     const c: ForgetCounts = {};
     const bump = (k: string, by: number) => { if (by) c[k] = (c[k] ?? 0) + by; };
     await checkSecretFingerprint(tx, key);
+    // A sender holding an email to the person right now would mark it sent with the address still on it. Lock the
+    // person's rows, so no sender takes one meanwhile, and wait while any is sending.
+    const held = await tx.query<{ status: string }>(`select status from outbox where ${OUTBOX_TO("$1", "$2")} for update`, [n, await contactIds(tx, n)]);
+    if (held.some((o) => o.status === "sending")) return null;
     const { ids } = await findCore(tx, n, hash);
     // Team ids are read before the people rows go.
     const team = await teamIds(tx, refs, n);
@@ -290,9 +310,14 @@ async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: 
       `update inbox_items set contact_id = null, title = 'A forgotten person', body = '', meta = '{}'::jsonb where ${CARDS_ABOUT} returning id`,
       [ids, pattern],
     )).length);
-    // A sent email is a record that stays, blanked. One a sender holds right now is blanked too, never pulled away.
-    bump("outbox", (await tx.query(`delete from outbox where ${OUTBOX_TO("$1", "$2")} and status not in ('sent', 'sending') returning id`, [n, ids])).length);
-    bump("outbox", (await tx.query(`update outbox set to_email = '', subject = '', body = '' where ${OUTBOX_TO("$1", "$2")} and status in ('sent', 'sending') returning id`, [n, ids])).length);
+    // A sent email is a record that stays, with every detail blanked. Its send key becomes forgotten:<id>, because
+    // send keys are unique and the old one may name the person.
+    bump("outbox", (await tx.query(`delete from outbox where ${OUTBOX_TO("$1", "$2")} and status <> 'sent' returning id`, [n, ids])).length);
+    bump("outbox", (await tx.query(
+      `update outbox set to_email = '', subject = '', body = '', send_key = 'forgotten:' || id::text, last_error = '', provider_ref = null, source_id = null
+        where ${OUTBOX_TO("$1", "$2")} and status = 'sent' returning id`,
+      [n, ids],
+    )).length);
     // App rows: the person's team member id is blanked wherever it appears, and a row that holds their address is
     // deleted, or kept with the address blanked where its entity says forget: blank. One row counts once per table.
     const touched: Record<string, Set<string>> = {};
@@ -317,7 +342,7 @@ async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: 
     if (closed.length !== 1) throw new Error("The forget card changed while forgetting. Nothing was removed.");
     return c;
   });
-  return { status: "forgotten", counts };
+  return counts === null ? { status: "sending" } : { status: "forgotten", counts };
 }
 
 /**

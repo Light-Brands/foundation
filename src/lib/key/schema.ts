@@ -231,6 +231,60 @@ export function personFields(definition: unknown, app: string): PersonRef[] {
   return refs;
 }
 
+/**
+ * Core's own tables. No app may declare an entity on one, so forget and export never reach them through a Key
+ * declaration. A name starting with _ or pg_ is reserved too. tests/unit/key-schema.test.ts keeps this list equal
+ * to the tables the core migrations create.
+ */
+export const CORE_TABLES = [
+  "_migrations", "accounts", "business_profile", "check_runs", "connections", "contacts", "core_settings", "form_counts",
+  "form_hits", "inbox_items", "opt_outs", "outbox", "pause", "webhook_events",
+] as const;
+const isCoreTable = (t: string) => (CORE_TABLES as readonly string[]).includes(t) || t.startsWith("_") || t.startsWith("pg_");
+
+/** The tables an app's migrations create, with their columns. A table they only alter is not theirs. */
+function createdTables(sql: string[]): Record<string, Set<string>> {
+  const out: Record<string, Set<string>> = {};
+  for (const text of sql) {
+    for (const stmt of splitTop(stripComments(text), ";")) {
+      if (!CREATE_TABLE.test(stmt)) continue;
+      for (const [t, cols] of Object.entries(tablesFromSql(stmt))) out[t] = new Set([...(out[t] ?? []), ...Object.keys(cols)]);
+    }
+  }
+  return out;
+}
+
+export type InstalledApp = { slug: string; file: string; definition: unknown; migrationsSql: string[] };
+
+/**
+ * The person fields forget and export may use, and the problems that keep the rest out. A ref is kept only when
+ * its entity is a table that this app's own migrations create, that no other installed app creates, that is not
+ * a core table, and that holds the column, and when the column is not a system column and the entity has no
+ * person field outside the naming rule. Run at load by installedPersonRefs and at check time by the Key checker,
+ * so a declaration the checker refuses is never used.
+ */
+export function ownedPersonRefs(apps: InstalledApp[]): { refs: PersonRef[]; problems: string[] } {
+  const created = apps.map((a) => ({ a, tables: createdTables(a.migrationsSql) }));
+  const creators: Record<string, string[]> = {};
+  for (const { a, tables } of created) for (const t of Object.keys(tables)) (creators[t] ??= []).push(a.slug);
+  const refs: PersonRef[] = [];
+  const problems: string[] = [];
+  for (const { a, tables } of created) {
+    const entityProblems = new Set(personFieldProblems(a.file, a.definition).map((p) => /entity "([^"]*)"/.exec(p)?.[1] ?? ""));
+    for (const r of personFields(a.definition, a.slug)) {
+      const at = `${a.file}: entity "${r.table}": field "${r.column}"`;
+      const owners = creators[r.table] ?? [];
+      if (isCoreTable(r.table)) problems.push(`${at} is on a core table. An app keeps people only in tables its own migrations create`);
+      else if (!tables[r.table]) problems.push(`${at} is on a table this app's migrations do not create, so forget and export never use it`);
+      else if (owners.length > 1) problems.push(`${at} is on a table that ${owners.join(" and ")} both create. Each table belongs to one app`);
+      else if ((Object.keys(SYSTEM_COLUMNS) as string[]).includes(r.column)) problems.push(`${at} is a system column and cannot hold a person`);
+      else if (!tables[r.table].has(r.column)) problems.push(`${at} is not a column of the table`);
+      else if (!entityProblems.has(r.table)) refs.push(r);
+    }
+  }
+  return { refs, problems: [...new Set(problems)] };
+}
+
 const TEAMISH_ID = /(^|_)(person|owner|manager|member|employee|staff|assignee|user|teammate)_id$/;
 
 export function personFieldProblems(file: string, definition: unknown): string[] {

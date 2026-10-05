@@ -6,7 +6,7 @@ import { parseFrontMatter, SLUG } from "./frontmatter";
 import { CORE_TABLES, readDeclarations } from "./declarations";
 import { checkWebhook } from "@/lib/hooks/declaration";
 import { checkSender, SENDER_FILE } from "@/lib/outbox/sender";
-import { compareDefinition, personFieldProblems, rlsProblems } from "@/lib/key/schema";
+import { compareDefinition, ownedPersonRefs, personFieldProblems, rlsProblems, type InstalledApp } from "@/lib/key/schema";
 
 export const COMMIT_ID = /^[0-9a-f]{40}$/;
 export const CHARTER_HEADINGS = ["Role", "Who I serve", "How I work", "What I know", "What I never do", "Tasks", "Skills", "Memory"];
@@ -326,6 +326,7 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
     if (fm && str(fm.data.trigger) === "record_change") recordChange.push({ file: rel(f), entity: str(fm.data.entity) });
   }
   const entities = new Set<string>();
+  const installed: InstalledApp[] = [];
   for (const f of await files(path.join(key, "apps"), "definition.yaml")) {
     const text = await read(f);
     problems.push(...checkDefinition(rel(f), text, slugs));
@@ -333,7 +334,11 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
     const sql = await Promise.all(migrations.map(read));
     problems.push(...compareDefinition(rel(f), text, sql));
     problems.push(...rlsProblems(rel(f), sql));
-    try { problems.push(...personFieldProblems(rel(f), parse(text))); } catch { /* checkDefinition reports invalid YAML */ }
+    try {
+      const parsed: unknown = parse(text);
+      problems.push(...personFieldProblems(rel(f), parsed));
+      installed.push({ slug: path.basename(path.dirname(f)), file: rel(f), definition: parsed, migrationsSql: sql });
+    } catch { /* checkDefinition reports invalid YAML */ }
     let def: unknown;
     try { def = parse(text); } catch { def = undefined; }
     if (isObj(def)) {
@@ -342,6 +347,8 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
       for (const e of list(def.entities)) if (isObj(e) && str(e.key)) entities.add(str(e.key));
     }
   }
+  // Person fields only on the declaring app's own tables, the same rule installedPersonRefs applies at load.
+  problems.push(...ownedPersonRefs(installed).problems);
   for (const r of recordChange) {
     if (!entities.has(r.entity)) problems.push(`${r.file}: record_change entity "${r.entity}" is not defined by any app`);
   }

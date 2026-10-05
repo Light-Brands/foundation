@@ -23,6 +23,7 @@ const SAID: Record<Exclude<ForgetOutcome["status"], "forgotten">, string> = {
   has_account: "This person still has an account. Remove it first with npm run accounts -- remove, then run this again.",
   card_raised: "A card is waiting in your Inbox listing what will be removed. Approve it, then run this again.",
   waiting: "The card in your Inbox still waits for your decision. Approve it, then run this again.",
+  sending: "An email to this person is being sent right now. Wait a minute, then run this again.",
   done_before: "This person was already forgotten, and nothing new is held about them.",
 };
 

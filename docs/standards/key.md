@@ -296,6 +296,31 @@ export function handle(event: unknown): void | Promise<void>;
 - **Make `handle` idempotent.** When `handle` throws, the record is deleted and the provider gets 500, so its retry runs `handle` again on the same event, after whatever the first attempt already wrote. Why: a failed attempt that half wrote must not leave two records or two charges when it runs again.
 - **Write verifiers in TypeScript that Node's type stripping supports, and import only `node:` built-ins.** Type annotations and `type` declarations are fine. Never use `enum`, `namespace`, parameter properties or the `@/` alias. Why: the running server imports the file as it is, with no build step, and anything type stripping cannot erase fails to import.
 
+## Email sender
+
+The email-sending connection gives core its sender. `key/connections/email-sending.yaml` declares a `sender` block naming the setting that holds the provider's key, and the code is `key/connections/email-sending/send.ts`.
+
+```yaml
+connection: email-sending
+name: Email sending
+sender:
+  secret_setting: RESEND_API_KEY
+```
+
+```ts
+type SenderContext = { secret: string; now: Date };
+export function send(email: OutgoingEmail, ctx: SenderContext): Promise<{ providerRef: string }>;
+export function lookup(ref: string, ctx: SenderContext): Promise<"sent" | "unknown">;
+export function bounces(ctx: SenderContext & { events: { eventId: string; receivedAt: string }[] }): Promise<{ email: string; kind: "bounce" | "complaint" }[]>;
+```
+
+`drainOutbox` in `src/lib/outbox/drain.ts` runs from the host's schedule (after the checks, behind `CRON_SECRET`) and from `npm run outbox:send` on the owner's computer. It runs only while `emailSendingActive` says the connection is `connected` and the pause switch is off. It loads `send.ts`, hands `bounces` the kept webhook events for email-sending that no earlier call read (up to 500), records each address it returns as an opt-out from all email and marks those events handled, then resolves rows left in sending with `lookup` (given the provider's reference when one was recorded, else the row's `send_key`), then sends approved rows. `ctx.secret` is the value of the named setting. An install marks the connection with `npm run connection:set -- email-sending connected`, or `failing` with `--note <text>`. The fixture sender `tests/fixtures/key-ext/key/connections/email-sending/send.ts` follows every rule below.
+
+- **Declare the sender only on email-sending, with `secret_setting`, and keep `send.ts` in `key/connections/email-sending/`.** The Key checker reports a sender on any other connection, a missing `send.ts`, and a setting that is not a name in capitals or is a public or core one. The app loads `send.ts` only when the real paths of the folder and the file stay inside `key/`, and one that is missing, outside or fails to import is skipped with one line in the log. Why: code that sends from the business's own address must come only from the Key's own folder, and the Foundation's own settings must never be handed to a Key's code.
+- **Pass the row's `send_key` to the provider as its idempotency key, and give up well under 15 minutes.** Why: a send the outbox cannot confirm is resolved by `lookup`, and only the idempotency key lets the provider say whether it took the email.
+- **Never put `ctx.secret` in an error message.** The drain also removes it from every line it logs and every note it stores. Why: an error message is shown to the owner on the row and written to the log.
+- **Write `send.ts` in TypeScript that Node's type stripping supports, and import only `node:` built-ins.** Why: the running server imports the file as it is, with no build step.
+
 ## Checks
 
 An app's `definition.yaml` or a routine's front matter declares its checks, under `checks`. A check is SQL the Foundation runs read-only, at most once per period, raising at most one card. A routine that declares checks names the app it acts for with a top-level `app: <slug>`. A check that reads another app's table names that app in a top-level `uses_apps` in the same file. The install writes `uses_apps` from the entry's `uses`, and the Key checker refuses an app there that is not installed. An app written `{app: <slug>, optional: true}` may be absent: while it is, a check that reads its tables is skipped each period with a record in `check_runs` and no card, and once it is installed the check runs like any other.

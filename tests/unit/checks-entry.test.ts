@@ -8,6 +8,9 @@ const runChecks = vi.fn(async () => ({ paused: false, outcomes: [{ slug: "a", re
 vi.mock("@/lib/checks/runner", async (orig) => ({ ...(await orig<typeof import("@/lib/checks/runner")>()), runChecks: (...a: unknown[]) => (runChecks as (...x: unknown[]) => unknown)(...a) }));
 vi.mock("@/lib/checks/deps", () => ({ checkDeps: async (db: unknown) => ({ db, kinds: new Map(), checks: [{}], timezone: "UTC" }) }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
+const order: string[] = [];
+const drainOutbox = vi.fn(async () => { order.push("drain"); return { status: "ran", sent: 2, failed: 0, refused: 0, bounced: 0, recovered: { sent: 0, failed: 0 } }; });
+vi.mock("@/lib/outbox/drain", () => ({ drainOutbox: (...a: unknown[]) => (drainOutbox as (...x: unknown[]) => unknown)(...a) }));
 const env = { cronSecret: "s".repeat(32) as string | null };
 vi.mock("@/lib/env", () => ({ readEnv: () => env }));
 const { allows } = vi.hoisted(() => ({ allows: vi.fn((...a: unknown[]) => a.length > 0) }));
@@ -20,7 +23,7 @@ vi.mock("@/lib/auth/roles", async (orig) => {
 import { runChecksAction } from "@/app/(console)/actions";
 import { GET } from "@/app/api/cron/checks/route";
 
-beforeEach(() => { getDb.mockReset(); runChecks.mockClear(); });
+beforeEach(() => { getDb.mockReset(); runChecks.mockClear(); drainOutbox.mockClear(); order.length = 0; });
 
 describe("runChecksAction", () => {
   it("runChecksAction refuses without a session", async () => {
@@ -60,12 +63,23 @@ describe("the cron route", () => {
     const res = await GET(new Request("http://localhost/api/cron/checks"));
     expect(res.status).toBe(401);
     expect(runChecks).not.toHaveBeenCalled();
+    expect(drainOutbox).not.toHaveBeenCalled();
   });
   it("runs with the secret", async () => {
     getDb.mockResolvedValue({});
     const res = await GET(new Request("http://localhost/api/cron/checks", { headers: { authorization: `Bearer ${"s".repeat(32)}` } }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, paused: false, ran: 1 });
+    expect(await res.json()).toEqual({ ok: true, paused: false, ran: 1, outbox: { status: "ran", sent: 2 } });
+  });
+  it("drains the outbox after the checks, with the database, the host's settings and now", async () => {
+    getDb.mockResolvedValue({ tag: "db" });
+    runChecks.mockImplementationOnce(async () => { order.push("checks"); return { paused: false, outcomes: [], lapsed: { closed: 0, raised: 0 } }; });
+    await GET(new Request("http://localhost/api/cron/checks", { headers: { authorization: `Bearer ${"s".repeat(32)}` } }));
+    expect(order).toEqual(["checks", "drain"]);
+    const [db, envArg, now] = drainOutbox.mock.calls[0] as unknown as [unknown, unknown, Date];
+    expect(db).toEqual({ tag: "db" });
+    expect(envArg).toBe(process.env);
+    expect(now).toBeInstanceOf(Date);
   });
   it("lets nothing in the request choose the check, the period or the time", async () => {
     getDb.mockResolvedValue({ tag: "db" });
@@ -82,6 +96,7 @@ describe("the cron route", () => {
         expect((await GET(new Request("http://localhost/api/cron/checks", { headers: { authorization: auth } }))).status).toBe(401);
       }
       expect(runChecks).not.toHaveBeenCalled();
+      expect(drainOutbox).not.toHaveBeenCalled();
     } finally {
       env.cronSecret = "s".repeat(32);
     }

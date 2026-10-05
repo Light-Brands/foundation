@@ -5,6 +5,7 @@ import { CATEGORIES } from "@/lib/layout/categories";
 import { parseFrontMatter, SLUG } from "./frontmatter";
 import { CORE_TABLES, readDeclarations } from "./declarations";
 import { checkWebhook } from "@/lib/hooks/declaration";
+import { checkSender, SENDER_FILE } from "@/lib/outbox/sender";
 import { compareDefinition, rlsProblems } from "@/lib/key/schema";
 
 export const COMMIT_ID = /^[0-9a-f]{40}$/;
@@ -397,6 +398,11 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
     problems.push(...hook.problems);
     if (hook.decl && !(await exists(path.join(key, "connections", name, hook.decl.verifier)))) {
       problems.push(`${rel(f)}: webhook verifier ${hook.decl.verifier} is not in key/connections/${name}/`);
+    }
+    const sender = checkSender(rel(f), name, data);
+    problems.push(...sender.problems);
+    if (sender.decl && !(await exists(path.join(key, "connections", name, SENDER_FILE)))) {
+      problems.push(`${rel(f)}: sender ${SENDER_FILE} is not in key/connections/${name}/`);
     }
   }
   for (const f of await files(path.join(key, "runs"), ".md")) problems.push(...checkRunBrief(rel(f), await read(f)));

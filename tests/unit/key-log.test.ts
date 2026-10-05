@@ -9,7 +9,7 @@ import { checkLogText } from "@/lib/key/formats";
 const entry: LogEntry = {
   at: "2026-10-05 14:02", title: "Booking reminders", kind: "lesson", category: "Deliver · Booking",
   what: "reminders go out 24 hours and 1 hour before each session",
-  files: ["key/apps/booking/definition.yaml", "key/workflows/booking-reminders.md"],
+  files: ["key/apps/booking/definition.yaml", "key/routines/booking-reminders.md"],
   commit: "3f2a91c", checked: "the reminder test passed on a real booking", by: "claude",
 };
 

@@ -11,7 +11,7 @@ One file per month, named `key/log/<YYYY-MM>.md`. Entries are only added, newest
 - Kind: lesson | module | connection | setup | change
 - Category: Deliver · Booking
 - What changed: reminders go out 24 hours and 1 hour before each session
-- Files: key/apps/booking/definition.yaml, key/workflows/booking-reminders.md
+- Files: key/apps/booking/definition.yaml, key/routines/booking-reminders.md
 - Commit: 3f2a91c
 - Checked: the reminder test passed on a real booking
 - By: claude | member | light-brands

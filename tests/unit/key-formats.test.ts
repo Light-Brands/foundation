@@ -3,7 +3,7 @@ import { readFileSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
-  checkKeyFolder, checkKeyYaml, checkCharter, checkSkill, checkWorkflow, checkDefinition, checkLogText, parseFrontMatter,
+  checkKeyFolder, checkKeyYaml, checkCharter, checkSkill, checkRoutine, checkDefinition, checkLogText, parseFrontMatter,
 } from "@/lib/key/formats";
 import { parse } from "yaml";
 import { contextBlockFromProfile } from "@/lib/key/context-block";
@@ -47,7 +47,7 @@ A quote.
 ## Check
 The total matches.
 `;
-const workflow = `---
+const routine = `---
 name: Nightly follow-up
 agent: care
 category: keep
@@ -76,7 +76,7 @@ entities:
       - { key: stage, name: Stage, type: select, options: [new, active] }
       - { key: notes, name: Notes, type: text }
 automations:
-  - { workflow: nightly-follow-up }
+  - { routine: nightly-follow-up }
 migrations: migrations/
 `;
 const keyYaml = `key: 1
@@ -88,7 +88,7 @@ roster:
   - { persona: Mara, role: care, charter: agents/care/charter.md }
 skills: [{ slug: send-quote, path: skills/send-quote/SKILL.md }]
 apps: [{ slug: clients, definition: apps/clients/definition.yaml, category: keep }]
-workflows: [{ slug: nightly-follow-up, path: workflows/nightly-follow-up.md, category: keep }]
+routines: [{ slug: nightly-follow-up, path: routines/nightly-follow-up.md, category: keep }]
 `;
 
 function keyRoot(over: Record<string, string | null> = {}): string {
@@ -97,7 +97,7 @@ function keyRoot(over: Record<string, string | null> = {}): string {
     "key/key.yaml": keyYaml,
     "key/agents/care/charter.md": charter,
     "key/skills/send-quote/SKILL.md": skill,
-    "key/workflows/nightly-follow-up.md": workflow,
+    "key/routines/nightly-follow-up.md": routine,
     "key/apps/clients/definition.yaml": definition,
     "key/apps/clients/migrations/0001_clients_create.sql":
       "create table clients (id uuid primary key, created_at timestamptz, updated_at timestamptz, stage text, notes text);",
@@ -142,7 +142,7 @@ describe("valid files", () => {
     expect(checkKeyYaml("key.yaml", keyYaml)).toEqual([]);
     expect(checkCharter("c.md", charter)).toEqual([]);
     expect(checkSkill("s.md", skill)).toEqual([]);
-    expect(checkWorkflow("w.md", workflow)).toEqual([]);
+    expect(checkRoutine("w.md", routine)).toEqual([]);
     expect(checkDefinition("d.yaml", definition, ["nightly-follow-up"])).toEqual([]);
   });
   it("parses front matter", () => {
@@ -161,10 +161,10 @@ describe("bad fixtures fail with the file name and the rule", () => {
     ["charter-bad-memory-type.md", checkCharter, /Memory entry/],
     ["skill-missing-description.md", checkSkill, /description/],
     ["skill-missing-check.md", checkSkill, /missing section Check/],
-    ["workflow-bad-trigger.md", checkWorkflow, /trigger/],
-    ["workflow-missing-when-blocked.md", checkWorkflow, /When blocked/],
+    ["routine-bad-trigger.md", checkRoutine, /trigger/],
+    ["routine-missing-when-blocked.md", checkRoutine, /When blocked/],
     ["definition-bad-field-type.yaml", (n, t) => checkDefinition(n, t, []), /type "json"/],
-    ["definition-missing-workflow.yaml", (n, t) => checkDefinition(n, t, ["other"]), /does not exist/],
+    ["definition-missing-routine.yaml", (n, t) => checkDefinition(n, t, ["other"]), /does not exist/],
     ["definition-reserved-slug.yaml", (n, t) => checkDefinition(n, t, []), /reserved/],
     ["keyyaml-reserved-app-slug.yaml", checkKeyYaml, /reserved/],
     ["keyyaml-bad-role.yaml", checkKeyYaml, /role/],
@@ -182,13 +182,13 @@ describe("bad fixtures fail with the file name and the rule", () => {
 });
 
 describe("checkKeyYaml matches the converter", () => {
-  const base = (patch: string) => keyYaml.replace(/^(roster|skills|apps|workflows):.*(\n  .*)*$/gm, (m) => (patch.startsWith(m.split(":")[0] + ":") ? patch : m));
+  const base = (patch: string) => keyYaml.replace(/^(roster|skills|apps|routines):.*(\n  .*)*$/gm, (m) => (patch.startsWith(m.split(":")[0] + ":") ? patch : m));
   it("passes the complete example", () => expect(checkKeyYaml("key.yaml", keyYaml)).toEqual([]));
   it("needs a path on every skill", () => {
     expect(checkKeyYaml("key.yaml", base("skills: [{ slug: send-quote }]")).join("\n")).toMatch(/skills\[0\]\.path/);
   });
-  it("needs a path on every workflow", () => {
-    expect(checkKeyYaml("key.yaml", base("workflows: [{ slug: nightly-follow-up, category: keep }]")).join("\n")).toMatch(/workflows\[0\]\.path/);
+  it("needs a path on every routine", () => {
+    expect(checkKeyYaml("key.yaml", base("routines: [{ slug: nightly-follow-up, category: keep }]")).join("\n")).toMatch(/routines\[0\]\.path/);
   });
   it("needs a definition on every app", () => {
     expect(checkKeyYaml("key.yaml", base("apps: [{ slug: clients, category: keep }]")).join("\n")).toMatch(/apps\[0\]\.definition/);
@@ -198,11 +198,29 @@ describe("checkKeyYaml matches the converter", () => {
   });
 });
 
-describe("checkWorkflow every", () => {
-  const wf = (every: string) => workflow.replace("every: 1 day", `every: ${every}`);
-  it.each(["1 day", "30 minutes", "2 weeks", "10 seconds", "1 hour"])("accepts %s", (v) => expect(checkWorkflow("w.md", wf(v))).toEqual([]));
+describe("the old workflows name", () => {
+  it("names the old workflows key plainly", () => {
+    const text = "key: 1\nclient: a\nname: A\nstage: seed\nhome: repo\nroster: []\nskills: []\napps: []\nworkflows: []\nruns: []\n";
+    expect(checkKeyYaml("key/key.yaml", text)).toContain(
+      "key/key.yaml: workflows is now routines: rename the list to routines and the folder key/workflows/ to key/routines/");
+  });
+
+  it("checks routines entries like workflows were checked", () => {
+    const text = "key: 1\nclient: a\nname: A\nstage: seed\nhome: repo\nroster: []\nskills: []\napps: []\nroutines:\n  - {slug: Bad Slug, category: command, path: routines/x.md}\nruns: []\n";
+    expect(checkKeyYaml("key/key.yaml", text).join("\n")).toMatch(/routines\[0\]\.slug/);
+  });
+
+  it("names the old key/workflows folder without crashing", async () => {
+    const p = (await checkKeyFolder(keyRoot({ "key/workflows/old.md": "x" }))).join("\n");
+    expect(p).toContain("workflows is now routines");
+  });
+});
+
+describe("checkRoutine every", () => {
+  const wf = (every: string) => routine.replace("every: 1 day", `every: ${every}`);
+  it.each(["1 day", "30 minutes", "2 weeks", "10 seconds", "1 hour"])("accepts %s", (v) => expect(checkRoutine("w.md", wf(v))).toEqual([]));
   it.each(["1d", "daily", "every day", "1 fortnight", "day"])("rejects %s", (v) => {
-    expect(checkWorkflow("w.md", wf(v)).join("\n")).toMatch(/every must be a number and a unit/);
+    expect(checkRoutine("w.md", wf(v)).join("\n")).toMatch(/every must be a number and a unit/);
   });
 });
 
@@ -241,10 +259,10 @@ describe("checkKeyFolder cross-checks", () => {
   it("fails a charter named in key.yaml that is not on disk", async () => {
     expect((await checkKeyFolder(keyRoot({ "key/agents/care/charter.md": null }))).join("\n")).toMatch(/agents\/care\/charter\.md: named in key\.yaml but missing/);
   });
-  it("fails a skill, workflow and definition path that is not on disk", async () => {
-    const p = (await checkKeyFolder(keyRoot({ "key/skills/send-quote/SKILL.md": null, "key/workflows/nightly-follow-up.md": null }))).join("\n");
+  it("fails a skill, routine and definition path that is not on disk", async () => {
+    const p = (await checkKeyFolder(keyRoot({ "key/skills/send-quote/SKILL.md": null, "key/routines/nightly-follow-up.md": null }))).join("\n");
     expect(p).toMatch(/skills\/send-quote\/SKILL\.md: named in key\.yaml but missing/);
-    expect(p).toMatch(/workflows\/nightly-follow-up\.md: named in key\.yaml but missing/);
+    expect(p).toMatch(/routines\/nightly-follow-up\.md: named in key\.yaml but missing/);
     const d = (await checkKeyFolder(keyRoot({ "key/apps/clients/definition.yaml": null, "key/apps/clients/migrations/0001_clients_create.sql": null }))).join("\n");
     expect(d).toMatch(/apps\/clients\/definition\.yaml: named in key\.yaml but missing/);
   });
@@ -257,14 +275,14 @@ describe("checkKeyFolder cross-checks", () => {
     const p = (await checkKeyFolder(keyRoot({ "key/apps/clients/definition.yaml": definition.replace("app: clients", "app: other-name") }))).join("\n");
     expect(p).toMatch(/app folder "clients" must match the definition app "other-name"/);
   });
-  it("fails a record_change workflow whose entity no app defines", async () => {
-    const wf = workflow.replace("trigger: every\nevery: 1 day", "trigger: record_change\nentity: invoices\nevents: [insert]");
-    const p = (await checkKeyFolder(keyRoot({ "key/workflows/nightly-follow-up.md": wf }))).join("\n");
+  it("fails a record_change routine whose entity no app defines", async () => {
+    const wf = routine.replace("trigger: every\nevery: 1 day", "trigger: record_change\nentity: invoices\nevents: [insert]");
+    const p = (await checkKeyFolder(keyRoot({ "key/routines/nightly-follow-up.md": wf }))).join("\n");
     expect(p).toMatch(/entity "invoices" is not defined by any app/);
   });
-  it("accepts a record_change workflow whose entity an app defines", async () => {
-    const wf = workflow.replace("trigger: every\nevery: 1 day", "trigger: record_change\nentity: clients\nevents: [insert]");
-    expect(await checkKeyFolder(keyRoot({ "key/workflows/nightly-follow-up.md": wf }))).toEqual([]);
+  it("accepts a record_change routine whose entity an app defines", async () => {
+    const wf = routine.replace("trigger: every\nevery: 1 day", "trigger: record_change\nentity: clients\nevents: [insert]");
+    expect(await checkKeyFolder(keyRoot({ "key/routines/nightly-follow-up.md": wf }))).toEqual([]);
   });
 });
 
@@ -291,7 +309,7 @@ describe("the examples in docs/standards/key.md", () => {
   it("key.yaml passes checkKeyYaml", () => expect(checkKeyYaml("key.md", section("key.yaml", "yaml"))).toEqual([]));
   it("the charter passes checkCharter", () => expect(checkCharter("key.md", section("Charter", "markdown"))).toEqual([]));
   it("the skill passes checkSkill", () => expect(checkSkill("key.md", section("Skill", "markdown"))).toEqual([]));
-  it("the workflow passes checkWorkflow", () => expect(checkWorkflow("key.md", section("Workflow", "markdown"))).toEqual([]));
+  it("the routine passes checkRoutine", () => expect(checkRoutine("key.md", section("Routine", "markdown"))).toEqual([]));
   it("the app definition passes checkDefinition", () => expect(checkDefinition("key.md", section("App definition", "yaml"), ["booking-reminders"])).toEqual([]));
   it("the context block has exactly the context block fields", () => {
     const block = parse(section("The context block", "yaml")) as Record<string, unknown>;

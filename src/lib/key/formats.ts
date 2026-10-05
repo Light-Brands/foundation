@@ -7,7 +7,8 @@ import { compareDefinition } from "@/lib/key/schema";
 export const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export const CHARTER_HEADINGS = ["Role", "Who I serve", "How I work", "What I know", "What I never do", "Tasks", "Skills", "Memory"];
 export const SKILL_SECTIONS = ["Input", "Steps", "Output", "Check"];
-export const WORKFLOW_SECTIONS = ["Goal", "Steps", "Expected output", "Check", "When blocked"];
+export const OLD_WORKFLOWS = "workflows is now routines: rename the list to routines and the folder key/workflows/ to key/routines/";
+export const ROUTINE_SECTIONS = ["Goal", "Steps", "Expected output", "Check", "When blocked"];
 export const TRIGGERS = ["cron", "every", "at", "record_change"];
 export const FIELD_TYPES = ["text", "number", "date", "select", "multi_select", "checkbox", "user", "multi_user", "url", "email", "attachment"];
 export const EVERY = /^\d+\s*(second|minute|hour|day|week)s?$/;
@@ -77,7 +78,8 @@ export function checkKeyYaml(file: string, text: string): string[] {
     else if (!isObj(r) || r.charter !== `agents/${role}/charter.md`) bad(`roster[${i}].charter must be agents/${role}/charter.md`);
     if (!isObj(r) || !str(r.persona).trim()) bad(`roster[${i}].persona must be a non-empty name`);
   });
-  for (const k of ["skills", "apps", "workflows"] as const) {
+  if ("workflows" in d) p.push(`${file}: ${OLD_WORKFLOWS}`);
+  for (const k of ["skills", "apps", "routines"] as const) {
     list(d[k]).forEach((e, i) => {
       if (!isObj(e) || !SLUG.test(str(e.slug))) bad(`${k}[${i}].slug must be a lowercase hyphenated slug`);
       else if (k === "apps" && RESERVED_APP_SLUGS.includes(e.slug as string)) bad(`apps[${i}].slug "${e.slug}" is reserved (it would collide with core migration names)`);
@@ -119,27 +121,27 @@ export function checkSkill(file: string, md: string): string[] {
   return p;
 }
 
-export function checkWorkflow(file: string, md: string): string[] {
+export function checkRoutine(file: string, md: string): string[] {
   const p: string[] = [];
   const fm = parseFrontMatter(md);
-  if (!fm) return [`${file}: workflow needs front matter`];
+  if (!fm) return [`${file}: routine needs front matter`];
   const d = fm.data;
   const bad = (m: string) => p.push(`${file}: ${m}`);
-  if (!str(d.name).trim()) bad("workflow front matter needs a name");
-  if (!SLUG.test(str(d.agent))) bad("workflow agent must be a lowercase hyphenated slug");
-  if (!CATEGORY_IDS.includes(str(d.category))) bad("workflow category must be a known category id");
+  if (!str(d.name).trim()) bad("routine front matter needs a name");
+  if (!SLUG.test(str(d.agent))) bad("routine agent must be a lowercase hyphenated slug");
+  if (!CATEGORY_IDS.includes(str(d.category))) bad("routine category must be a known category id");
   const t = str(d.trigger);
-  if (!TRIGGERS.includes(t)) bad(`workflow trigger must be one of ${TRIGGERS.join(", ")}`);
+  if (!TRIGGERS.includes(t)) bad(`routine trigger must be one of ${TRIGGERS.join(", ")}`);
   else {
-    if (t === "every" && d.every != null && d.every !== "" && !EVERY.test(str(d.every).trim())) bad("workflow every must be a number and a unit, such as 1 day or 30 minutes (seconds, minutes, hours, days or weeks)");
+    if (t === "every" && d.every != null && d.every !== "" && !EVERY.test(str(d.every).trim())) bad("routine every must be a number and a unit, such as 1 day or 30 minutes (seconds, minutes, hours, days or weeks)");
     const need: Record<string, string[]> = { cron: ["cron"], every: ["every"], at: ["at"], record_change: ["entity", "events"] };
-    for (const k of need[t]) if (d[k] == null || d[k] === "") bad(`workflow trigger ${t} needs ${k}`);
+    for (const k of need[t]) if (d[k] == null || d[k] === "") bad(`routine trigger ${t} needs ${k}`);
   }
-  for (const m of inOrder(h2(fm.body), WORKFLOW_SECTIONS)) bad(`workflow ${m}`);
+  for (const m of inOrder(h2(fm.body), ROUTINE_SECTIONS)) bad(`routine ${m}`);
   return p;
 }
 
-export function checkDefinition(file: string, text: string, workflowSlugs: string[]): string[] {
+export function checkDefinition(file: string, text: string, routineSlugs: string[]): string[] {
   const p: string[] = [];
   const bad = (m: string) => p.push(`${file}: ${m}`);
   const d = loadYaml(file, text, p);
@@ -168,8 +170,8 @@ export function checkDefinition(file: string, text: string, workflowSlugs: strin
     });
   });
   list(d.automations).forEach((a, i) => {
-    const w = isObj(a) ? str(a.workflow) : "";
-    if (!workflowSlugs.includes(w)) bad(`automations[${i}].workflow "${w}" names a workflow that does not exist`);
+    const w = isObj(a) ? str(a.routine) : "";
+    if (!routineSlugs.includes(w)) bad(`automations[${i}].routine "${w}" names a routine that does not exist`);
   });
   if (d.migrations !== "migrations/") bad("migrations must be migrations/");
   return p;
@@ -224,12 +226,13 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
   for (const f of await files(path.join(key, "agents"), "charter.md")) problems.push(...checkCharter(rel(f), await read(f)));
   for (const f of await files(path.join(key, "skills"), ".md")) problems.push(...checkSkill(rel(f), await read(f)));
 
-  const wfFiles = await files(path.join(key, "workflows"), ".md");
-  const slugs = wfFiles.map((f) => (path.basename(f, ".md") === "workflow" ? path.basename(path.dirname(f)) : path.basename(f, ".md")));
+  if (await exists(path.join(key, "workflows")) && !problems.some((x) => x.endsWith(OLD_WORKFLOWS))) problems.push(`${rel(keyYaml)}: ${OLD_WORKFLOWS}`);
+  const routineFiles = await files(path.join(key, "routines"), ".md");
+  const slugs = routineFiles.map((f) => (path.basename(f, ".md") === "routine" ? path.basename(path.dirname(f)) : path.basename(f, ".md")));
   const recordChange: { file: string; entity: string }[] = [];
-  for (const f of wfFiles) {
+  for (const f of routineFiles) {
     const text = await read(f);
-    problems.push(...checkWorkflow(rel(f), text));
+    problems.push(...checkRoutine(rel(f), text));
     const fm = parseFrontMatter(text);
     if (fm && str(fm.data.trigger) === "record_change") recordChange.push({ file: rel(f), entity: str(fm.data.entity) });
   }
@@ -255,7 +258,7 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
   if (ring) {
     const named: string[] = [];
     for (const r of list(ring.roster)) if (isObj(r) && str(r.charter)) named.push(str(r.charter));
-    for (const k of ["skills", "workflows"] as const) for (const e of list(ring[k])) if (isObj(e) && str(e.path)) named.push(str(e.path));
+    for (const k of ["skills", "routines"] as const) for (const e of list(ring[k])) if (isObj(e) && str(e.path)) named.push(str(e.path));
     for (const e of list(ring.apps)) if (isObj(e) && str(e.definition)) named.push(str(e.definition));
     for (const n of named) {
       const full = path.join(key, n);

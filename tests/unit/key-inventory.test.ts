@@ -12,16 +12,16 @@ skills:
   - { slug: reminder-writing, path: skills/reminder-writing/SKILL.md, agent: coordinator }
 apps:
   - { slug: booking, definition: apps/booking/definition.yaml, category: deliver }
-workflows:
-  - { slug: booking-reminders, path: workflows/booking-reminders.md, agent: coordinator, category: deliver }
+routines:
+  - { slug: booking-reminders, path: routines/booking-reminders.md, agent: coordinator, category: deliver }
 `;
 
 describe("inventory", () => {
-  it("lists apps and workflows under their category and skills under their role", () => {
+  it("lists apps and routines under their category and skills under their role", () => {
     const inv = buildInventory(keyYaml);
     const deliver = inv.slice(inv.indexOf("### Deliver"), inv.indexOf("## Roles"));
     expect(deliver).toContain("App: booking");
-    expect(deliver).toContain("Workflow: booking-reminders");
+    expect(deliver).toContain("Routine: booking-reminders");
     const role = inv.slice(inv.indexOf("### coordinator"));
     expect(role).toContain("Skill: reminder-writing");
   });

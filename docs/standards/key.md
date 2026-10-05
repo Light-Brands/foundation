@@ -2,8 +2,8 @@
 
 The Key is the `key/` folder. Every format below has one complete example. The examples follow one small business, Harbor Studio, and they are checked by the same code that checks the real folder (`src/lib/key/formats.ts`).
 
-- **Write every name as a slug: lowercase letters and digits joined by single hyphens, as in `front-desk`.** A slug matches `^[a-z0-9]+(-[a-z0-9]+)*$`. A role slug is the agent's key everywhere: in `key.yaml`, in the charter's folder, and in workflows and skills. Why: one name for one thing lets every file find every other file without a lookup table.
-- **Use only the eleven category ids in `key.yaml`, workflows and apps.** They are `command`, `attract`, `sell`, `deliver`, `keep`, `money`, `team`, `plan`, `vendors`, `risk`, `system`. Why: a new category would break the navigation and every place that groups by category.
+- **Write every name as a slug: lowercase letters and digits joined by single hyphens, as in `front-desk`.** A slug matches `^[a-z0-9]+(-[a-z0-9]+)*$`. A role slug is the agent's key everywhere: in `key.yaml`, in the charter's folder, and in routines and skills. Why: one name for one thing lets every file find every other file without a lookup table.
+- **Use only the eleven category ids in `key.yaml`, routines and apps.** They are `command`, `attract`, `sell`, `deliver`, `keep`, `money`, `team`, `plan`, `vendors`, `risk`, `system`. Why: a new category would break the navigation and every place that groups by category.
 - **Never put customer details, business records or secrets in the Key.** Business records live in the database. Why: the Key travels with the repository, and records do not belong there (see `privacy.md`).
 - **Never use `core` as an app slug.** Why: it would collide with the core migration names.
 
@@ -31,9 +31,9 @@ apps:
   - slug: bookings
     definition: apps/bookings/definition.yaml
     category: deliver
-workflows:
+routines:
   - slug: booking-reminders
-    path: workflows/booking-reminders.md
+    path: routines/booking-reminders.md
     agent: front-desk
     category: deliver
 runs: []
@@ -45,9 +45,9 @@ provenance:
 
 - **Keep `key.yaml` in step with the files.** Add the entry when you add the file, and run `npm run key:sync` afterward. Why: the system document's inventory is built from this file.
 - **Set `charter` to `agents/<role>/charter.md` for every roster entry, and give it a `persona`.** Why: the format test fails on any other path, and the converter reads the persona as the agent's display name.
-- **Give every skill and workflow a `path` and every app a `definition`, and make each file exist.** Every file `key.yaml` names must be on disk. Why: the converter builds its manifest from these entries, and a missing file fails there instead of here.
+- **Give every skill and routine a `path` and every app a `definition`, and make each file exist.** Every file `key.yaml` names must be on disk. Why: the converter builds its manifest from these entries, and a missing file fails there instead of here.
 - **Keep every app folder in `key/apps/` listed in `key.yaml`, and name the folder, the definition's `app` and the `key.yaml` slug the same.** Why: a folder `key.yaml` does not list never reaches the manifest, and three names for one app leave nothing to find it by.
-- **Give every `record_change` workflow an `entity` that some app's definition defines.** Why: a trigger on an entity nobody defines never fires.
+- **Give every `record_change` routine an `entity` that some app's definition defines.** Why: a trigger on an entity nobody defines never fires.
 
 ## The context block
 
@@ -133,9 +133,9 @@ A sent confirmation and a booking record with status confirmed.
 The booking appears on the calendar and the client has the confirmation.
 ```
 
-## Workflow
+## Routine
 
-`key/workflows/<slug>.md` has front matter with `name`, `agent` (a role slug), `category` (a category id) and `trigger`, plus the fields the trigger needs. Then the sections Goal, Steps, Expected output, Check and When blocked, in that order.
+`key/routines/<slug>.md` has front matter with `name`, `agent` (a role slug), `category` (a category id) and `trigger`, plus the fields the trigger needs. Then the sections Goal, Steps, Expected output, Check and When blocked, in that order.
 
 | trigger | fields it needs |
 |---|---|
@@ -174,7 +174,7 @@ Ask Jo in the Inbox and change nothing.
 
 ## App definition
 
-`key/apps/<app>/definition.yaml` registers the app and describes its tables. Field types are limited to `text`, `number`, `date`, `select`, `multi_select`, `checkbox`, `user`, `multi_user`, `url`, `email` and `attachment`. A `select` or `multi_select` field needs `options`. An automation names a workflow that exists. `migrations` is always `migrations/`. The SQL for each type is in `data.md`.
+`key/apps/<app>/definition.yaml` registers the app and describes its tables. Field types are limited to `text`, `number`, `date`, `select`, `multi_select`, `checkbox`, `user`, `multi_user`, `url`, `email` and `attachment`. A `select` or `multi_select` field needs `options`. An automation names a routine that exists. `migrations` is always `migrations/`. The SQL for each type is in `data.md`.
 
 ```yaml
 app: bookings
@@ -193,7 +193,7 @@ entities:
 automations:
   - key: send-reminder
     trigger: { record_change: { entity: bookings, events: [insert] } }
-    workflow: booking-reminders
+    routine: booking-reminders
 migrations: migrations/
 ```
 

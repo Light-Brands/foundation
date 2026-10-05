@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { sessionIsValid } from "@/lib/auth/session";
 import { signSession } from "@/lib/auth/pin-token";
-import type { FoundationEnv } from "@/lib/env";
+import { readEnv, type FoundationEnv } from "@/lib/env";
 
 const PIN = "246810";
 const SECRET = "test-secret";
@@ -24,5 +24,11 @@ describe("sessionIsValid", () => {
   it("rejects a token signed with another secret", async () => {
     const token = await signSession(PIN, "other-secret", 1_000);
     expect(await sessionIsValid(token, env(), 2_000)).toBe(false);
+  });
+  it("never accepts a session signed with a FOUNDATION_SECRET under 32 characters", async () => {
+    const short = "s".repeat(31);
+    const token = await signSession(PIN, short, 1_000);
+    const live = readEnv({ FOUNDATION_PIN: PIN, FOUNDATION_SECRET: short }, "b".repeat(64));
+    expect(await sessionIsValid(token, live, 2_000)).toBe(false);
   });
 });

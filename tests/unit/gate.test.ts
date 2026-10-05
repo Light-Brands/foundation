@@ -34,12 +34,20 @@ describe("isPublicPath", () => {
 });
 
 describe("handleGatePost", () => {
-  const env = readEnv({ FOUNDATION_PIN: "246810", FOUNDATION_SECRET: "s" });
+  const SECRET = "s".repeat(32);
+  const env = readEnv({ FOUNDATION_PIN: "246810", FOUNDATION_SECRET: SECRET });
 
   it("signs a session for the right PIN", async () => {
     const r = await handleGatePost({ pin: "246810" }, env, 0);
     expect(r.status).toBe(200);
-    expect(await verifySession(r.token, "246810", "s", 1)).toBe(true);
+    expect(await verifySession(r.token, "246810", SECRET, 1)).toBe(true);
+  });
+  it("never signs a session with a FOUNDATION_SECRET under 32 characters", async () => {
+    const short = "s".repeat(31);
+    const r = await handleGatePost({ pin: "246810" }, readEnv({ FOUNDATION_PIN: "246810", FOUNDATION_SECRET: short }, "b".repeat(64)), 0);
+    expect(r.status).toBe(200);
+    expect(await verifySession(r.token, "246810", short, 1)).toBe(false);
+    expect(await verifySession(r.token, "246810", "b".repeat(64), 1)).toBe(true);
   });
   it("refuses a wrong PIN", async () => {
     const r = await handleGatePost({ pin: "000000" }, env, 0);

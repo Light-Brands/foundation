@@ -4,6 +4,7 @@ import { BUILD_SECRET } from "@/generated/build-secret";
 export type FoundationEnv = {
   pin: string | null;
   pinProblem: "missing" | "invalid" | null;
+  /** Signs sessions and hashes visitors: FOUNDATION_SECRET when it is at least 32 characters, else the build secret. */
   secret: string;
   /**
    * FOUNDATION_SECRET alone, never the build secret, or null. At least 32 characters, else null, the same way
@@ -28,7 +29,8 @@ export function readEnv(e: Record<string, string | undefined> = process.env, bui
   return {
     pin: pinProblem ? null : raw,
     pinProblem,
-    secret: e.FOUNDATION_SECRET?.trim() || buildSecret,
+    // A FOUNDATION_SECRET under 32 characters counts as unset everywhere, session signing included.
+    secret: fixed.length >= FIXED_SECRET_MIN ? fixed : buildSecret,
     fixedSecret: fixed.length >= FIXED_SECRET_MIN ? fixed : null,
     onVercel: e.VERCEL === "1",
     businessName: e.FOUNDATION_BUSINESS_NAME?.trim() || "Your business",

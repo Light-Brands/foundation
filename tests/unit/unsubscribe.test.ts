@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { coreDb } from "../support/db";
 import { draftEmail, sendApproved, senderOptions, type Sender } from "@/lib/data/outbox";
@@ -82,7 +83,9 @@ describe("unsubscribing", () => {
     const db = await coreDb();
     const id = await approvedPromo(db);
     const short = "u".repeat(31);
-    expect(await handleUnsubscribe({ db, secret: short }, post(unsubscribeToken(id, short)), T0)).toEqual({ status: "invalid" });
+    // A token signed the way the link signs, under the short secret, which unsubscribeToken itself now refuses to make.
+    const sig = createHmac("sha256", `foundation:unsubscribe:v1:${short}`).update(id).digest("base64url");
+    expect(await handleUnsubscribe({ db, secret: short }, post(`${id}.${sig}`), T0)).toEqual({ status: "invalid" });
     expect(await db.query("select count(*)::int as n from opt_outs")).toEqual([{ n: 0 }]);
     await db.close();
   });
@@ -184,11 +187,24 @@ describe("the sender's settings", () => {
   });
   it("leaves marketing email unsent when neither address is set", async () => {
     expect(senderOptions({ FOUNDATION_SECRET: SECRET })).toEqual({ secret: SECRET, baseUrl: null });
+    expect(senderOptions({ FOUNDATION_SECRET: "s".repeat(31) })).toEqual({ secret: null, baseUrl: null });
     const db = await coreDb();
     const id = await approvedPromo(db);
     const send = capture();
     expect(await sendApproved(db, send, T0, 20, senderOptions({ FOUNDATION_SECRET: SECRET }))).toEqual({ sent: 0, failed: 0, refused: 0 });
     expect(await db.query("select status from outbox where id = $1", [id])).toEqual([{ status: "approved" }]);
     await db.close();
+  });
+});
+
+describe("the unsubscribe token and a short FOUNDATION_SECRET", () => {
+  it("is never made or read under a secret shorter than 32 characters", () => {
+    const short = "u".repeat(31);
+    const id = "0b9c2f4e-1a2b-4c3d-8e9f-0a1b2c3d4e5f";
+    expect(() => unsubscribeToken(id, short)).toThrow();
+    const good = "u".repeat(32);
+    const token = unsubscribeToken(id, good);
+    expect(readUnsubscribeToken(token, good)).toBe(id);
+    expect(readUnsubscribeToken(token, short)).toBeNull();
   });
 });

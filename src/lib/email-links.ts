@@ -1,5 +1,6 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { FIXED_SECRET_MIN } from "@/lib/env";
 
 // The per-message unsubscribe link on marketing email, served at /u/<token>. The token is the outbox row's
 // id and an HMAC of it under FOUNDATION_SECRET, so it names a row and never the address, and it cannot be
@@ -13,13 +14,13 @@ function sign(id: string, secret: string): string {
 }
 
 export function unsubscribeToken(id: string, secret: string): string {
-  if (!secret) throw new Error("An unsubscribe link needs FOUNDATION_SECRET.");
+  if (!secret || secret.length < FIXED_SECRET_MIN) throw new Error("An unsubscribe link needs FOUNDATION_SECRET of at least 32 characters.");
   return `${id.toLowerCase()}.${sign(id.toLowerCase(), secret)}`;
 }
 
 /** The outbox id a token was made for, or null for anything forged, oversized or made under another secret. */
 export function readUnsubscribeToken(token: string, secret: string | null | undefined): string | null {
-  if (!secret || typeof token !== "string" || token.length > UNSUBSCRIBE_TOKEN_MAX) return null;
+  if (!secret || secret.length < FIXED_SECRET_MIN || typeof token !== "string" || token.length > UNSUBSCRIBE_TOKEN_MAX) return null;
   const m = TOKEN.exec(token);
   if (!m) return null;
   const want = Buffer.from(sign(m[1], secret));

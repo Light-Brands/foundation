@@ -18,7 +18,7 @@ describe("readEnv", () => {
     expect(readEnv({ FOUNDATION_PIN: "1234567890123" }).pinProblem).toBe("invalid");
   });
   it("uses FOUNDATION_SECRET if provided, otherwise the build secret", () => {
-    expect(readEnv({ FOUNDATION_SECRET: "mysecret" }, "buildsecret").secret).toBe("mysecret");
+    expect(readEnv({ FOUNDATION_SECRET: "m".repeat(32) }, "buildsecret").secret).toBe("m".repeat(32));
     expect(readEnv({}, "buildsecret").secret).toBe("buildsecret");
   });
   it("never uses VERCEL_PROJECT_PRODUCTION_URL as the secret", () => {
@@ -34,6 +34,10 @@ describe("readEnv", () => {
     expect(readEnv({ FOUNDATION_SECRET: "f".repeat(31) }, "buildsecret").fixedSecret).toBeNull();
     expect(readEnv({ FOUNDATION_SECRET: ` ${"f".repeat(31)} ` }, "buildsecret").fixedSecret).toBeNull();
     expect(readEnv({ FOUNDATION_SECRET: "f".repeat(32) }, "buildsecret").fixedSecret).toBe("f".repeat(32));
+  });
+  it("signs sessions and form hashes with the build secret while FOUNDATION_SECRET is under 32 characters", () => {
+    expect(readEnv({ FOUNDATION_SECRET: "m".repeat(31) }, "buildsecret").secret).toBe("buildsecret");
+    expect(readEnv({ FOUNDATION_SECRET: ` ${"m".repeat(31)} ` }, "buildsecret").secret).toBe("buildsecret");
   });
   it("falls through to build secret if FOUNDATION_SECRET is empty", () => {
     expect(readEnv({ FOUNDATION_SECRET: "" }, "buildsecret").secret).toBe("buildsecret");

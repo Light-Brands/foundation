@@ -137,3 +137,10 @@ describe("the card note gives its real reason", () => {
     expect((await handSendContext(null)).addressInvalid).toBe(false);
   });
 });
+
+describe("handSendContext and a short FOUNDATION_SECRET", () => {
+  it("reads a FOUNDATION_SECRET under 32 characters as no secret", async () => {
+    vi.stubEnv("FOUNDATION_SECRET", "s".repeat(31));
+    expect((await handSendContext(null)).secret).toBeNull();
+  });
+});

@@ -1,26 +1,42 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-ink: #0a0a0f;
+  --color-ink-50: #13131b;
+  --color-ink-100: #191922;
+  --color-ink-200: #22222e;
+  --color-ink-300: #2e2e3d;
+  --color-violet: #8b7cf6;
+  --color-violet-soft: #a99bf9;
+  --color-violet-deep: #6d5de0;
+  --color-mist: #9a9aae;
+  --font-display: var(--font-display-face), system-ui, sans-serif;
+  --font-sans: var(--font-sans-face), system-ui, sans-serif;
+  --font-mono: var(--font-mono-face), ui-monospace, monospace;
+  --font-serif: var(--font-serif-face), Georgia, serif;
+  --ease-breath: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+html { color-scheme: dark; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-ink);
+  color: #e4e4e7;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(1200px 600px at 70% -10%, rgba(139, 124, 246, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 0% 100%, rgba(109, 93, 224, 0.07), transparent 55%);
+  background-attachment: fixed;
+}
+
+h1, h2, h3, h4 { font-family: var(--font-display); }
+
+:focus-visible { outline: 2px solid rgb(139 124 246 / 0.6); outline-offset: 2px; }
+
+@layer components {
+  .surface { @apply rounded-2xl border border-white/10 bg-ink-100/70 backdrop-blur-sm; }
+  .kicker { @apply font-mono text-[11px] uppercase tracking-[0.18em] text-mist; }
+  .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-violet px-4 py-2 text-sm font-medium text-white transition-all duration-200 ease-breath hover:bg-violet-soft; }
+  .btn-quiet { @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-zinc-200 transition-all duration-200 ease-breath hover:border-white/20; }
 }

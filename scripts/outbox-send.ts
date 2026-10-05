@@ -12,6 +12,7 @@ const SAID: Record<DrainResult["status"], string> = {
   paused: "Your command center is paused, so nothing was sent.",
   no_sender: "The email sender could not be loaded, so nothing was sent.",
   no_setting: "The email sender's setting is not set, so nothing was sent.",
+  no_secret: "FOUNDATION_SECRET is not set to at least 32 characters, so nothing was sent.",
   bounces_unrecorded: "A bounce could not be recorded, so nothing was sent.",
   error: "The email sender stopped, so some email may still be waiting.",
 };

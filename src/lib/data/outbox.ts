@@ -1,7 +1,7 @@
 import type { Db, Queryable } from "@/lib/db/types";
 import { readEnv } from "@/lib/env";
 import { emailHash, parseEmail, MissingSecretError } from "@/lib/email";
-import { httpsOrigin, unsubscribeUrl } from "@/lib/email-links";
+import { httpsOrigin, publicBaseUrl, unsubscribeUrl } from "@/lib/email-links";
 
 // Every drafted customer email, sent at most once. A draft becomes approved only through the card
 // decision (decideCard in inbox.ts), and only while it is still a draft. A sender claims one approved,
@@ -192,6 +192,11 @@ export async function cancelEmail(db: Queryable, id: string, now: Date): Promise
 export type Sender = (msg: OutgoingEmail) => Promise<{ providerRef: string }>;
 /** secret: the fixed secret, else FOUNDATION_SECRET. baseUrl: the live site's https address, which marketing email needs. */
 export type SendOptions = { secret?: string | null; baseUrl?: string | null };
+
+/** What every sender passes to sendApproved: the fixed secret and the live site's address (FOUNDATION_URL first). */
+export function senderOptions(env: Record<string, string | undefined> = process.env): Required<SendOptions> {
+  return { secret: readEnv(env).fixedSecret, baseUrl: publicBaseUrl(env) };
+}
 
 export async function sendApproved(db: Db, send: Sender, now: Date, max = 20, opts: SendOptions = {}): Promise<{ sent: number; failed: number; refused: number }> {
   // Without the fixed secret the opt-out list cannot be read, so nothing is claimed at all.

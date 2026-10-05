@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { coreDb } from "../support/db";
-import { draftEmail, sendApproved, type Sender } from "@/lib/data/outbox";
+import { draftEmail, sendApproved, senderOptions, type Sender } from "@/lib/data/outbox";
 import { handleUnsubscribe, publicBaseUrl, readUnsubscribeToken, unsubscribeToken, UNSUBSCRIBE_LIMITS } from "@/lib/data/unsubscribe";
 import { isPublicPath } from "@/lib/auth/gate";
 import type { Db } from "@/lib/db/types";
@@ -145,5 +145,34 @@ describe("publicBaseUrl", () => {
     expect(publicBaseUrl({ VERCEL_PROJECT_PRODUCTION_URL: "harbor.example" })).toBe("https://harbor.example");
     expect(publicBaseUrl({ VERCEL_PROJECT_PRODUCTION_URL: "harbor.example/evil?x" })).toBeNull();
     expect(publicBaseUrl({})).toBeNull();
+  });
+});
+
+describe("the sender's settings", () => {
+  it("takes the live site's address from FOUNDATION_URL first, and refuses one that is not https", () => {
+    expect(publicBaseUrl({ FOUNDATION_URL: "https://command.harbor.example/", VERCEL_PROJECT_PRODUCTION_URL: "harbor.vercel.app" })).toBe("https://command.harbor.example");
+    expect(publicBaseUrl({ FOUNDATION_URL: "  https://command.harbor.example  " })).toBe("https://command.harbor.example");
+    expect(publicBaseUrl({ FOUNDATION_URL: "http://command.harbor.example", VERCEL_PROJECT_PRODUCTION_URL: "harbor.vercel.app" })).toBeNull();
+    expect(publicBaseUrl({ FOUNDATION_URL: "https://user:pw@command.harbor.example" })).toBeNull();
+    expect(publicBaseUrl({ FOUNDATION_URL: "" , VERCEL_PROJECT_PRODUCTION_URL: "harbor.vercel.app" })).toBe("https://harbor.vercel.app");
+  });
+  it("hands the sender FOUNDATION_URL and the fixed secret, so marketing email carries a working link", async () => {
+    const opts = senderOptions({ FOUNDATION_URL: "https://command.harbor.example", FOUNDATION_SECRET: SECRET });
+    expect(opts).toEqual({ secret: SECRET, baseUrl: "https://command.harbor.example" });
+    const db = await coreDb();
+    const id = await approvedPromo(db);
+    const send = capture();
+    expect(await sendApproved(db, send, T0, 20, opts)).toEqual({ sent: 1, failed: 0, refused: 0 });
+    expect((send.mock.calls[0][0] as { body: string }).body).toContain(`https://command.harbor.example/u/${unsubscribeToken(id, SECRET)}`);
+    await db.close();
+  });
+  it("leaves marketing email unsent when neither address is set", async () => {
+    expect(senderOptions({ FOUNDATION_SECRET: SECRET })).toEqual({ secret: SECRET, baseUrl: null });
+    const db = await coreDb();
+    const id = await approvedPromo(db);
+    const send = capture();
+    expect(await sendApproved(db, send, T0, 20, senderOptions({ FOUNDATION_SECRET: SECRET }))).toEqual({ sent: 0, failed: 0, refused: 0 });
+    expect(await db.query("select status from outbox where id = $1", [id])).toEqual([{ status: "approved" }]);
+    await db.close();
   });
 });

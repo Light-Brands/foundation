@@ -31,7 +31,7 @@ export function EmailDraft({ email, sendAfter, copyText }: { email: CardEmail; s
       <p className="mt-2 text-xs text-mist">{STATUS[email.status]}{email.note ? ` ${email.note}` : ""}</p>
       {sendAfter && (email.status === "draft" || email.status === "approved") && <p className="mt-1 text-xs text-mist">Goes out after {sendAfter}.</p>}
       {copyText === null && (email.status === "approved" || email.status === "failed") && (
-        <p className="mt-1 text-xs text-mist">Send this from your live site, where its unsubscribe link works.</p>
+        <p className="mt-1 text-xs text-mist">This waits for your live site&apos;s address, which its unsubscribe link needs. Send it from your live site, or set FOUNDATION_URL to that address.</p>
       )}
       {(canSendByHand || canStop) && (
         <div className="mt-2 flex flex-wrap items-center gap-3">

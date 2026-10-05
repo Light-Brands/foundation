@@ -38,8 +38,13 @@ export function httpsOrigin(raw: string | null | undefined): string | null {
   }
 }
 
-/** The live site's address, from the host's own setting on Vercel. Null on the owner's computer. */
+/**
+ * The live site's address. FOUNDATION_URL wins when it is set, and one that is not a plain https address
+ * gives null, never a fallback. Else the host's own setting on Vercel. Null on the owner's computer.
+ */
 export function publicBaseUrl(env: Record<string, string | undefined> = process.env): string | null {
+  const own = env.FOUNDATION_URL?.trim() ?? "";
+  if (own) return httpsOrigin(own);
   const host = env.VERCEL_PROJECT_PRODUCTION_URL?.trim() ?? "";
   if (!/^[a-z0-9.-]+(:\d+)?$/i.test(host)) return null;
   return httpsOrigin(`https://${host}`);

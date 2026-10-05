@@ -11,7 +11,7 @@ import { loadSender, readSender, type EmailSender, type KeptEvent, type SenderCo
 // reaches a log line or a row.
 
 export type DrainStatus =
-  | "ran" | "no_database" | "not_connected" | "paused" | "no_sender" | "no_setting" | "bounces_unrecorded" | "error";
+  | "ran" | "no_database" | "not_connected" | "paused" | "no_sender" | "no_setting" | "no_secret" | "bounces_unrecorded" | "error";
 export type DrainResult = {
   status: DrainStatus;
   sent: number;
@@ -37,9 +37,9 @@ function result(status: DrainStatus, extra: Partial<DrainResult> = {}): DrainRes
 
 /**
  * Records every address the provider reports as bounced or complained about as an opt-out from all email,
- * then marks the kept events it was given as handled. Returns the count recorded, or null when one could not
- * be recorded: then nothing is marked handled and the caller sends nothing, so the address is never mailed
- * on a guess.
+ * then marks the kept events it was given as handled. Returns the count recorded, or null when bounces threw
+ * or one could not be recorded: then nothing is marked handled and the caller sends nothing, so an address
+ * is never mailed past a bounce that was not recorded.
  */
 async function recordBounces(db: Db, sender: EmailSender, ctx: SenderContext, fixedSecret: string | null): Promise<number | null> {
   if (!sender.bounces) return 0;
@@ -52,8 +52,8 @@ async function recordBounces(db: Db, sender: EmailSender, ctx: SenderContext, fi
   try {
     reported = await sender.bounces({ ...ctx, events });
   } catch (err) {
-    console.error(`Email sender bounces failed: ${redact(firstLine(err), ctx.secret)}`);
-    return 0;
+    console.error(`Email sender bounces failed, so no email was sent: ${redact(firstLine(err), ctx.secret)}`);
+    return null;
   }
   let recorded = 0;
   for (const b of Array.isArray(reported) ? reported : []) {
@@ -75,7 +75,9 @@ async function recordBounces(db: Db, sender: EmailSender, ctx: SenderContext, fi
 
 /**
  * One pass of the email sender: bounces first, then recovery of rows left in sending, then approved rows.
- * Never throws. A sender's error stays on its own row through sendApproved.
+ * Never throws, and fails closed at every step: a read that errors (the connection, the pause switch, the
+ * opt-out list, recovery) or a sender, setting or secret that is missing ends the pass with nothing sent.
+ * A sender's error stays on its own row through sendApproved.
  */
 export async function drainOutbox(db: Db | null, env: Record<string, string | undefined>, now: Date, opts: { root?: string } = {}): Promise<DrainResult> {
   if (!db) return result("no_database");
@@ -102,6 +104,11 @@ export async function drainOutbox(db: Db | null, env: Record<string, string | un
     const sender = loaded.sender;
     const ctx: SenderContext = { secret, now };
     const options = senderOptions(env);
+    if (!options.secret) {
+      // Without the fixed secret no opt-out can be recorded or checked, so nothing runs, bounces included.
+      console.error("Email sending is connected, but FOUNDATION_SECRET is not set to at least 32 characters, so no email was sent.");
+      return result("no_secret");
+    }
 
     const bounced = await recordBounces(db, sender, ctx, options.secret);
     if (bounced === null) return result("bounces_unrecorded");

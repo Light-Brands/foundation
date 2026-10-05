@@ -31,6 +31,7 @@ export async function lookup(ref: string): Promise<"sent" | "unknown"> {
 
 export async function bounces(ctx: Ctx & { events: Event[] }): Promise<Array<{ email: string; kind: "bounce" | "complaint" }>> {
   const m = mail();
+  if ((globalThis as { __fixtureMailBouncesThrow?: boolean }).__fixtureMailBouncesThrow) throw new Error("the provider is down");
   m.events.push(ctx.events);
   return m.bounces;
 }

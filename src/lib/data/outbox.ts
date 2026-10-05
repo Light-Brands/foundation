@@ -59,7 +59,6 @@ export class OptOutNotRecordedError extends Error {
   }
 }
 const UNCHECKED_DRAFT = "We could not check who asked us to stop, so nothing was drafted. Try again in a moment.";
-const UNCHECKED_SEND = "We could not check whether this person asked us to stop, so this email was not sent.";
 
 /** marketing: the person stopped marketing email (the unsubscribe link). all: the person stopped every email. */
 export const OPT_OUT_SCOPES = ["marketing", "all"] as const;
@@ -278,10 +277,14 @@ export async function sendApproved(db: Db, send: Sender, now: Date, max = 20, op
     try {
       stopped = await isOptedOut(db, msg.to_email, msg.kind, key);
     } catch {
-      // Fail closed: a list that cannot be read never counts as not opted out. The owner sees the row as not sent.
-      await markFailed(db, msg.id, UNCHECKED_SEND, now);
+      // Fail closed: a list that cannot be read never counts as not opted out. The row goes back to approved,
+      // unsent, for the next pass, and this pass stops, because the next row would meet the same list.
+      await db.query(
+        "update outbox set status = 'approved', claimed_at = null, attempts = greatest(attempts - 1, 0), updated_at = $2 where id = $1 and status = 'sending'",
+        [msg.id, now],
+      );
       out.refused++;
-      continue;
+      break;
     }
     if (stopped) {
       await db.query("update outbox set status = 'cancelled', last_error = 'opted_out', updated_at = $2 where id = $1 and status = 'sending'", [msg.id, now]);

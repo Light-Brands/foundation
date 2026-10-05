@@ -173,8 +173,8 @@ describe("drainOutbox", () => {
     await approve(db);
     const err = quietLog();
     try {
-      // Without FOUNDATION_SECRET no opt-out is recorded, so nothing is sent at all.
-      expect(await drainOutbox(db, { DEMO_MAIL_API_KEY: API_KEY }, T0, { root: KEY_EXT })).toMatchObject({ status: "bounces_unrecorded", sent: 0 });
+      // Without FOUNDATION_SECRET no opt-out can be recorded, so the pass stops before bounces and sends nothing.
+      expect(await drainOutbox(db, { DEMO_MAIL_API_KEY: API_KEY }, T0, { root: KEY_EXT })).toMatchObject({ status: "no_secret", sent: 0 });
     } finally { err.mockRestore(); }
     expect(mail().sent).toEqual([]);
     expect(await db.query("select handled_at from webhook_events")).toEqual([{ handled_at: null }]);
@@ -214,5 +214,105 @@ describe("the Key checker and the sender seat", () => {
     expect((await checkKeyFolder(root)).join("\n")).toMatch(/demo-pay\.yaml: only key\/connections\/email-sending\.yaml declares a sender/);
     rmSync(path.join(root, "key/connections/email-sending/send.ts"));
     expect((await checkKeyFolder(root)).join("\n")).toMatch(/email-sending\.yaml: sender send\.ts is not in key\/connections\/email-sending\//);
+  });
+});
+
+describe("drainOutbox fails closed at every step", () => {
+  // A database that answers everything except statements matching the pattern, which error.
+  const failing = (db: Db, pattern: RegExp): Db => ({
+    ...db,
+    query: (async (sql: string, params?: unknown[]) => {
+      if (pattern.test(sql)) throw new Error("connection reset");
+      return db.query(sql, params);
+    }) as Db["query"],
+    transaction: db.transaction.bind(db),
+    exec: db.exec.bind(db),
+    close: db.close.bind(db),
+  });
+  async function ready(): Promise<Db> {
+    const db = await coreDb();
+    await connect(db);
+    await approve(db);
+    return db;
+  }
+  async function nothingSent(db: Db) {
+    expect(mail().sent).toEqual([]);
+    expect(await statuses(db)).toEqual([{ status: "approved" }]);
+  }
+  it("sends nothing when the pause switch cannot be read", async () => {
+    const db = await ready();
+    expect((await drainOutbox(failing(db, /from pause/), ENV, T0, { root: KEY_EXT })).sent).toBe(0);
+    await nothingSent(db);
+    await db.close();
+  });
+  it("sends nothing when the email-sending status cannot be read", async () => {
+    const db = await ready();
+    const err = quietLog();
+    try {
+      expect(await drainOutbox(failing(db, /from connections/), ENV, T0, { root: KEY_EXT })).toMatchObject({ status: "error", sent: 0 });
+    } finally { err.mockRestore(); }
+    await nothingSent(db);
+    await db.close();
+  });
+  it("sends nothing when bounces() throws, and keeps the events", async () => {
+    const db = await ready();
+    await db.query("insert into webhook_events (connection, event_id, received_at) values ('email-sending', 'evt_b1', $1)", [T0]);
+    (globalThis as { __fixtureMailBouncesThrow?: boolean }).__fixtureMailBouncesThrow = true;
+    const err = quietLog();
+    try {
+      expect(await drainOutbox(db, ENV, T0, { root: KEY_EXT })).toMatchObject({ status: "bounces_unrecorded", sent: 0 });
+    } finally { err.mockRestore(); (globalThis as { __fixtureMailBouncesThrow?: boolean }).__fixtureMailBouncesThrow = false; }
+    await nothingSent(db);
+    expect(await db.query("select handled_at from webhook_events")).toEqual([{ handled_at: null }]);
+    await db.close();
+  });
+  it("sends nothing past a bounce whose opt-out could not be written", async () => {
+    const db = await ready();
+    mail().bounces = [{ email: "jo@harbor.example", kind: "bounce" }];
+    const err = quietLog();
+    try {
+      expect(await drainOutbox(failing(db, /^\s*insert into opt_outs/), ENV, T0, { root: KEY_EXT })).toMatchObject({ status: "bounces_unrecorded", sent: 0 });
+    } finally { err.mockRestore(); }
+    await nothingSent(db);
+    await db.close();
+  });
+  it("leaves a row approved and unsent when its opt-out check errors", async () => {
+    const db = await ready();
+    expect(await drainOutbox(failing(db, /from opt_outs/), ENV, T0, { root: KEY_EXT })).toMatchObject({ status: "ran", sent: 0, refused: 1 });
+    await nothingSent(db);
+    await db.close();
+  });
+  it("sends nothing without FOUNDATION_SECRET, and the log line names no value", async () => {
+    const db = await ready();
+    const err = quietLog();
+    try {
+      expect(await drainOutbox(db, { DEMO_MAIL_API_KEY: API_KEY }, T0, { root: KEY_EXT })).toMatchObject({ status: "no_secret", sent: 0 });
+      expect(err).toHaveBeenCalledTimes(1);
+      expect(String(err.mock.calls[0][0])).not.toContain(API_KEY);
+    } finally { err.mockRestore(); }
+    expect(mail().events).toEqual([]);
+    await nothingSent(db);
+    await db.close();
+  });
+  it("sends nothing when the sender's settings file cannot be read", async () => {
+    const db = await ready();
+    const root = copyFixture();
+    writeFileSync(path.join(root, "key/connections/email-sending.yaml"), "sender: [unclosed\n");
+    const err = quietLog();
+    try {
+      expect(await drainOutbox(db, ENV, T0, { root })).toMatchObject({ status: "no_sender", sent: 0 });
+      expect(String(err.mock.calls[0][0])).not.toContain(API_KEY);
+    } finally { err.mockRestore(); }
+    await nothingSent(db);
+    await db.close();
+  });
+  it("does not send when recovery throws", async () => {
+    const db = await ready();
+    const err = quietLog();
+    try {
+      expect(await drainOutbox(failing(db, /where status = 'sending' and claimed_at </), ENV, T0, { root: KEY_EXT })).toMatchObject({ status: "error", sent: 0 });
+    } finally { err.mockRestore(); }
+    await nothingSent(db);
+    await db.close();
   });
 });

@@ -298,14 +298,14 @@ describe("every opt-out path fails closed", () => {
     expect(await db.query("select count(*)::int as n from outbox")).toEqual([{ n: 0 }]);
     await db.close();
   });
-  it("a send is refused when the opt-out list cannot be read, and waits for the owner", async () => {
+  it("a send is refused when the opt-out list cannot be read, and the row stays approved for the next pass", async () => {
     const db = await coreDb();
     const id = await approved(db);
     const send = sender();
     expect(await sendApproved(listDown(db), send, T0)).toEqual({ sent: 0, failed: 0, refused: 1 });
     expect(send).not.toHaveBeenCalled();
-    expect(await db.query("select status, last_error from outbox where id = $1", [id])).toEqual([
-      { status: "failed", last_error: "We could not check whether this person asked us to stop, so this email was not sent." },
+    expect(await db.query("select status, claimed_at, attempts from outbox where id = $1", [id])).toEqual([
+      { status: "approved", claimed_at: null, attempts: 0 },
     ]);
     await db.close();
   });

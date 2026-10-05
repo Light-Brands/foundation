@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: "tests/e2e",
   use: { baseURL: "http://localhost:3100" },
   webServer: {
-    command: "npm run build && npx next start -p 3100",
+    command: "npm run build && npm run start -- -p 3100",
     url: "http://localhost:3100/gate",
     timeout: 180_000,
     reuseExistingServer: false,

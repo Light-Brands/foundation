@@ -1,23 +1,36 @@
 "use client";
 import { useState } from "react";
 
+const MESSAGES = {
+  idle: "",
+  checking: "Checking",
+  wrong: "That PIN did not match. Try again.",
+  busy: "Too many tries. Wait a few minutes, then try again.",
+  setup: "This command center needs its PIN set up. Reload this page for the steps.",
+  offline: "Could not reach your command center. Check your connection and try again.",
+} as const;
+
 export function Keypad({ next }: { next: string }) {
   const [pin, setPin] = useState("");
-  const [state, setState] = useState<"idle" | "checking" | "wrong">("idle");
+  const [state, setState] = useState<"idle" | "checking" | "wrong" | "setup" | "busy" | "offline">("idle");
   const press = (d: string) => setPin((p) => (p.length < 12 ? p + d : p));
   async function submit() {
     setState("checking");
-    const res = await fetch("/api/gate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin }),
-    });
-    if (res.ok) {
-      window.location.assign(next);
-      return;
+    try {
+      const res = await fetch("/api/gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      if (res.ok) {
+        window.location.assign(next);
+        return;
+      }
+      setPin("");
+      setState(res.status === 503 ? "setup" : res.status === 429 ? "busy" : "wrong");
+    } catch {
+      setState("offline");
     }
-    setPin("");
-    setState("wrong");
   }
   return (
     <form
@@ -47,7 +60,7 @@ export function Keypad({ next }: { next: string }) {
         <button type="submit" disabled={pin.length < 6 || state === "checking"} className="rounded-xl bg-violet py-3 text-sm font-medium text-white disabled:opacity-40">Open</button>
       </div>
       <p className="mt-3 min-h-5 text-sm text-mist" role="status">
-        {state === "wrong" ? "That PIN did not match. Try again." : state === "checking" ? "Checking" : ""}
+        {MESSAGES[state]}
       </p>
     </form>
   );

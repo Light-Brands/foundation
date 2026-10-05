@@ -20,7 +20,7 @@ export const SQL_TYPE: Record<FieldType, string> = {
 };
 
 const SYSTEM_COLUMNS: Record<string, string> = { id: "uuid", created_at: "timestamptz", updated_at: "timestamptz" };
-const STOP = new Set(["not", "null", "default", "primary", "references", "unique", "check", "constraint", "generated", "collate"]);
+const CONSTRAINT_WORD = /\b(not|null|default|primary|references|unique|check|constraint|generated|collate)\b/i;
 const TABLE_CONSTRAINT = new Set(["primary", "unique", "check", "constraint", "foreign", "exclude"]);
 
 type Obj = Record<string, unknown>;
@@ -63,7 +63,9 @@ function splitTop(s: string, sep: string): string[] {
 }
 
 const unquote = (id: string) => id.replace(/^"|"$/g, "").toLowerCase();
-const tableName = (raw: string) => unquote(raw.split(".").pop() ?? raw);
+const IDENT = String.raw`(?:"[^"]+"|[\w$]+)`;
+const QNAME = String.raw`(${IDENT}(?:\.${IDENT})?)`; // optional schema, either part quoted
+const tableName = (raw: string) => unquote(/("[^"]+"|[\w$]+)$/.exec(raw)?.[1] ?? raw);
 
 function normalizeType(raw: string): string {
   let t = raw.toLowerCase().replace(/\(\s*[\d\s,]+\)/g, "").replace(/\s+/g, " ").trim();
@@ -82,20 +84,18 @@ function columnOf(def: string): [string, string] | null {
   const m = /^("[^"]+"|[A-Za-z_][\w$]*)\s+([\s\S]*)$/.exec(def.trim());
   if (!m) return null;
   if (TABLE_CONSTRAINT.has(m[1].toLowerCase()) || /^foreign\b/i.test(def.trim())) return null;
-  const words = m[2].trim().split(/\s+/);
-  const type: string[] = [];
-  for (const w of words) {
-    if (STOP.has(w.toLowerCase())) break;
-    type.push(w);
-  }
-  return type.length ? [unquote(m[1]), normalizeType(type.join(" "))] : null;
+  const rest = m[2];
+  const masked = rest.replace(/'(?:[^']|'')*'|"[^"]*"/g, (q) => " ".repeat(q.length));
+  const cut = masked.search(CONSTRAINT_WORD);
+  const type = (cut < 0 ? rest : rest.slice(0, cut)).trim();
+  return type ? [unquote(m[1]), normalizeType(type)] : null;
 }
 
 /** Table to column to lowercased type, from create table and alter table add column statements. */
 export function tablesFromSql(sql: string): Record<string, Record<string, string>> {
   const tables: Record<string, Record<string, string>> = {};
   for (const stmt of splitTop(stripComments(sql), ";")) {
-    const create = /^create\s+(?:unlogged\s+|temp(?:orary)?\s+)?table\s+(?:if\s+not\s+exists\s+)?("[^"]+"|[\w.$]+(?:\."[^"]+")?)\s*\(([\s\S]*)\)\s*[^)]*$/i.exec(stmt);
+    const create = new RegExp(String.raw`^create\s+(?:unlogged\s+|temp(?:orary)?\s+)?table\s+(?:if\s+not\s+exists\s+)?${QNAME}\s*\(([\s\S]*)\)\s*[^)]*$`, "i").exec(stmt);
     if (create) {
       const cols = (tables[tableName(create[1])] ??= {});
       for (const part of splitTop(create[2], ",")) {
@@ -104,7 +104,7 @@ export function tablesFromSql(sql: string): Record<string, Record<string, string
       }
       continue;
     }
-    const alter = /^alter\s+table\s+(?:only\s+)?(?:if\s+exists\s+)?("[^"]+"|[\w.$]+)\s+([\s\S]*)$/i.exec(stmt);
+    const alter = new RegExp(String.raw`^alter\s+table\s+(?:only\s+)?(?:if\s+exists\s+)?${QNAME}\s+([\s\S]*)$`, "i").exec(stmt);
     if (alter) {
       const cols = (tables[tableName(alter[1])] ??= {});
       for (const part of splitTop(alter[2], ",")) {

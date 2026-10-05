@@ -14,6 +14,12 @@ const load = (name: string) => {
 };
 
 describe("SQL_TYPE", () => {
+  it("holds the SQL form of every field type", () => {
+    expect(SQL_TYPE).toEqual({
+      text: "text", select: "text", url: "text", email: "text", user: "text", attachment: "text",
+      number: "numeric", date: "date", checkbox: "boolean", multi_select: "text[]", multi_user: "text[]",
+    });
+  });
   it("covers exactly the field types", () => {
     expect(Object.keys(SQL_TYPE).sort()).toEqual([...FIELD_TYPES].sort());
   });
@@ -38,6 +44,29 @@ describe("tablesFromSql", () => {
     expect(t).toEqual({
       jobs: { id: "uuid", amount: "numeric", tags: "text[]", note: "text", at: "timestamptz", owner: "text", done: "boolean" },
     });
+  });
+});
+
+describe("tablesFromSql, columns without spaces before constraints", () => {
+  it("cuts the type where the constraint starts", () => {
+    const t = tablesFromSql(`create table k (
+      s text check(s in ('a','b')),
+      n numeric check(n>0),
+      d text default'z',
+      e int default(0),
+      q text default 'not null, check'
+    );`);
+    expect(t.k).toEqual({ s: "text", n: "numeric", d: "text", e: "integer", q: "text" });
+  });
+});
+
+describe("tablesFromSql, schema-qualified names", () => {
+  it("reads a quoted schema and table in create and alter", () => {
+    const t = tablesFromSql(`create table "public"."jobs" (id uuid);
+      alter table "public"."jobs" add column owner text;
+      create table public.other (id uuid);
+      alter table "public".other add column x date;`);
+    expect(t).toEqual({ jobs: { id: "uuid", owner: "text" }, other: { id: "uuid", x: "date" } });
   });
 });
 

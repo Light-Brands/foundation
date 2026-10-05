@@ -3,7 +3,7 @@ import { readFileSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
-  checkKeyFolder, checkKeyYaml, checkCharter, checkSkill, checkRoutine, checkDefinition, checkLogText, parseFrontMatter, checkInstalled, checkRunBrief,
+  checkKeyFolder, checkKeyYaml, checkCharter, checkSkill, checkRoutine, checkDefinition, checkLogText, parseFrontMatter, checkInstalled, checkRunBrief, codePathOk,
 } from "@/lib/key/formats";
 import { parse } from "yaml";
 import { contextBlockFromProfile } from "@/lib/key/context-block";
@@ -360,6 +360,10 @@ describe("guards", () => {
     expect(run({ files: ["../x"] })).toMatch(/files/);
     expect(run({ files: ["/etc/x"] })).toMatch(/files/);
   });
+  it("rejects files written with a backslash", () => {
+    expect(run({ files: ["routines\\x.md"] })).toMatch(/installed\[0\]\.files/);
+    expect(run({ files: ["routines/x.md"] })).toBe("");
+  });
   it("accepts a Date object and rejects an impossible date", () => {
     expect(run({ installed: new Date("2026-10-06T00:00:00Z") })).toBe("");
     expect(run({ installed: "2026-13-45" })).toMatch(/installed\[0\]\.installed/);
@@ -389,6 +393,13 @@ describe("installed code", () => {
   });
   it("rejects paths that leave src/ and modules/", () => {
     for (const c of ["../x", "src/../x.ts", "/etc/x", "\\x", "lib/x.ts"]) expect(run({ code: [c] })).toMatch(/installed\[0\]\.code/);
+  });
+  it("rejects an empty segment, a . segment and a trailing slash in a code path", () => {
+    for (const c of ["src//x.ts", "src/./x.ts", "./src/x.ts", "src/x/", "modules/", "src/x\\y.ts"]) {
+      expect(codePathOk(c), c).toBe(false);
+      expect(run({ code: [c] }), c).toMatch(/installed\[0\]\.code/);
+    }
+    expect(codePathOk("src/app/leads/page.tsx")).toBe(true);
   });
   it("reports a missing code file once even when listed twice", async () => {
     const row = (c: string) => `  - {entry: routines/nightly-follow-up, from: dictionary@0.1.0, tier: complete, files: [routines/nightly-follow-up.md], code: [${c}], installed: 2026-10-06}\n`;

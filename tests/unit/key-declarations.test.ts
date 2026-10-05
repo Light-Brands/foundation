@@ -24,7 +24,7 @@ describe("card kinds in the Key", () => {
     const byKind = Object.fromEntries(d.kinds.map((k) => [k.kind, k]));
     expect(byKind["lead-new"]).toEqual({
       kind: "lead-new", category: "sell", subcategory: "leads", label: "New lead", always_human: false,
-      decide: "done", expires_days: 14, on_lapse: "raised_again", source: "leads-demo",
+      decide: "done", expires_days: 14, on_lapse: "raised_again", source: "leads-demo", routable: false,
     });
     expect(byKind["discount-ask"]).toMatchObject({ always_human: true, decide: "approve", expires_days: null, on_lapse: "stays" });
     expect(byKind["lead-waiting"].source).toBe("lead-watch");
@@ -46,6 +46,15 @@ describe("card kinds in the Key", () => {
     expect(bad({ kind: "a", subcategory: "leads", label: "x", decide: "maybe" })).toMatch(/decide must be done or approve/);
     expect(bad({ kind: "a", subcategory: "leads", label: "x", always_human: "yes" })).toMatch(/always_human must be true or false/);
     expect(checkCardKinds(src, { kind: "a" }).problems).toEqual(["d.yaml: card_kinds must be a list"]);
+  });
+  it("lets only the declared routable kinds be routable, as done kinds", () => {
+    const src = { file: "d.yaml", category: "command", slug: "mailbox" };
+    const mail = { kind: "mail-in", subcategory: "inbox", label: "Mail in", routable: true };
+    expect(checkCardKinds(src, [mail])).toMatchObject({ problems: [], kinds: [{ kind: "mail-in", routable: true }] });
+    expect(checkCardKinds(src, [{ ...mail, kind: "letter-in" }]).problems.join()).toMatch(/routable: true is only for contact and mail-in/);
+    expect(checkCardKinds(src, [{ ...mail, decide: "approve" }]).problems.join()).toMatch(/a routable kind is decide: done/);
+    expect(checkCardKinds(src, [{ ...mail, routable: "yes" }]).problems.join()).toMatch(/routable must be true or false/);
+    expect(checkCardKinds(src, [{ ...mail, routable: undefined }]).kinds[0].routable).toBe(false);
   });
   it("keeps money, contract and people decisions for the owner", () => {
     const k = { kind: "a", subcategory: "invoicing", label: "Invoice ready", decide: "approve" };

@@ -4,7 +4,7 @@ import path from "node:path";
 import { parse } from "yaml";
 import { CATEGORIES } from "@/lib/layout/categories";
 import { parseFrontMatter, SLUG } from "./frontmatter";
-import { CORE_CARD_KINDS } from "./core-kinds";
+import { CORE_CARD_KINDS, ROUTABLE_KINDS } from "./core-kinds";
 
 // What an installed Key declares for the Foundation to load at run time: card kinds here, public forms
 // (K8), checks and drafting handlers (K5). The Key checker and the running app read the same result.
@@ -24,6 +24,8 @@ export type CardKindDecl = {
   expires_days: number | null;
   on_lapse: OnLapse;
   source: string;
+  /** A message the owner may move to a job's own kind from the Inbox. Only the kinds in ROUTABLE_KINDS may set it. */
+  routable: boolean;
 };
 
 export type DeclSource = {
@@ -112,10 +114,14 @@ export function checkCardKinds(src: Pick<DeclSource, "file" | "category" | "slug
     const lapse = k.on_lapse === undefined ? (hasExpiry ? "" : "stays") : str(k.on_lapse);
     if (!(ON_LAPSE as readonly string[]).includes(lapse)) bad(hasExpiry ? "on_lapse is required with expires_days: stays, closes or raised_again" : "on_lapse must be stays, closes or raised_again");
     else if (!hasExpiry && lapse !== "stays") bad(`on_lapse ${lapse} needs expires_days`);
+    if (k.routable !== undefined && typeof k.routable !== "boolean") bad("routable must be true or false");
+    else if (k.routable === true && !ROUTABLE_KINDS.includes(kind)) bad(`routable: true is only for ${ROUTABLE_KINDS.join(" and ")}`);
+    else if (k.routable === true && decide !== "done") bad("a routable kind is decide: done, because it is a message to move");
     if (problems.length === before) {
       kinds.push({
         kind, category: src.category, subcategory: sub, label, always_human: k.always_human === true,
         decide: decide as DecideMode, expires_days: hasExpiry ? (exp as number) : null, on_lapse: lapse as OnLapse, source: src.slug,
+        routable: k.routable === true,
       });
     }
   });

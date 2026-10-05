@@ -3,7 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { coreDb, extDb, KEY_EXT, ROOT } from "../support/db";
 import { loadCardKinds } from "@/lib/data/card-kinds";
-import { routeCard, insertOncePerCard } from "@/lib/data/cards";
+import { routeCard, insertOncePerCard, writeCard } from "@/lib/data/cards";
+import type { CardKindDecl } from "@/lib/key/declarations";
 import { captureSource, ownHosts, sourceFields } from "@/lib/forms/source";
 import { submitContact } from "@/lib/data/inbox";
 
@@ -85,8 +86,36 @@ describe("routing", () => {
     expect(await routeCard(db, kinds, { cardId: id, toKind: "invoice-new" }, NOW)).toEqual({ status: "unknown_kind" });
     expect(await routeCard(db, kinds, { cardId: id, toKind: "check-failed" }, NOW)).toEqual({ status: "unknown_kind" });
     await routeCard(db, kinds, { cardId: id, toKind: "lead-new" }, NOW);
-    expect(await routeCard(db, kinds, { cardId: id, toKind: "lead-reply" }, NOW)).toEqual({ status: "not_routable" });
+    expect(await routeCard(db, kinds, { cardId: id, toKind: "lead-waiting" }, NOW)).toEqual({ status: "not_routable" });
     expect(await routeCard(db, kinds, { cardId: "00000000-0000-0000-0000-000000000000", toKind: "lead-new" }, NOW)).toEqual({ status: "not_found" });
+    await db.close();
+  });
+  it("routes only to a job kind marked done, never one that waits for a decision", async () => {
+    const db = await extDb();
+    const kinds = await loadCardKinds(KEY_EXT);
+    const id = await submitContact(db, ADA, { now: NOW });
+    expect(await routeCard(db, kinds, { cardId: id, toKind: "lead-reply" }, NOW)).toEqual({ status: "not_done_kind" });
+    expect(await routeCard(db, kinds, { cardId: id, toKind: "discount-ask" }, NOW)).toEqual({ status: "not_done_kind" });
+    expect(await db.query("select kind from inbox_items")).toEqual([{ kind: "contact" }]);
+    await db.close();
+  });
+  it("routes a mail-in card once the Key declares it routable, and no other kind", async () => {
+    const db = await extDb();
+    const base = await loadCardKinds(KEY_EXT);
+    const mailIn: CardKindDecl = { kind: "mail-in", category: "command", subcategory: "inbox", label: "Mail in", always_human: false, decide: "done", expires_days: null, on_lapse: "stays", source: "mailbox", routable: true };
+    const kinds = new Map([...base, ["mail-in", mailIn]]);
+    const card = async (k: string) => {
+      const r = await writeCard(db, kinds, { kind: k, title: "A letter" }, NOW);
+      if (r.status !== "written") throw new Error("not written");
+      return r.id;
+    };
+    const mail = await card("mail-in");
+    expect(await routeCard(db, kinds, { cardId: mail, toKind: "lead-new" }, NOW)).toEqual({ status: "routed" });
+    const undeclared = await card("mail-in");
+    expect(await routeCard(db, new Map([...base, ["mail-in", { ...mailIn, routable: false }]]), { cardId: undeclared, toKind: "lead-new" }, NOW)).toEqual({ status: "not_routable" });
+    // A kind outside the routable list stays put, even when its declaration says routable.
+    const lead = await card("lead-waiting");
+    expect(await routeCard(db, new Map([...kinds, ["lead-waiting", { ...base.get("lead-waiting")!, routable: true }]]), { cardId: lead, toKind: "lead-new" }, NOW)).toEqual({ status: "not_routable" });
     await db.close();
   });
   it("the owning job creates exactly one record per card", async () => {

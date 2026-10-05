@@ -1,5 +1,6 @@
 import type { Queryable } from "@/lib/db/types";
 import type { KindRegistry } from "@/lib/data/card-kinds";
+import { ROUTABLE_KINDS } from "@/lib/key/core-kinds";
 
 // The one way to create a card. Called from server code and commands, never with a kind or a category
 // taken from a request: the kind's declaration decides the department, the job, who may decide it and
@@ -107,21 +108,34 @@ export async function writeCard(db: Queryable, kinds: KindRegistry, input: CardI
   return { status: "exists", id: existing?.id ?? null };
 }
 
-export type RouteResult = { status: "routed" | "not_found" | "not_routable" | "unknown_kind" };
+export type RouteResult = { status: "routed" | "not_found" | "not_routable" | "unknown_kind" | "not_done_kind" };
+
+/** The kinds a card can be moved from now: each kind in ROUTABLE_KINDS whose declaration says routable. */
+export function routableKinds(kinds: KindRegistry): string[] {
+  return ROUTABLE_KINDS.filter((k) => kinds.get(k)?.routable === true);
+}
+
+/** The kinds a message can be moved to: every job kind the Key declares that is marked done and is not itself a message. */
+export function routeTargets(kinds: KindRegistry): { kind: string; label: string }[] {
+  return [...kinds.values()].filter((k) => k.source !== "core" && k.decide === "done" && !ROUTABLE_KINDS.includes(k.kind)).map((k) => ({ kind: k.kind, label: k.label }));
+}
 
 /**
- * Moves a new contact message to the owning job's declared kind. Its title, body and details stay as the
- * visitor sent them. Called from server code on the owner's computer or the session-checked Inbox action.
+ * Moves a new message (a contact card, or a mail-in card once the Key declares it routable) to the owning job's
+ * declared kind. The target is a job kind marked decide: done, because moving a message never stands in for a
+ * decision. Its title, body and details stay as they arrived. Called from server code on the owner's computer or
+ * the session-checked Inbox action.
  */
 export async function routeCard(db: Queryable, kinds: KindRegistry, input: { cardId: string; toKind: string }, now: Date): Promise<RouteResult> {
   const k = kinds.get(input.toKind);
-  if (!k || k.source === "core") return { status: "unknown_kind" };
+  if (!k || k.source === "core" || ROUTABLE_KINDS.includes(k.kind)) return { status: "unknown_kind" };
+  if (k.decide !== "done") return { status: "not_done_kind" };
   const expires = k.expires_days === null ? null : new Date(now.getTime() + k.expires_days * 86_400_000);
   const rows = await db.query<{ id: string }>(
     `update inbox_items set kind = $2, category = $3, subcategory = $4, always_human = $5, expires_at = $6
-      where id = $1 and kind = 'contact' and status = 'new'
+      where id = $1 and kind = any($7::text[]) and status = 'new'
       returning id`,
-    [input.cardId, k.kind, k.category, k.subcategory, k.always_human, expires],
+    [input.cardId, k.kind, k.category, k.subcategory, k.always_human, expires, routableKinds(kinds)],
   );
   if (rows.length) return { status: "routed" };
   const [found] = await db.query<{ id: string }>("select id from inbox_items where id = $1", [input.cardId]);
@@ -132,7 +146,10 @@ const IDENTIFIER = /^[a-z][a-z0-9_]*$/;
 
 /**
  * The owning job's record for a card, created once. The table needs a unique index on card_id
- * (see data.md). Names are checked, values are parameters.
+ * (see data.md). Names are checked, values are parameters. Table and column names come from the job's own
+ * code, never from a request: they are checked as plain names, but nothing here checks that the table belongs
+ * to the caller's app, so a caller passes only its own table. Run it in the same transaction as the job's
+ * other writes for the card, so a failure leaves no half record.
  */
 export async function insertOncePerCard(db: Queryable, table: string, cardId: string, row: Record<string, unknown>): Promise<"inserted" | "exists"> {
   const cols = Object.keys(row);

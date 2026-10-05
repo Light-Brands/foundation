@@ -6,6 +6,7 @@ import { readEnv } from "@/lib/env";
 import { formatCardTime } from "@/lib/time";
 import { PromptBox } from "@/components/PromptBox";
 import { loadCardKinds } from "@/lib/data/card-kinds";
+import { routableKinds, routeTargets } from "@/lib/data/cards";
 import { CardActions } from "./CardActions";
 import { EmailDraft } from "./EmailDraft";
 import { handSendContext, handSendFor, type HandSend } from "@/lib/data/hand-send";
@@ -20,6 +21,8 @@ export default async function InboxPage() {
   const { timezone } = await getProfile(db, env.businessName);
   // For every approved or failed email: the text the owner copies to send by hand, or why there is none.
   const ctx = await handSendContext(db);
+  const movable = new Set(routableKinds(kinds));
+  const targets = routeTargets(kinds);
   const handSend = new Map<string, HandSend>();
   for (const i of items) for (const e of i.emails) handSend.set(e.id, await handSendFor(db, e, ctx));
   return (
@@ -60,7 +63,7 @@ export default async function InboxPage() {
                 </p>
               )}
               {i.always_human && i.status === "new" && <p className="mt-2 text-xs text-amber-200">Only the owner decides this one.</p>}
-              <CardActions id={i.id} status={i.status} mode={kinds.get(i.kind)?.decide ?? "done"} routes={i.kind === "contact" ? [...kinds.values()].filter((k) => k.source !== "core" && k.decide === "done").map((k) => ({ kind: k.kind, label: k.label })) : []} />
+              <CardActions id={i.id} status={i.status} mode={kinds.get(i.kind)?.decide ?? "done"} routes={movable.has(i.kind) ? targets : []} />
             </li>
           ))}
         </ul>

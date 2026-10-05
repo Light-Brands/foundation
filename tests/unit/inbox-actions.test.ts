@@ -100,6 +100,10 @@ describe("routeCardAction", () => {
     expect(await routeCardAction(null, form({ id: ID, to: "lead-new" }))).toEqual({ ok: false, message: "Only a new message can be moved." });
     routeCard.mockResolvedValueOnce({ status: "unknown_kind" });
     expect(await routeCardAction(null, form({ id: ID, to: "lead-new" }))).toEqual({ ok: false, message: "That job is not installed." });
+    routeCard.mockResolvedValueOnce({ status: "not_done_kind" });
+    expect(await routeCardAction(null, form({ id: ID, to: "lead-new" }))).toEqual({ ok: false, message: "That job takes decisions, so a message cannot be moved there." });
+    routeCard.mockResolvedValueOnce({ status: "not_found" });
+    expect(await routeCardAction(null, form({ id: ID, to: "lead-new" }))).toEqual({ ok: false, message: "That card is no longer here." });
   });
 });
 

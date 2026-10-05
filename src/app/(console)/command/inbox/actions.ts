@@ -25,6 +25,11 @@ const REFUSED: Record<string, string> = {
   not_allowed: "This card belongs to a department you do not work in.",
 };
 const FAILED = "We could not save that just now. Try again in a moment.";
+const ROUTE_REFUSED: Record<string, string> = {
+  not_routable: "Only a new message can be moved.",
+  unknown_kind: "That job is not installed.",
+  not_done_kind: "That job takes decisions, so a message cannot be moved there.",
+};
 
 export async function decideCardAction(_prev: CardActionResult | null, form: FormData): Promise<CardActionResult> {
   if (!(await hasSession())) return { ok: false, message: SESSION_ENDED_MESSAGE };
@@ -72,7 +77,7 @@ export async function routeCardAction(_prev: CardActionResult | null, form: Form
     const r = await routeCard(db, kinds, { cardId: id, toKind: to }, new Date());
     revalidatePath("/", "layout");
     if (r.status === "routed") return { ok: true, message: `Moved to ${kinds.get(to)?.label ?? "its job"}.` };
-    return { ok: false, message: r.status === "not_routable" ? "Only a new message can be moved." : r.status === "unknown_kind" ? "That job is not installed." : REFUSED.not_found };
+    return { ok: false, message: ROUTE_REFUSED[r.status] ?? REFUSED.not_found };
   } catch (err) {
     console.error("routeCardAction failed", err);
     return { ok: false, message: FAILED };

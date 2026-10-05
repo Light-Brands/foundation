@@ -4,6 +4,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { cancelEmailAction, markSentByHandAction, type CardActionResult } from "./actions";
 import type { CardEmail } from "@/lib/data/inbox";
 import type { OutboxStatus } from "@/lib/data/outbox";
+import type { HandSend } from "@/lib/data/hand-send";
 
 const BUTTON = "min-h-11";
 const STATUS: Record<OutboxStatus, string> = {
@@ -16,7 +17,8 @@ const STATUS: Record<OutboxStatus, string> = {
 };
 
 // A drafted email on its card. The body is customer-facing text written by a job, shown as plain text only.
-export function EmailDraft({ email, sendAfter, copyText }: { email: CardEmail; sendAfter: string | null; copyText: string | null }) {
+export function EmailDraft({ email, sendAfter, handSend }: { email: CardEmail; sendAfter: string | null; handSend: HandSend }) {
+  const { copyText, note } = handSend;
   const [marked, mark, marking] = useActionState<CardActionResult | null, FormData>(markSentByHandAction, null);
   const [stopped, stop, stopping] = useActionState<CardActionResult | null, FormData>(cancelEmailAction, null);
   const pending = marking || stopping;
@@ -28,11 +30,9 @@ export function EmailDraft({ email, sendAfter, copyText }: { email: CardEmail; s
       <p className="kicker">{email.kind === "marketing" ? "Marketing email" : "Email"} to {email.to}</p>
       <p className="mt-1 text-sm text-zinc-100">{email.subject}</p>
       <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-300">{email.body}</p>
-      <p className="mt-2 text-xs text-mist">{STATUS[email.status]}{email.note ? ` ${email.note}` : ""}</p>
+      <p className="mt-2 text-xs text-mist">{email.status === "approved" && copyText === null ? "Approved." : STATUS[email.status]}{email.note ? ` ${email.note}` : ""}</p>
       {sendAfter && (email.status === "draft" || email.status === "approved") && <p className="mt-1 text-xs text-mist">Goes out after {sendAfter}.</p>}
-      {copyText === null && (email.status === "approved" || email.status === "failed") && (
-        <p className="mt-1 text-xs text-mist">This waits for your live site&apos;s address, which its unsubscribe link needs. Send it from your live site, or set FOUNDATION_URL to that address.</p>
-      )}
+      {note && <p className="mt-1 text-xs text-mist">{note}</p>}
       {(canSendByHand || canStop) && (
         <div className="mt-2 flex flex-wrap items-center gap-3">
           {canSendByHand && <CopyButton text={copyText} label="Copy email" />}

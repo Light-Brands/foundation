@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { coreDb } from "../support/db";
 import { emailHash, normalizeEmail, normalizedEmailSql, parseEmail, InvalidEmailError, MissingSecretError } from "@/lib/email";
 
-const SECRET = "test-fixed-secret";
+const SECRET = "test-fixed-secret-of-at-least-32-chars";
 const SAMPLES: [string, string][] = [
   ["Jo@Harbor.Example", "jo@harbor.example"],
   ["  jo+news@harbor.example ", "jo@harbor.example"],
@@ -82,13 +82,14 @@ describe("emailHash", () => {
     expect(emailHash("jo@harbor.example", SECRET)).toMatch(/^[0-9a-f]{64}$/);
   });
   it("is keyed, so a different secret gives a different token and a plain hash of the address is no match", async () => {
-    expect(emailHash("jo@harbor.example", SECRET)).not.toBe(emailHash("jo@harbor.example", "another-secret"));
+    expect(emailHash("jo@harbor.example", SECRET)).not.toBe(emailHash("jo@harbor.example", "another-secret-of-at-least-32-characters"));
     const { createHash } = await import("node:crypto");
     expect(emailHash("jo@harbor.example", SECRET)).not.toBe(createHash("sha256").update("foundation:email:v1:jo@harbor.example").digest("hex"));
   });
   it("refuses without a secret and refuses an address it cannot read", () => {
     expect(() => emailHash("jo@harbor.example", "")).toThrow(MissingSecretError);
     expect(() => emailHash("jo@harbor.example", null)).toThrow(MissingSecretError);
+    expect(() => emailHash("jo@harbor.example", "s".repeat(31))).toThrow(MissingSecretError);
     expect(() => emailHash("Jo <jo@harbor.example>", SECRET)).toThrow(InvalidEmailError);
   });
 });

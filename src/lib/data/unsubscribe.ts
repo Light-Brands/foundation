@@ -4,6 +4,7 @@ import { optOut } from "@/lib/data/outbox";
 import { clientHash, takeFormSlot } from "@/lib/forms/limit";
 import { BODY_MAX } from "@/lib/forms/public";
 import { readUnsubscribeToken } from "@/lib/email-links";
+import { FIXED_SECRET_MIN } from "@/lib/env";
 
 export { httpsOrigin, publicBaseUrl, readUnsubscribeToken, unsubscribeToken, unsubscribeUrl } from "@/lib/email-links";
 
@@ -29,14 +30,16 @@ export async function handleUnsubscribe(
   now: Date,
 ): Promise<UnsubscribeOutcome> {
   if (input.method === "POST" && input.contentLength !== null && input.contentLength > BODY_MAX) return { status: "too_large" };
+  if (!deps.secret || deps.secret.length < FIXED_SECRET_MIN) return { status: "invalid" };
   const id = readUnsubscribeToken(input.token, deps.secret);
-  if (!id || !deps.secret) return { status: "invalid" };
+  if (!id) return { status: "invalid" };
   if (input.method === "GET") return { status: "confirm" };
   if (!deps.db) return { status: "preview" };
   const [row] = await deps.db.query<{ to_email: string }>("select to_email from outbox where id = $1 and kind = 'marketing'", [id]);
   if (!row) return { status: "invalid" };
   const keyHash = await clientHash("unsubscribe", id, deps.secret);
   if (!(await takeFormSlot(deps.db, { form: "unsubscribe", keyHash }, now, UNSUBSCRIBE_LIMITS))) return { status: "limited" };
+  // optOut throws unless the opt-out is on the list afterwards, so done is said only when it is.
   await optOut(deps.db, { email: row.to_email, source: "unsubscribe link", scope: "marketing" }, now, deps.secret);
   return { status: "done" };
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { coreDb } from "../support/db";
 import {
-  cancelEmail, claimNext, draftEmail, isOptedOut, markSent, markSentByHand, optOut, recoverStuck, sendApproved, STUCK_AFTER_MS, type Sender,
+  OptOutNotRecordedError, cancelEmail, claimNext, draftEmail, isOptedOut, markSent, markSentByHand, optOut, recoverStuck, sendApproved, STUCK_AFTER_MS, type Sender,
 } from "@/lib/data/outbox";
 import type { Db } from "@/lib/db/types";
 
@@ -221,10 +221,65 @@ describe("opt-out scope", () => {
     expect(await db.query("select count(*)::int as n from opt_outs")).toEqual([{ n: 0 }]);
     await db.close();
   });
-  it("never throws on a second unique index, such as the same address kept under an earlier secret", async () => {
+  it("never raises a database error on a second unique index", async () => {
     const db = await coreDb();
     await optOut(db, { email: "jo@harbor.example", source: "link", scope: "marketing" }, T0, "an-earlier-secret-of-at-least-32-chars");
-    await expect(optOut(db, { email: "jo@harbor.example", source: "owner", scope: "all" }, T0)).resolves.toBeUndefined();
+    await expect(optOut(db, { email: "jo@harbor.example", source: "owner", scope: "all" }, T0)).rejects.toThrow(OptOutNotRecordedError);
+    await db.close();
+  });
+});
+
+describe("every opt-out path fails closed", () => {
+  const SHORT = "s".repeat(31);
+  // The database answers everything except a read of the opt-out list, which errors.
+  const listDown = (db: Db): Db => ({
+    ...db,
+    query: (async (sql: string, params?: unknown[]) => {
+      if (/from opt_outs/.test(sql)) throw new Error("connection reset");
+      return db.query(sql, params);
+    }) as Db["query"],
+    transaction: db.transaction.bind(db),
+    exec: db.exec.bind(db),
+    close: db.close.bind(db),
+  });
+  it("a short secret refuses both recording and checking, even one passed in", async () => {
+    const db = await coreDb();
+    await expect(optOut(db, { email: MAIL.to, source: "x", scope: "all" }, T0, SHORT)).rejects.toThrow(/FOUNDATION_SECRET/);
+    await expect(isOptedOut(db, MAIL.to, "transactional", SHORT)).rejects.toThrow(/FOUNDATION_SECRET/);
+    await expect(isOptedOut(db, MAIL.to, "transactional", "")).rejects.toThrow(/FOUNDATION_SECRET/);
+    expect((await draftEmail(db, MAIL, SHORT)).status).toBe("invalid");
+    await expect(sendApproved(db, sender(), T0, 20, { secret: SHORT })).rejects.toThrow(/FOUNDATION_SECRET/);
+    expect(await db.query("select count(*)::int as n from opt_outs")).toEqual([{ n: 0 }]);
+    await db.close();
+  });
+  it("an opt-out that could not be written for this hash is a failure, never a quiet success", async () => {
+    const db = await coreDb();
+    // The same address kept under an earlier secret holds the address index, so nothing is written for today's hash.
+    await optOut(db, { email: MAIL.to, source: "link", scope: "all" }, T0, "an-earlier-secret-of-at-least-32-chars");
+    await expect(optOut(db, { email: MAIL.to, source: "owner", scope: "all" }, T0)).rejects.toThrow(/could not record/);
+    await db.close();
+  });
+  it("a marketing opt-out already covered by an all one is a success", async () => {
+    const db = await coreDb();
+    await optOut(db, { email: MAIL.to, source: "owner", scope: "all" }, T0);
+    await expect(optOut(db, { email: MAIL.to, source: "link", scope: "marketing" }, T0)).resolves.toBeUndefined();
+    await db.close();
+  });
+  it("a draft is refused when the opt-out list cannot be read", async () => {
+    const db = await coreDb();
+    expect(await draftEmail(listDown(db), MAIL)).toEqual({ status: "invalid", error: "We could not check who asked us to stop, so nothing was drafted. Try again in a moment." });
+    expect(await db.query("select count(*)::int as n from outbox")).toEqual([{ n: 0 }]);
+    await db.close();
+  });
+  it("a send is refused when the opt-out list cannot be read, and waits for the owner", async () => {
+    const db = await coreDb();
+    const id = await approved(db);
+    const send = sender();
+    expect(await sendApproved(listDown(db), send, T0)).toEqual({ sent: 0, failed: 0, refused: 1 });
+    expect(send).not.toHaveBeenCalled();
+    expect(await db.query("select status, last_error from outbox where id = $1", [id])).toEqual([
+      { status: "failed", last_error: "We could not check whether this person asked us to stop, so this email was not sent." },
+    ]);
     await db.close();
   });
 });
@@ -257,12 +312,12 @@ describe("sent by hand", () => {
   it("records an approved or failed email the owner sent another way, and never retries it", async () => {
     const db = await coreDb();
     const a = await approved(db);
-    expect(await markSentByHand(db, a, T0)).toBe(true);
+    expect(await markSentByHand(db, a, T0)).toBe("sent");
     expect(await db.query("select status, sent_by_hand from outbox where id = $1", [a])).toEqual([{ status: "sent", sent_by_hand: true }]);
     const b = await approved(db, { sendKey: "k-failed" });
     await claimNext(db, T0);
     await db.query("update outbox set status = 'failed' where id = $1", [b]);
-    expect(await markSentByHand(db, b, T0)).toBe(true);
+    expect(await markSentByHand(db, b, T0)).toBe("sent");
     const send = sender();
     expect(await sendApproved(db, send, later(1000))).toEqual({ sent: 0, failed: 0, refused: 0 });
     await db.close();
@@ -271,12 +326,12 @@ describe("sent by hand", () => {
     const db = await coreDb();
     const d = await draftEmail(db, MAIL);
     if (d.status !== "drafted") throw new Error("not drafted");
-    expect(await markSentByHand(db, d.id, T0)).toBe(false);
+    expect(await markSentByHand(db, d.id, T0)).toBe("not_waiting");
     await approve(db, d.id);
     await claimNext(db, T0);
-    expect(await markSentByHand(db, d.id, T0)).toBe(false);
+    expect(await markSentByHand(db, d.id, T0)).toBe("not_waiting");
     await markSent(db, d.id, "msg_1", T0);
-    expect(await markSentByHand(db, d.id, T0)).toBe(false);
+    expect(await markSentByHand(db, d.id, T0)).toBe("not_waiting");
     expect(await db.query("select sent_by_hand from outbox")).toEqual([{ sent_by_hand: false }]);
     await db.close();
   });

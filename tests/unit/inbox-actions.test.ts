@@ -14,8 +14,9 @@ const routeCard = vi.fn(async () => ({ status: "routed" }));
 vi.mock("@/lib/data/cards", () => ({ routeCard: (...a: unknown[]) => (routeCard as (...x: unknown[]) => unknown)(...a) }));
 vi.mock("@/lib/data/card-kinds", () => ({ loadCardKinds: async () => new Map() }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
-const markSentByHand = vi.fn(async () => true);
+const markSentByHand = vi.fn(async (): Promise<string> => "sent");
 const cancelEmail = vi.fn(async () => true);
+vi.mock("@/lib/data/connections", () => ({ emailSenderActive: async () => false }));
 vi.mock("@/lib/data/outbox", () => ({
   markSentByHand: (...a: unknown[]) => (markSentByHand as (...x: unknown[]) => unknown)(...a),
   cancelEmail: (...a: unknown[]) => (cancelEmail as (...x: unknown[]) => unknown)(...a),
@@ -98,8 +99,10 @@ describe("markSentByHandAction", () => {
     hasSession.mockResolvedValue(true);
     getDb.mockResolvedValue({});
     expect(await markSentByHandAction(null, form({ id: ID }))).toEqual({ ok: true, message: "Marked as sent." });
-    markSentByHand.mockResolvedValueOnce(false);
+    markSentByHand.mockResolvedValueOnce("not_waiting");
     expect(await markSentByHandAction(null, form({ id: ID }))).toEqual({ ok: false, message: "This email is not waiting to be sent." });
+    markSentByHand.mockResolvedValueOnce("opted_out");
+    expect(await markSentByHandAction(null, form({ id: ID }))).toEqual({ ok: false, message: "This person asked us to stop." });
   });
 });
 

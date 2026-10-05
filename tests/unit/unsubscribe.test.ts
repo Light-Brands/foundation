@@ -71,6 +71,21 @@ describe("unsubscribing", () => {
     expect(await db.query("select distinct status from outbox")).toEqual([{ status: "cancelled" }]);
     await db.close();
   });
+  it("never answers done when the opt-out could not be written", async () => {
+    const db = await coreDb();
+    const id = await approvedPromo(db);
+    await db.query("insert into opt_outs (email, email_hash, source, scope) values ('Jo+News@harbor.example', 'hash-under-an-earlier-secret', 'old', 'all')");
+    await expect(handleUnsubscribe({ db, secret: SECRET }, post(unsubscribeToken(id, SECRET)), T0)).rejects.toThrow();
+    await db.close();
+  });
+  it("refuses with a secret shorter than 32 characters", async () => {
+    const db = await coreDb();
+    const id = await approvedPromo(db);
+    const short = "u".repeat(31);
+    expect(await handleUnsubscribe({ db, secret: short }, post(unsubscribeToken(id, short)), T0)).toEqual({ status: "invalid" });
+    expect(await db.query("select count(*)::int as n from opt_outs")).toEqual([{ n: 0 }]);
+    await db.close();
+  });
   it("refuses a forged token or one for another row, and writes nothing", async () => {
     const db = await coreDb();
     const id = await approvedPromo(db);

@@ -8,7 +8,9 @@ import { decideCard, markCardDone, type DecideResult, type DoneResult } from "@/
 import { routeCard } from "@/lib/data/cards";
 import { SLUG } from "@/lib/key/frontmatter";
 import { PREVIEW_MESSAGE } from "@/lib/data/profile";
-import { cancelEmail, markSentByHand } from "@/lib/data/outbox";
+import { cancelEmail, markSentByHand, type HandSentResult } from "@/lib/data/outbox";
+import { emailSenderActive } from "@/lib/data/connections";
+import { MissingSecretError } from "@/lib/email";
 
 export type CardActionResult = { ok: boolean; message: string };
 
@@ -77,9 +79,18 @@ export async function routeCardAction(_prev: CardActionResult | null, form: Form
   }
 }
 
+const HAND_SENT: Record<HandSentResult, string> = {
+  sent: "Marked as sent.",
+  opted_out: "This person asked us to stop.",
+  automatic: "Your email connection sends this one on its own.",
+  not_waiting: "This email is not waiting to be sent.",
+};
 const EMAIL_UNREADABLE = "That email could not be read. Reload the page and try again.";
 
-/** The owner sent an approved or failed email from their own email. Owner only. */
+/**
+ * The owner sent an approved or failed email from their own email. Owner only. Refused for an address that
+ * opted out, and for an approved email while the email connection sends on its own.
+ */
 export async function markSentByHandAction(_prev: CardActionResult | null, form: FormData): Promise<CardActionResult> {
   const actor = (await hasSession()) ? PIN_OWNER : null;
   if (!actor || !allows(actor, "owner")) return { ok: false, message: SESSION_ENDED_MESSAGE };
@@ -88,10 +99,11 @@ export async function markSentByHandAction(_prev: CardActionResult | null, form:
   try {
     const db = await getDb();
     if (!db) return { ok: false, message: PREVIEW_MESSAGE };
-    const ok = await markSentByHand(db, id, new Date());
+    const r = await markSentByHand(db, id, new Date(), { approved: !(await emailSenderActive(db)) });
     revalidatePath("/command/inbox");
-    return ok ? { ok: true, message: "Marked as sent." } : { ok: false, message: "This email is not waiting to be sent." };
+    return { ok: r === "sent", message: HAND_SENT[r] };
   } catch (err) {
+    if (err instanceof MissingSecretError) return { ok: false, message: err.message };
     console.error("markSentByHandAction failed", err);
     return { ok: false, message: FAILED };
   }

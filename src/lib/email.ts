@@ -1,5 +1,6 @@
 import "server-only";
 import { createHmac } from "node:crypto";
+import { FIXED_SECRET_MIN } from "@/lib/env";
 
 // One strict reading of an email address, used by every path that sends to, matches or records one:
 // drafting, the opt-out check at send time, unsubscribing, recording an opt-out and forget.
@@ -22,7 +23,7 @@ export class InvalidEmailError extends TypeError {
 
 export class MissingSecretError extends Error {
   constructor() {
-    super("Set FOUNDATION_SECRET before recording or checking an opt-out. It is fixed for the life of the Foundation.");
+    super("Set FOUNDATION_SECRET, at least 32 characters, before recording or checking an opt-out. It is fixed for the life of the Foundation.");
     this.name = "MissingSecretError";
   }
 }
@@ -71,6 +72,6 @@ export function normalizedEmailSql(column: string): string {
  * unmatchable, so the secret is fixed for the life of the Foundation.
  */
 export function emailHash(raw: string, secret: string | null | undefined): string {
-  if (!secret) throw new MissingSecretError();
+  if (!secret || secret.length < FIXED_SECRET_MIN) throw new MissingSecretError();
   return createHmac("sha256", `foundation:email:v1:${secret}`).update(normalizeEmail(raw)).digest("hex");
 }

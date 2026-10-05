@@ -12,7 +12,9 @@ vi.mock("@/lib/data/card-kinds", async () => {
 });
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
-import { decideCardAction, markDoneAction } from "@/app/(console)/command/inbox/actions";
+import { decideCardAction, markDoneAction, markSentByHandAction } from "@/app/(console)/command/inbox/actions";
+import { draftEmail, optOut } from "@/lib/data/outbox";
+import { upsertConnection } from "@/lib/data/connections";
 
 const form = (v: Record<string, string>) => { const f = new FormData(); for (const [k, x] of Object.entries(v)) f.set(k, x); return f; };
 
@@ -39,5 +41,29 @@ describe("the inbox actions over a real database", () => {
     await decideCardAction(null, form({ id, decision: "approve" }));
     expect(await markDoneAction(null, form({ id }))).toEqual({ ok: true, message: "Marked done." });
     expect(await current.query("select status from inbox_items")).toEqual([{ status: "done" }]);
+  });
+
+  describe("sending by hand", () => {
+    const T0 = new Date("2026-10-05T16:00:00Z");
+    beforeEach(() => { vi.stubEnv("FOUNDATION_SECRET", "actions-db-test-secret-of-at-least-32-chars"); });
+    afterEach(() => { vi.unstubAllEnvs(); });
+    async function approvedEmail(sendKey: string): Promise<string> {
+      const d = await draftEmail(current, { to: "ada@example.com", subject: "Hi", body: "Hello", sendKey, cardId: id });
+      if (d.status !== "drafted") throw new Error("not drafted");
+      await current.query("update outbox set status = 'approved', approved_at = $2 where id = $1", [d.id, T0]);
+      return d.id;
+    }
+    it("refuses an email whose address opted out after approval", async () => {
+      const email = await approvedEmail("k1");
+      await optOut(current, { email: "ada@example.com", source: "owner", scope: "all" }, T0);
+      expect(await markSentByHandAction(null, form({ id: email }))).toEqual({ ok: false, message: "This person asked us to stop." });
+      expect(await current.query("select status from outbox")).toEqual([{ status: "approved" }]);
+    });
+    it("refuses an approved email while the email connection sends on its own", async () => {
+      const email = await approvedEmail("k1");
+      await upsertConnection(current, { service: "email-sending", door: "own", status: "connected", scopes: [], key_setting: "RESEND_API_KEY", tested_on: null, owner: "Owner" }, T0);
+      expect(await markSentByHandAction(null, form({ id: email }))).toEqual({ ok: false, message: "Your email connection sends this one on its own." });
+      expect(await current.query("select status from outbox")).toEqual([{ status: "approved" }]);
+    });
   });
 });

@@ -1,5 +1,5 @@
 import type { Db, Queryable } from "@/lib/db/types";
-import { readEnv } from "@/lib/env";
+import { FIXED_SECRET_MIN, readEnv } from "@/lib/env";
 import { emailHash, parseEmail, MissingSecretError } from "@/lib/email";
 import { httpsOrigin, publicBaseUrl, unsubscribeUrl } from "@/lib/email-links";
 
@@ -39,12 +39,25 @@ export type DraftEmail = {
 };
 export type DraftResult = { status: "drafted"; id: string } | { status: "exists"; id: string } | { status: "opted_out" } | { status: "invalid"; error: string };
 
-/** The fixed secret the opt-out list is keyed by: the caller's, else FOUNDATION_SECRET. Never the build secret. */
+/**
+ * The fixed secret the opt-out list is keyed by: the caller's, else FOUNDATION_SECRET. Never the build secret,
+ * and never one shorter than 32 characters: without a usable key nothing is recorded or checked.
+ */
 function keyOf(secret: string | null | undefined): string {
   const s = secret === undefined ? readEnv().fixedSecret : secret;
-  if (!s) throw new MissingSecretError();
+  if (!s || s.length < FIXED_SECRET_MIN) throw new MissingSecretError();
   return s;
 }
+
+/** An opt-out that could not be written for this address under today's secret. The caller reports a failure. */
+export class OptOutNotRecordedError extends Error {
+  constructor() {
+    super("We could not record that opt-out. Nothing was changed.");
+    this.name = "OptOutNotRecordedError";
+  }
+}
+const UNCHECKED_DRAFT = "We could not check who asked us to stop, so nothing was drafted. Try again in a moment.";
+const UNCHECKED_SEND = "We could not check whether this person asked us to stop, so this email was not sent.";
 
 /** marketing: the person stopped marketing email (the unsubscribe link). all: the person stopped every email. */
 export const OPT_OUT_SCOPES = ["marketing", "all"] as const;
@@ -66,7 +79,8 @@ export async function isOptedOut(db: Queryable, email: string, kind: OutboxKind,
 
 /**
  * Records an opt-out once, with its scope. A second opt-out for the same person only widens a marketing one to
- * all, never narrows it. Writes nothing on a clash with any unique index. Throws for an address parseEmail
+ * all, never narrows it. Never raises a database error on a clash with any unique index, and then reads back:
+ * unless a row for this address now covers the scope, it throws OptOutNotRecordedError. Throws for an address parseEmail
  * refuses, for a scope that is not marketing or all, and while FOUNDATION_SECRET is unset.
  */
 export async function optOut(db: Queryable, input: { email: string; source: string; scope: OptOutScope }, now: Date, secret?: string | null): Promise<void> {
@@ -83,6 +97,9 @@ export async function optOut(db: Queryable, input: { email: string; source: stri
   if (inserted.length === 0 && input.scope === "all") {
     await db.query("update opt_outs set scope = 'all' where email_hash = $1 and scope <> 'all'", [hash]);
   }
+  // Fail closed: success only when a row for this hash now covers the scope asked for.
+  const covered = await db.query("select 1 as hit from opt_outs where email_hash = $1 and (scope = 'all' or $2 = 'marketing') limit 1", [hash, input.scope]);
+  if (covered.length === 0) throw new OptOutNotRecordedError();
 }
 
 function checkDraft(input: DraftEmail): string | null {
@@ -113,8 +130,8 @@ export async function draftEmail(db: Queryable, input: DraftEmail, secret?: stri
   try {
     optedOut = await isOptedOut(db, p.send, input.kind ?? "transactional", secret);
   } catch (err) {
-    if (err instanceof MissingSecretError) return { status: "invalid", error: err.message };
-    throw err;
+    // Fail closed: a list that cannot be read never counts as not opted out.
+    return { status: "invalid", error: err instanceof MissingSecretError ? err.message : UNCHECKED_DRAFT };
   }
   if (optedOut) return { status: "opted_out" };
   for (let tries = 0; tries < 2; tries++) {
@@ -186,17 +203,32 @@ export async function markFailed(db: Queryable, id: string, error: string, now: 
   return rows.length === 1;
 }
 
+export type HandSentResult = "sent" | "opted_out" | "automatic" | "not_waiting";
+
 /**
  * The owner sent an approved or failed email another way. It becomes sent, marked as sent by hand, and is
- * never retried. A row that is sending stays refused until it resolves.
+ * never retried. A row that is sending stays refused until it resolves. A row whose address opted out of its
+ * kind is refused, checked again in the same statement that marks it. approved: false refuses an approved
+ * row, for while the email connection sends approved rows on its own, so the two never both send it.
  */
-export async function markSentByHand(db: Queryable, id: string, now: Date): Promise<boolean> {
-  if (!UUID.test(id)) return false;
-  const rows = await db.query(
-    "update outbox set status = 'sent', sent_by_hand = true, sent_at = $2, updated_at = $2 where id = $1 and status in ('approved', 'failed') returning id",
-    [id, now],
+export async function markSentByHand(db: Queryable, id: string, now: Date, opts: { secret?: string | null; approved?: boolean } = {}): Promise<HandSentResult> {
+  if (!UUID.test(id)) return "not_waiting";
+  const key = keyOf(opts.secret);
+  const [row] = await db.query<{ to_email: string; kind: OutboxKind; status: OutboxStatus }>(
+    "select to_email, kind, status from outbox where id = $1 and status in ('approved', 'failed')",
+    [id],
   );
-  return rows.length === 1;
+  if (!row) return "not_waiting";
+  if (row.status === "approved" && opts.approved === false) return "automatic";
+  if (await isOptedOut(db, row.to_email, row.kind, key)) return "opted_out";
+  const rows = await db.query(
+    `update outbox set status = 'sent', sent_by_hand = true, sent_at = $2, updated_at = $2
+      where id = $1 and (status = 'failed' or (status = 'approved' and $3))
+        and not exists (select 1 from opt_outs where email_hash = $4 and (scope = 'all' or outbox.kind = 'marketing'))
+      returning id`,
+    [id, now, opts.approved !== false, emailHash(row.to_email, key)],
+  );
+  return rows.length === 1 ? "sent" : "not_waiting";
 }
 
 /** The owner stops one email: a draft, or an approved row no sender has claimed yet. Never one sending or sent. */
@@ -228,7 +260,16 @@ export async function sendApproved(db: Db, send: Sender, now: Date, max = 20, op
     const claimed = await claimNext(db, now, { marketing: base !== null });
     if (!claimed) break;
     const msg = composeEmail(claimed, { postalAddress: facts?.postalAddress ?? "", mailto: facts?.mailto ?? null, unsubscribeUrl: base ? unsubscribeUrl(base, claimed.id, key) : null });
-    if (await isOptedOut(db, msg.to_email, msg.kind, key)) {
+    let stopped: boolean;
+    try {
+      stopped = await isOptedOut(db, msg.to_email, msg.kind, key);
+    } catch {
+      // Fail closed: a list that cannot be read never counts as not opted out. The owner sees the row as not sent.
+      await markFailed(db, msg.id, UNCHECKED_SEND, now);
+      out.refused++;
+      continue;
+    }
+    if (stopped) {
       await db.query("update outbox set status = 'cancelled', last_error = 'opted_out', updated_at = $2 where id = $1 and status = 'sending'", [msg.id, now]);
       out.refused++;
       continue;

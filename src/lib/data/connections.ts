@@ -74,6 +74,19 @@ export async function connectionStatuses(db: Db | null): Promise<Record<string, 
   return Object.fromEntries((await listConnections(db)).map((r) => [r.service, r.status]));
 }
 
+/** The connection that sends approved email on its own. */
+export const EMAIL_SENDING = "email-sending";
+
+/**
+ * True while the email-sending connection may be sending approved email on its own: connected, or failing
+ * (a failing sender still runs and may still succeed). Copying an approved email to send by hand waits on this,
+ * so the owner and the sender never both send one email.
+ */
+export async function emailSenderActive(db: Db | null): Promise<boolean> {
+  const status = (await connectionStatuses(db))[EMAIL_SENDING];
+  return status === "connected" || status === "failing";
+}
+
 /**
  * Whether the setting a connection names holds a value: "set" or "unset", and null when there is no
  * usable name. The value itself is never returned, so a screen can show only set or unset.

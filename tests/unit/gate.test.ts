@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { safeNext, isPublicPath, handleGatePost } from "@/lib/auth/gate";
+import { safeNext, isPublicPath, handleGatePost, cronAuthorized, isPublicRequest } from "@/lib/auth/gate";
 import { readEnv } from "@/lib/env";
 import { verifySession } from "@/lib/auth/pin-token";
 
@@ -62,5 +62,21 @@ describe("the public form route", () => {
   it("lets every declared form address through, and nothing else under /f", () => {
     for (const p of ["/f/get-in-touch", "/f/apply"]) expect(isPublicPath(p), p).toBe(true);
     for (const p of ["/f", "/f/", "/f/Get-In-Touch", "/f/a/b", "/f/a_b", "/forms/a"]) expect(isPublicPath(p), p).toBe(false);
+  });
+});
+
+describe("the cron route", () => {
+  const secret = "c".repeat(32);
+  it("the cron route is public only with its secret", () => {
+    expect(isPublicRequest("/api/cron/checks", `Bearer ${secret}`, secret)).toBe(true);
+    expect(isPublicRequest("/api/cron/checks", null, secret)).toBe(false);
+    expect(isPublicRequest("/api/cron/checks", `Bearer ${secret}x`, secret)).toBe(false);
+    expect(isPublicRequest("/api/cron/checks", "Bearer ", null)).toBe(false);
+    expect(isPublicRequest("/api/cron/other", `Bearer ${secret}`, secret)).toBe(false);
+    expect(isPublicRequest("/contact", null, null)).toBe(true);
+  });
+  it("never accepts an empty secret", () => {
+    expect(cronAuthorized("Bearer ", "")).toBe(false);
+    expect(cronAuthorized("Bearer null", null)).toBe(false);
   });
 });

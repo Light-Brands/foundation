@@ -36,4 +36,9 @@ describe("readEnv", () => {
     expect(env.businessName).toBe("Your business");
     expect(env.dataDir).toBe(".data/pglite");
   });
+  it("keeps a cron secret of 16 or more characters and drops a shorter one", () => {
+    expect(readEnv({ CRON_SECRET: "x".repeat(16) }).cronSecret).toBe("x".repeat(16));
+    expect(readEnv({ CRON_SECRET: "short" }).cronSecret).toBeNull();
+    expect(readEnv({}).cronSecret).toBeNull();
+  });
 });

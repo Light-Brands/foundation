@@ -1,5 +1,8 @@
 app: clients
 category: keep
-fields:
-  - { name: notes, type: json }
+entities:
+  - key: clients
+    name: Client
+    fields:
+      - { key: notes, name: Notes, type: json }
 migrations: migrations/

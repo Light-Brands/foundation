@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { parse } from "yaml";
 import { CATEGORIES } from "@/lib/layout/categories";
@@ -10,6 +10,9 @@ export const SKILL_SECTIONS = ["Input", "Steps", "Output", "Check"];
 export const WORKFLOW_SECTIONS = ["Goal", "Steps", "Expected output", "Check", "When blocked"];
 export const TRIGGERS = ["cron", "every", "at", "record_change"];
 export const FIELD_TYPES = ["text", "number", "date", "select", "multi_select", "checkbox", "user", "multi_user", "url", "email", "attachment"];
+export const EVERY = /^\d+\s*(second|minute|hour|day|week)s?$/;
+const IDENTIFIER = /^[a-z][a-z0-9_]*$/;
+const SYSTEM_COLUMNS = ["id", "created_at", "updated_at"];
 const MEMORY_TYPES = ["preference", "feedback", "reference", "context"];
 const CATEGORY_IDS: string[] = CATEGORIES.map((c) => c.id);
 // A slug that would collide with the core migration names.
@@ -72,12 +75,15 @@ export function checkKeyYaml(file: string, text: string): string[] {
     const role = isObj(r) ? str(r.role) : "";
     if (!SLUG.test(role)) bad(`roster[${i}].role must be a lowercase hyphenated slug`);
     else if (!isObj(r) || r.charter !== `agents/${role}/charter.md`) bad(`roster[${i}].charter must be agents/${role}/charter.md`);
+    if (!isObj(r) || !str(r.persona).trim()) bad(`roster[${i}].persona must be a non-empty name`);
   });
   for (const k of ["skills", "apps", "workflows"] as const) {
     list(d[k]).forEach((e, i) => {
       if (!isObj(e) || !SLUG.test(str(e.slug))) bad(`${k}[${i}].slug must be a lowercase hyphenated slug`);
       else if (k === "apps" && RESERVED_APP_SLUGS.includes(e.slug as string)) bad(`apps[${i}].slug "${e.slug}" is reserved (it would collide with core migration names)`);
       if (k !== "skills" && (!isObj(e) || !CATEGORY_IDS.includes(str(e.category)))) bad(`${k}[${i}].category must be a known category id`);
+      const pathKey = k === "apps" ? "definition" : "path";
+      if (!isObj(e) || !str(e[pathKey]).trim()) bad(`${k}[${i}].${pathKey} must name the file, relative to key/`);
     });
   }
   return p;
@@ -125,6 +131,7 @@ export function checkWorkflow(file: string, md: string): string[] {
   const t = str(d.trigger);
   if (!TRIGGERS.includes(t)) bad(`workflow trigger must be one of ${TRIGGERS.join(", ")}`);
   else {
+    if (t === "every" && d.every != null && d.every !== "" && !EVERY.test(str(d.every).trim())) bad("workflow every must be a number and a unit, such as 1 day or 30 minutes (seconds, minutes, hours, days or weeks)");
     const need: Record<string, string[]> = { cron: ["cron"], every: ["every"], at: ["at"], record_change: ["entity", "events"] };
     for (const k of need[t]) if (d[k] == null || d[k] === "") bad(`workflow trigger ${t} needs ${k}`);
   }
@@ -141,10 +148,24 @@ export function checkDefinition(file: string, text: string, workflowSlugs: strin
   if (!SLUG.test(str(d.app))) bad("app must be a lowercase hyphenated slug");
   else if (RESERVED_APP_SLUGS.includes(str(d.app))) bad(`app slug "${str(d.app)}" is reserved (it would collide with core migration names)`);
   if (!CATEGORY_IDS.includes(str(d.category))) bad("category must be a known category id");
-  list(d.fields).forEach((f, i) => {
-    const type = isObj(f) ? str(f.type) : "";
-    if (!FIELD_TYPES.includes(type)) bad(`fields[${i}].type "${type}" must be one of ${FIELD_TYPES.join(", ")}`);
-    else if ((type === "select" || type === "multi_select") && list(isObj(f) ? f.options : undefined).length === 0) bad(`fields[${i}] of type ${type} needs options`);
+  const entityKeys = new Set<string>();
+  list(d.entities).forEach((e, ei) => {
+    const ek = isObj(e) ? str(e.key) : "";
+    if (!IDENTIFIER.test(ek)) bad(`entities[${ei}] entity key "${ek}" must be lowercase letters, digits and underscores, starting with a letter`);
+    else if (entityKeys.has(ek)) bad(`entities[${ei}] entity key "${ek}" repeats`);
+    entityKeys.add(ek);
+    const seen = new Set<string>();
+    list(isObj(e) ? e.fields : undefined).forEach((f, i) => {
+      const at = `entities[${ei}].fields[${i}]`;
+      const fk = isObj(f) ? str(f.key) : "";
+      if (!IDENTIFIER.test(fk)) bad(`${at} field key "${fk}" must be lowercase letters, digits and underscores, starting with a letter`);
+      else if (SYSTEM_COLUMNS.includes(fk)) bad(`${at} field key "${fk}" is a system column every table already has`);
+      else if (seen.has(fk)) bad(`${at} field key "${fk}" repeats`);
+      seen.add(fk);
+      const type = isObj(f) ? str(f.type) : "";
+      if (!FIELD_TYPES.includes(type)) bad(`${at}.type "${type}" must be one of ${FIELD_TYPES.join(", ")}`);
+      else if ((type === "select" || type === "multi_select") && list(isObj(f) ? f.options : undefined).length === 0) bad(`${at} of type ${type} needs options`);
+    });
   });
   list(d.automations).forEach((a, i) => {
     const w = isObj(a) ? str(a.workflow) : "";
@@ -158,7 +179,7 @@ export function checkLogText(file: string, md: string): string[] {
   const p: string[] = [];
   if (/\b[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\b/.test(md)) p.push(`${file}: log text holds an email address; the build log never holds customer details`);
   const cleaned = md
-    .replace(/^- Commit:.*$/gm, "- Commit:")
+    .replace(/^- Commit: [0-9a-f]{7,40}\s*$/gm, "- Commit:")
     .replace(/\b(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b/gi, " ")
     .replace(/\d{4}-\d{2}-\d{2}(T|\b)/g, " ")
     .replace(/\b\d{1,2}:\d{2}(:\d{2})?(\.\d+)?Z?\b/g, " ");
@@ -180,6 +201,10 @@ async function files(dir: string, ext: string): Promise<string[]> {
   return out.sort();
 }
 
+async function exists(f: string): Promise<boolean> {
+  try { await access(f); return true; } catch { return false; }
+}
+
 export async function checkKeyFolder(root: string): Promise<string[]> {
   const key = path.join(root, "key");
   const rel = (f: string) => path.relative(root, f);
@@ -189,21 +214,59 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
   const keyYaml = path.join(key, "key.yaml");
   let keyText: string | null = null;
   try { keyText = await read(keyYaml); } catch { /* reported below */ }
+  let ring: Obj | null = null;
   if (keyText === null) problems.push(`${rel(keyYaml)}: missing`);
-  else problems.push(...checkKeyYaml(rel(keyYaml), keyText));
+  else {
+    problems.push(...checkKeyYaml(rel(keyYaml), keyText));
+    try { const d = parse(keyText); if (isObj(d)) ring = d; } catch { /* checkKeyYaml reported it */ }
+  }
 
   for (const f of await files(path.join(key, "agents"), "charter.md")) problems.push(...checkCharter(rel(f), await read(f)));
   for (const f of await files(path.join(key, "skills"), ".md")) problems.push(...checkSkill(rel(f), await read(f)));
 
   const wfFiles = await files(path.join(key, "workflows"), ".md");
   const slugs = wfFiles.map((f) => (path.basename(f, ".md") === "workflow" ? path.basename(path.dirname(f)) : path.basename(f, ".md")));
-  for (const f of wfFiles) problems.push(...checkWorkflow(rel(f), await read(f)));
+  const recordChange: { file: string; entity: string }[] = [];
+  for (const f of wfFiles) {
+    const text = await read(f);
+    problems.push(...checkWorkflow(rel(f), text));
+    const fm = parseFrontMatter(text);
+    if (fm && str(fm.data.trigger) === "record_change") recordChange.push({ file: rel(f), entity: str(fm.data.entity) });
+  }
+  const entities = new Set<string>();
   for (const f of await files(path.join(key, "apps"), "definition.yaml")) {
     const text = await read(f);
     problems.push(...checkDefinition(rel(f), text, slugs));
     const migrations = await files(path.join(path.dirname(f), "migrations"), ".sql");
     const sql = await Promise.all(migrations.map(read));
     problems.push(...compareDefinition(rel(f), text, sql));
+    let def: unknown;
+    try { def = parse(text); } catch { def = undefined; }
+    if (isObj(def)) {
+      const folder = path.basename(path.dirname(f));
+      if (SLUG.test(str(def.app)) && str(def.app) !== folder) problems.push(`${rel(f)}: app folder "${folder}" must match the definition app "${str(def.app)}"`);
+      for (const e of list(def.entities)) if (isObj(e) && str(e.key)) entities.add(str(e.key));
+    }
+  }
+  for (const r of recordChange) {
+    if (!entities.has(r.entity)) problems.push(`${r.file}: record_change entity "${r.entity}" is not defined by any app`);
+  }
+
+  if (ring) {
+    const named: string[] = [];
+    for (const r of list(ring.roster)) if (isObj(r) && str(r.charter)) named.push(str(r.charter));
+    for (const k of ["skills", "workflows"] as const) for (const e of list(ring[k])) if (isObj(e) && str(e.path)) named.push(str(e.path));
+    for (const e of list(ring.apps)) if (isObj(e) && str(e.definition)) named.push(str(e.definition));
+    for (const n of named) {
+      const full = path.join(key, n);
+      if (!(await exists(full))) problems.push(`${rel(full)}: named in key.yaml but missing`);
+    }
+    const listed = new Set(list(ring.apps).filter(isObj).map((e) => str(e.slug)));
+    let folders: string[] = [];
+    try { folders = (await readdir(path.join(key, "apps"), { withFileTypes: true })).filter((d) => d.isDirectory()).map((d) => d.name); } catch { /* no apps folder */ }
+    for (const folder of folders.sort()) {
+      if (!listed.has(folder)) problems.push(`${rel(path.join(key, "apps", folder))}: app folder is not listed in key.yaml`);
+    }
   }
   for (const f of await files(path.join(key, "log"), ".md")) problems.push(...checkLogText(rel(f), await read(f)));
   return problems;

@@ -1,4 +1,4 @@
 app: core
 category: keep
-fields: []
+entities: []
 migrations: migrations/

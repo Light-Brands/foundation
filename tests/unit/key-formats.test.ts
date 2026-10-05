@@ -5,6 +5,11 @@ import path from "node:path";
 import {
   checkKeyFolder, checkKeyYaml, checkCharter, checkSkill, checkWorkflow, checkDefinition, checkLogText, parseFrontMatter,
 } from "@/lib/key/formats";
+import { parse } from "yaml";
+import { contextBlockFromProfile } from "@/lib/key/context-block";
+import { PROFILE_FIELDS, type Profile } from "@/lib/validate";
+
+const emptyProfile = Object.fromEntries(PROFILE_FIELDS.map((k) => [k, ""])) as Profile;
 
 const dir = path.join(process.cwd(), "tests/fixtures/key-bad");
 const fx = (name: string) => readFileSync(path.join(dir, name), "utf8");
@@ -47,7 +52,7 @@ name: Nightly follow-up
 agent: care
 category: keep
 trigger: every
-every: 1d
+every: 1 day
 ---
 ## Goal
 Follow up.
@@ -61,24 +66,49 @@ Sent.
 Ask the owner.
 `;
 const definition = `app: clients
+name: Clients
 category: keep
-fields:
-  - { name: stage, type: select, options: [new, active] }
-  - { name: notes, type: text }
+runtime: custom_app
+entities:
+  - key: clients
+    name: Client
+    fields:
+      - { key: stage, name: Stage, type: select, options: [new, active] }
+      - { key: notes, name: Notes, type: text }
 automations:
   - { workflow: nightly-follow-up }
 migrations: migrations/
 `;
 const keyYaml = `key: 1
 client: acme
+name: Acme
 stage: seed
 home: repo
 roster:
-  - { role: care, charter: agents/care/charter.md }
-skills: [{ slug: send-quote }]
-apps: [{ slug: clients, category: keep }]
-workflows: [{ slug: nightly-follow-up, category: keep }]
+  - { persona: Mara, role: care, charter: agents/care/charter.md }
+skills: [{ slug: send-quote, path: skills/send-quote/SKILL.md }]
+apps: [{ slug: clients, definition: apps/clients/definition.yaml, category: keep }]
+workflows: [{ slug: nightly-follow-up, path: workflows/nightly-follow-up.md, category: keep }]
 `;
+
+function keyRoot(over: Record<string, string | null> = {}): string {
+  const root = mkdtempSync(path.join(tmpdir(), "keyroot-"));
+  const files: Record<string, string> = {
+    "key/key.yaml": keyYaml,
+    "key/agents/care/charter.md": charter,
+    "key/skills/send-quote/SKILL.md": skill,
+    "key/workflows/nightly-follow-up.md": workflow,
+    "key/apps/clients/definition.yaml": definition,
+    "key/apps/clients/migrations/0001_clients_create.sql":
+      "create table clients (id uuid primary key, created_at timestamptz, updated_at timestamptz, stage text, notes text);",
+  };
+  for (const [f, text] of Object.entries({ ...files, ...over })) {
+    if (text === null) continue;
+    mkdirSync(path.dirname(path.join(root, f)), { recursive: true });
+    writeFileSync(path.join(root, f), text);
+  }
+  return root;
+}
 
 describe("the seeded Key", () => {
   it("passes every check", async () => {
@@ -149,4 +179,123 @@ describe("bad fixtures fail with the file name and the rule", () => {
       expect(problems.join("\n")).toMatch(rule);
     });
   }
+});
+
+describe("checkKeyYaml matches the converter", () => {
+  const base = (patch: string) => keyYaml.replace(/^(roster|skills|apps|workflows):.*(\n  .*)*$/gm, (m) => (patch.startsWith(m.split(":")[0] + ":") ? patch : m));
+  it("passes the complete example", () => expect(checkKeyYaml("key.yaml", keyYaml)).toEqual([]));
+  it("needs a path on every skill", () => {
+    expect(checkKeyYaml("key.yaml", base("skills: [{ slug: send-quote }]")).join("\n")).toMatch(/skills\[0\]\.path/);
+  });
+  it("needs a path on every workflow", () => {
+    expect(checkKeyYaml("key.yaml", base("workflows: [{ slug: nightly-follow-up, category: keep }]")).join("\n")).toMatch(/workflows\[0\]\.path/);
+  });
+  it("needs a definition on every app", () => {
+    expect(checkKeyYaml("key.yaml", base("apps: [{ slug: clients, category: keep }]")).join("\n")).toMatch(/apps\[0\]\.definition/);
+  });
+  it("needs a persona on every roster entry", () => {
+    expect(checkKeyYaml("key.yaml", base("roster:\n  - { role: care, charter: agents/care/charter.md }")).join("\n")).toMatch(/roster\[0\]\.persona/);
+  });
+});
+
+describe("checkWorkflow every", () => {
+  const wf = (every: string) => workflow.replace("every: 1 day", `every: ${every}`);
+  it.each(["1 day", "30 minutes", "2 weeks", "10 seconds", "1 hour"])("accepts %s", (v) => expect(checkWorkflow("w.md", wf(v))).toEqual([]));
+  it.each(["1d", "daily", "every day", "1 fortnight", "day"])("rejects %s", (v) => {
+    expect(checkWorkflow("w.md", wf(v)).join("\n")).toMatch(/every must be a number and a unit/);
+  });
+});
+
+describe("checkDefinition reads entities[].fields", () => {
+  const def = (fields: string, extra = "") => `app: clients
+category: keep
+entities:
+  - key: clients
+    name: Client
+    fields:
+${fields}
+${extra}migrations: migrations/
+`;
+  it("passes the real shape", () => expect(checkDefinition("d.yaml", definition, ["nightly-follow-up"])).toEqual([]));
+  it("rejects an unknown field type", () => {
+    expect(checkDefinition("d.yaml", def("      - { key: n, name: N, type: json }"), []).join("\n")).toMatch(/type "json"/);
+  });
+  it("needs options on select and multi_select", () => {
+    expect(checkDefinition("d.yaml", def("      - { key: s, name: S, type: select }"), []).join("\n")).toMatch(/needs options/);
+    expect(checkDefinition("d.yaml", def("      - { key: s, name: S, type: multi_select, options: [] }"), []).join("\n")).toMatch(/needs options/);
+  });
+  it("rejects a bad field key", () => {
+    expect(checkDefinition("d.yaml", def("      - { key: Bad-Key, name: N, type: text }"), []).join("\n")).toMatch(/field key/);
+  });
+  it("rejects a bad entity key", () => {
+    expect(checkDefinition("d.yaml", def("      - { key: n, name: N, type: text }").replace("key: clients", "key: Client-List"), []).join("\n")).toMatch(/entity key/);
+  });
+  it("rejects a field key that is a system column or repeats", () => {
+    expect(checkDefinition("d.yaml", def("      - { key: id, name: N, type: text }"), []).join("\n")).toMatch(/system column/);
+    expect(checkDefinition("d.yaml", def("      - { key: n, name: N, type: text }\n      - { key: n, name: M, type: text }"), []).join("\n")).toMatch(/repeats/);
+  });
+});
+
+describe("checkKeyFolder cross-checks", () => {
+  it("passes a complete folder", async () => expect(await checkKeyFolder(keyRoot())).toEqual([]));
+  it("fails a charter named in key.yaml that is not on disk", async () => {
+    expect((await checkKeyFolder(keyRoot({ "key/agents/care/charter.md": null }))).join("\n")).toMatch(/agents\/care\/charter\.md: named in key\.yaml but missing/);
+  });
+  it("fails a skill, workflow and definition path that is not on disk", async () => {
+    const p = (await checkKeyFolder(keyRoot({ "key/skills/send-quote/SKILL.md": null, "key/workflows/nightly-follow-up.md": null }))).join("\n");
+    expect(p).toMatch(/skills\/send-quote\/SKILL\.md: named in key\.yaml but missing/);
+    expect(p).toMatch(/workflows\/nightly-follow-up\.md: named in key\.yaml but missing/);
+    const d = (await checkKeyFolder(keyRoot({ "key/apps/clients/definition.yaml": null, "key/apps/clients/migrations/0001_clients_create.sql": null }))).join("\n");
+    expect(d).toMatch(/apps\/clients\/definition\.yaml: named in key\.yaml but missing/);
+  });
+  it("fails an app folder that key.yaml does not list", async () => {
+    const other = definition.replace("app: clients", "app: extra");
+    const p = (await checkKeyFolder(keyRoot({ "key/apps/extra/definition.yaml": other, "key/apps/extra/migrations/0001_extra_create.sql": "create table clients (id uuid primary key, created_at timestamptz, updated_at timestamptz, stage text, notes text);" }))).join("\n");
+    expect(p).toMatch(/apps\/extra: app folder is not listed in key\.yaml/);
+  });
+  it("fails when the folder name and the definition app differ", async () => {
+    const p = (await checkKeyFolder(keyRoot({ "key/apps/clients/definition.yaml": definition.replace("app: clients", "app: other-name") }))).join("\n");
+    expect(p).toMatch(/app folder "clients" must match the definition app "other-name"/);
+  });
+  it("fails a record_change workflow whose entity no app defines", async () => {
+    const wf = workflow.replace("trigger: every\nevery: 1 day", "trigger: record_change\nentity: invoices\nevents: [insert]");
+    const p = (await checkKeyFolder(keyRoot({ "key/workflows/nightly-follow-up.md": wf }))).join("\n");
+    expect(p).toMatch(/entity "invoices" is not defined by any app/);
+  });
+  it("accepts a record_change workflow whose entity an app defines", async () => {
+    const wf = workflow.replace("trigger: every\nevery: 1 day", "trigger: record_change\nentity: clients\nevents: [insert]");
+    expect(await checkKeyFolder(keyRoot({ "key/workflows/nightly-follow-up.md": wf }))).toEqual([]);
+  });
+});
+
+describe("the Commit line exemption", () => {
+  it("exempts only a bare commit id", () => {
+    expect(checkLogText("l.md", "- Commit: 3f2a91c\n")).toEqual([]);
+    expect(checkLogText("l.md", "- Commit: 3f2a91c   \n")).toEqual([]);
+  });
+  it("fails a phone number placed in a Commit line", () => {
+    expect(checkLogText("l.md", "- Commit: 555 123 4567\n").join("\n")).toMatch(/phone/);
+    expect(checkLogText("l.md", "- Commit: 3f2a91c call 555 123 4567\n").join("\n")).toMatch(/phone/);
+  });
+});
+
+describe("the examples in docs/standards/key.md", () => {
+  const md = readFileSync(path.join(process.cwd(), "docs/standards/key.md"), "utf8");
+  const section = (heading: string, lang: string): string => {
+    const start = md.indexOf(`\n## ${heading}\n`);
+    expect(start, `section ${heading}`).toBeGreaterThan(-1);
+    const m = new RegExp("```" + lang + "\\n([\\s\\S]*?)\\n```").exec(md.slice(start));
+    expect(m, `a ${lang} example in ${heading}`).not.toBeNull();
+    return m![1];
+  };
+  it("key.yaml passes checkKeyYaml", () => expect(checkKeyYaml("key.md", section("key.yaml", "yaml"))).toEqual([]));
+  it("the charter passes checkCharter", () => expect(checkCharter("key.md", section("Charter", "markdown"))).toEqual([]));
+  it("the skill passes checkSkill", () => expect(checkSkill("key.md", section("Skill", "markdown"))).toEqual([]));
+  it("the workflow passes checkWorkflow", () => expect(checkWorkflow("key.md", section("Workflow", "markdown"))).toEqual([]));
+  it("the app definition passes checkDefinition", () => expect(checkDefinition("key.md", section("App definition", "yaml"), ["booking-reminders"])).toEqual([]));
+  it("the context block has exactly the context block fields", () => {
+    const block = parse(section("The context block", "yaml")) as Record<string, unknown>;
+    expect(Object.keys(block).sort()).toEqual(Object.keys(contextBlockFromProfile(emptyProfile, "", "")).sort());
+    expect(Object.keys(block.owner as object).sort()).toEqual(["first", "name", "role"]);
+  });
 });

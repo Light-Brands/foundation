@@ -33,7 +33,9 @@ export type WorkingHours = { days: Weekday[]; start: string; end: string };
 
 export function workingHours(p: Pick<Profile, "work_days" | "work_start" | "work_end">): WorkingHours | null {
   if (!p.work_days || !p.work_start || !p.work_end) return null;
-  return { days: p.work_days.split(",") as Weekday[], start: p.work_start, end: p.work_end };
+  const days = p.work_days.split(",").filter((d): d is Weekday => (WEEKDAYS as readonly string[]).includes(d));
+  if (!days.length) return null;
+  return { days, start: p.work_start, end: p.work_end };
 }
 
 function zoned(tz: string | null | undefined, at: Date): Record<string, string> {

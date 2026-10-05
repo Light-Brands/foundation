@@ -182,6 +182,19 @@ export function rlsProblems(file: string, migrationsSql: string[]): string[] {
       if (roles.some((r) => ANONYMOUS.has(r))) problems.push(`${file}: the policy on "${tableName(policy[1])}" opens it to anonymous visitors. Name a signed in role with "to", never anon or public.`);
       continue;
     }
+    const alterPolicy = /^alter\s+policy\s+(?:"[^"]+"|[\w$]+)\s+on\s+(\S+)\s+([\s\S]*)$/i.exec(stmt);
+    if (alterPolicy) {
+      const to = /\bto\s+([\s\S]*?)(?=\busing\b|\bwith\s+check\b|$)/i.exec(alterPolicy[2]);
+      if (to && to[1].split(",").some((r) => ANONYMOUS.has(unquote(r.trim())))) {
+        problems.push(`${file}: the policy on "${tableName(alterPolicy[1])}" opens it to anonymous visitors. Name a signed in role with "to", never anon or public.`);
+      }
+      continue;
+    }
+    const defaults = /^alter\s+default\s+privileges\b[\s\S]*?\bgrant\s[\s\S]*?\bto\s+([\s\S]*)$/i.exec(stmt);
+    if (defaults && defaults[1].split(",").some((r) => ANONYMOUS.has(unquote(r.trim().split(/\s+/)[0] ?? "")))) {
+      problems.push(`${file}: a default grant to anon or public opens every new table to anonymous visitors (grant to anon or public). Remove it.`);
+      continue;
+    }
     const grant = /^grant\s[\s\S]*?\bto\s+([\s\S]*)$/i.exec(stmt);
     if (grant && grant[1].split(",").some((r) => ANONYMOUS.has(unquote(r.trim().split(/\s+/)[0] ?? "")))) {
       problems.push(`${file}: a grant to anon or public opens a table to anonymous visitors. Remove it.`);

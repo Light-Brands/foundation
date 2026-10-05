@@ -143,6 +143,28 @@ describe("row level security in app migrations", () => {
     expect(rlsProblems("m", [`${TABLE} alter table notes enable row level security; grant select on notes to anon;`]).join()).toMatch(/grant to anon or public/);
     expect(rlsProblems("m", [`${TABLE} alter table notes enable row level security; alter table notes disable row level security;`]).join()).toMatch(/turns row level security off/);
   });
+  it("fails alter policy to anon or public, in any case and spacing", () => {
+    for (const p of [
+      "alter policy mine on notes to anon;",
+      "ALTER   POLICY\n mine ON notes\tTO  Public;",
+      'alter policy "mine" on notes to authenticated, anon;',
+    ]) {
+      const out = rlsProblems("m", [`${TABLE} alter table notes enable row level security; ${p}`]);
+      expect(out.join(), p).toMatch(/opens it to anonymous visitors/);
+    }
+    expect(rlsProblems("m", [`${TABLE} alter table notes enable row level security; alter policy mine on notes to authenticated;`])).toEqual([]);
+    expect(rlsProblems("m", [`${TABLE} alter table notes enable row level security; alter policy mine on notes rename to yours;`])).toEqual([]);
+  });
+  it("fails alter default privileges that grant to anon or public", () => {
+    for (const p of [
+      "alter default privileges in schema public grant select on tables to anon;",
+      "ALTER  DEFAULT\nPRIVILEGES grant all on tables TO  PUBLIC;",
+    ]) {
+      const out = rlsProblems("m", [`${TABLE} alter table notes enable row level security; ${p}`]);
+      expect(out.join(), p).toMatch(/grant to anon or public/);
+    }
+    expect(rlsProblems("m", [`${TABLE} alter table notes enable row level security; alter default privileges in schema public grant select on tables to authenticated;`])).toEqual([]);
+  });
   it("ignores the words inside comments and strings", () => {
     expect(rlsProblems("m", [`${TABLE} -- create table ghosts (x int);\nalter table notes enable row level security; select 'create table ghost (x int)';`])).toEqual([]);
   });

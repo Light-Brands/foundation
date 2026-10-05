@@ -57,6 +57,19 @@ describe("writeContextBlock is atomic", () => {
   });
 });
 
+describe("writeContextBlock hours", () => {
+  it("quotes work_start and work_end so no reader takes 09:00 for a number", async () => {
+    const r = root();
+    await writeContextBlock(r, contextBlockFromProfile({ ...profile, work_start: "09:00", work_end: "17:30" }, "Ann", "2026-10-05"));
+    const text = readFileSync(path.join(r, "key/knowledge/context-block.yaml"), "utf8");
+    expect(text).toMatch(/^work_start: ["']09:00["']$/m);
+    expect(text).toMatch(/^work_end: ["']17:30["']$/m);
+    const back = parse(text);
+    expect(back.work_start).toBe("09:00");
+    expect(back.work_end).toBe("17:30");
+  });
+});
+
 describe("writeKeyName", () => {
   it("sets name, leaves client and the rest unchanged, atomically", async () => {
     const r = root();

@@ -155,7 +155,7 @@ export function checkDefinition(file: string, text: string, workflowSlugs: strin
 
 export function checkLogText(file: string, md: string): string[] {
   const p: string[] = [];
-  if (/[^\s@]+@[^\s@]+\.[^\s@]+/.test(md)) p.push(`${file}: log text holds an email address; the build log never holds customer details`);
+  if (/\b[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\b/.test(md)) p.push(`${file}: log text holds an email address; the build log never holds customer details`);
   const cleaned = md
     .replace(/\b(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b/gi, " ")
     .replace(/\d{4}-\d{2}-\d{2}(T|\b)/g, " ")
@@ -185,7 +185,10 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
   const read = (f: string) => readFile(f, "utf8");
 
   const keyYaml = path.join(key, "key.yaml");
-  problems.push(...checkKeyYaml(rel(keyYaml), await read(keyYaml)));
+  let keyText: string | null = null;
+  try { keyText = await read(keyYaml); } catch { /* reported below */ }
+  if (keyText === null) problems.push(`${rel(keyYaml)}: missing`);
+  else problems.push(...checkKeyYaml(rel(keyYaml), keyText));
 
   for (const f of await files(path.join(key, "agents"), "charter.md")) problems.push(...checkCharter(rel(f), await read(f)));
   for (const f of await files(path.join(key, "skills"), ".md")) problems.push(...checkSkill(rel(f), await read(f)));

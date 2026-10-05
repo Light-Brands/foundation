@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   checkKeyFolder, checkKeyYaml, checkCharter, checkSkill, checkWorkflow, checkDefinition, checkLogText, parseFrontMatter,
@@ -82,6 +83,27 @@ workflows: [{ slug: nightly-follow-up, category: keep }]
 describe("the seeded Key", () => {
   it("passes every check", async () => {
     expect(await checkKeyFolder(process.cwd())).toEqual([]);
+  });
+});
+
+describe("a root without key.yaml", () => {
+  it("reports it and keeps checking the other folders", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "key-"));
+    mkdirSync(path.join(root, "key/log"), { recursive: true });
+    writeFileSync(path.join(root, "key/log/a.md"), "mail ada@example.com\n");
+    const problems = await checkKeyFolder(root);
+    expect(problems).toContain("key/key.yaml: missing");
+    expect(problems.join("\n")).toMatch(/log\/a\.md: log text holds an email/);
+  });
+});
+
+describe("the email check", () => {
+  it("flags real addresses", () => {
+    expect(checkLogText("l.md", "ada@example.com")).not.toEqual([]);
+    expect(checkLogText("l.md", "A.Lane+test@mail.example.co.uk")).not.toEqual([]);
+  });
+  it("passes package pins and import aliases", () => {
+    for (const t of ["next@16.0.1", '"@/lib/x.ts"', "react@19.3.0"]) expect(checkLogText("l.md", `used ${t}`)).toEqual([]);
   });
 });
 

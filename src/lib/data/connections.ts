@@ -8,8 +8,9 @@ export const CONNECTION_STATUSES = ["planned", "connected", "failing", "disconne
 export const DOORS = ["own", "custom"] as const;
 export type ConnectionStatus = (typeof CONNECTION_STATUSES)[number];
 export type Door = (typeof DOORS)[number];
-export type ConnectionInput = { service: string; door: Door; status: ConnectionStatus; scopes: string[]; key_setting: string; tested_on: string | null; owner: string };
-export type ConnectionRow = ConnectionInput & { updated_at: string };
+export type ConnectionInput = { service: string; door: Door; status: ConnectionStatus; scopes: string[]; key_setting: string; tested_on: string | null; owner: string; note?: string };
+export type ConnectionRow = ConnectionInput & { note: string; updated_at: string };
+export const NOTE_MAX = 200;
 
 const SETTING = /^[A-Z][A-Z0-9_]{1,63}$/;
 const SCOPE = /^[a-z0-9:._/-]{1,80}$/;
@@ -44,6 +45,7 @@ export function validateConnection(input: Record<string, unknown>):
   const value: ConnectionInput = {
     service: str("service"), door: str("door") as Door, status: (str("status") || "planned") as ConnectionStatus,
     scopes, key_setting: str("key_setting"), tested_on: str("tested_on") || null, owner: str("owner"),
+    ...(input.note === undefined ? {} : { note: str("note") }),
   };
   const errors: Partial<Record<keyof ConnectionInput, string>> = {};
   if (!SLUG.test(value.service)) errors.service = "Use the connection's slug, such as email-sending.";
@@ -57,6 +59,9 @@ export function validateConnection(input: Record<string, unknown>):
   }
   if (value.tested_on && !isCalendarDate(value.tested_on)) errors.tested_on = "Use a date like 2026-10-05.";
   if (value.owner.length > 120 || looksLikeSecret(value.owner)) errors.owner = "Name who looks after it, in up to 120 characters.";
+  if (value.note !== undefined && (value.note.length > NOTE_MAX || /\p{Cc}/u.test(value.note) || value.note.split(/\s+/).some(looksLikeSecret))) {
+    errors.note = "Keep the note to one plain line of up to 200 characters, with no keys in it.";
+  }
   return Object.keys(errors).length ? { ok: false, errors } : { ok: true, value };
 }
 
@@ -65,22 +70,52 @@ export async function upsertConnection(db: Db, input: ConnectionInput, now: Date
   if (!checked.ok) throw new Error(Object.values(checked.errors)[0]);
   const v = checked.value;
   await db.query(
-    `insert into connections (service, door, status, scopes, key_setting, tested_on, owner, updated_at)
-     values ($1, $2, $3, $4, $5, $6, $7, $8)
-     on conflict (service) do update set door = $2, status = $3, scopes = $4, key_setting = $5, tested_on = $6, owner = $7, updated_at = $8`,
-    [v.service, v.door, v.status, v.scopes, v.key_setting, v.tested_on, v.owner, now],
+    `insert into connections (service, door, status, scopes, key_setting, tested_on, owner, updated_at, note)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, coalesce($9, ''))
+     on conflict (service) do update set door = $2, status = $3, scopes = $4, key_setting = $5, tested_on = $6, owner = $7, updated_at = $8,
+       note = coalesce($9, connections.note)`,
+    [v.service, v.door, v.status, v.scopes, v.key_setting, v.tested_on, v.owner, now, v.note ?? null],
   );
 }
 
 export async function listConnections(db: Db | null): Promise<ConnectionRow[]> {
   if (!db) return [];
   return db.query<ConnectionRow>(
-    "select service, door, status, scopes, key_setting, tested_on::text as tested_on, owner, updated_at::text as updated_at from connections order by service",
+    "select service, door, status, scopes, key_setting, tested_on::text as tested_on, owner, note, updated_at::text as updated_at from connections order by service",
   );
 }
 
 export async function connectionStatuses(db: Db | null): Promise<Record<string, ConnectionStatus>> {
   return Object.fromEntries((await listConnections(db)).map((r) => [r.service, r.status]));
+}
+
+export const CONNECTION_SET_USAGE = "Use npm run connection:set -- <service> <status> [--note <text>], with a status of planned, connected, failing or disconnected.";
+
+/** Reads the arguments of npm run connection:set. */
+export function parseConnectionSetArgs(argv: string[]):
+  | { ok: true; value: { service: string; status: ConnectionStatus; note: string } }
+  | { ok: false; error: string } {
+  const [service, status, ...rest] = argv;
+  if (!service || !status) return { ok: false, error: CONNECTION_SET_USAGE };
+  let note = "";
+  if (rest.length) {
+    if (rest.length !== 2 || rest[0] !== "--note" || !rest[1].trim()) return { ok: false, error: CONNECTION_SET_USAGE };
+    note = rest[1].trim();
+  }
+  return { ok: true, value: { service, status: status as ConnectionStatus, note } };
+}
+
+/**
+ * The connection row writer an install or the owner runs: sets one connection's status and note, keeping
+ * every other field. A service with no row yet gets one with door own. Writes through validateConnection,
+ * so a bad slug, status or a key in the note throws and nothing is written.
+ */
+export async function setConnectionStatus(db: Db, input: { service: string; status: ConnectionStatus; note: string }, now: Date): Promise<void> {
+  const [existing] = SLUG.test(input.service)
+    ? await db.query<ConnectionRow>("select service, door, status, scopes, key_setting, tested_on::text as tested_on, owner, note from connections where service = $1", [input.service])
+    : [];
+  const base: ConnectionInput = existing ?? { service: input.service, door: "own", status: "planned", scopes: [], key_setting: "", tested_on: null, owner: "" };
+  await upsertConnection(db, { ...base, service: input.service, status: input.status, note: input.note }, now);
 }
 
 /** The connection that sends approved email on its own. */

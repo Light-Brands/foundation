@@ -35,6 +35,7 @@ export default async function ConnectionsPage() {
                   {r.key_setting ? `, key in ${r.key_setting}${keyState ? ` (${KEY_STATE[keyState]})` : ""}` : ""}
                   {r.tested_on ? `, tested ${r.tested_on}` : ""}
                 </p>
+                {r.note && <p className="mt-1 text-sm text-mist">{r.note}</p>}
                 {r.scopes.length > 0 && <p className="mt-1 font-mono text-xs text-mist">{r.scopes.join(", ")}</p>}
               </li>
             );

@@ -20,7 +20,9 @@
     "log:base": "tsx scripts/log-base.ts",
     "predraft": "node scripts/gen-build-secret.mjs",
     "draft": "tsx --conditions=react-server scripts/draft.ts",
-    "hooks:prune": "tsx scripts/hooks-prune.ts"
+    "hooks:prune": "tsx scripts/hooks-prune.ts",
+    "preconnection:set": "node scripts/gen-build-secret.mjs",
+    "connection:set": "tsx --conditions=react-server scripts/connection-set.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

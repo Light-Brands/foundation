@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { coreDb } from "../support/db";
 import {
-  OptOutNotRecordedError, cancelEmail, claimNext, draftEmail, isOptedOut, markSent, markSentByHand, optOut, recoverStuck, sendApproved, STUCK_AFTER_MS, type Sender,
+  cancelEmail, claimNext, draftEmail, isOptedOut, markSent, markSentByHand, optOut, recoverStuck, sendApproved, STUCK_AFTER_MS, type Sender,
 } from "@/lib/data/outbox";
 import type { Db } from "@/lib/db/types";
 import { emailHash } from "@/lib/email";

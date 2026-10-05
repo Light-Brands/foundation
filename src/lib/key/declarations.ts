@@ -128,7 +128,9 @@ const FIELD_KEY = /^[a-z][a-z0-9_]*$/;
 /** The longest name a form may ask for: CARD_LIMITS.title and CARD_LIMITS.contactName are both 200. */
 export const NAME_MAX = 200;
 
-export type FormField = { key: string; label: string; type: FormFieldType; required: boolean; max: number; options: string[] };
+/** A select's options read at render from an app table: the rows where `where` is true, shown by `label`. */
+export type OptionsFrom = { app: string; entity: string; label: string; where: string | null };
+export type FormField = { key: string; label: string; type: FormFieldType; required: boolean; max: number; options: string[]; options_from?: OptionsFrom };
 export type FormDecl = { key: string; title: string; intro: string; submit: string; thanks: string; card_kind: string; fields: FormField[]; source: string };
 
 function words(at: string, name: string, v: unknown, min: number, max: number, bad: (m: string) => void): string {
@@ -138,7 +140,35 @@ function words(at: string, name: string, v: unknown, min: number, max: number, b
   return s;
 }
 
-export function checkForms(src: Pick<DeclSource, "file" | "slug">, raw: unknown, kindNames: ReadonlySet<string>): { forms: FormDecl[]; problems: string[] } {
+/** Each installed app's entities, and each entity's fields with their types, as definition.yaml declares them. */
+export type FieldsByApp = Record<string, Record<string, Record<string, string>>>;
+/** What a form's options_from may read: the declaring app's uses_apps and the installed apps' fields. */
+export type FormContext = { uses: readonly string[]; fieldsByApp: FieldsByApp };
+
+const OPTIONS_FROM_KEYS = ["app", "entity", "label", "where"];
+const LABEL_TYPES = ["text", "select", "email", "url"];
+
+function checkOptionsFrom(v: unknown, ctx: FormContext | undefined, fb: (m: string) => void): OptionsFrom | null {
+  let issues = 0;
+  const bad = (m: string) => { issues += 1; fb(m); };
+  if (!isObj(v)) { bad("options_from must be a mapping with app, entity, label and where"); return null; }
+  if (Object.keys(v).some((k) => !OPTIONS_FROM_KEYS.includes(k))) bad("options_from holds only app, entity, label and where");
+  const app = str(v.app);
+  const entity = str(v.entity);
+  const label = str(v.label);
+  const where = v.where === undefined || v.where === null ? null : str(v.where);
+  if (!SLUG.test(app)) { bad("options_from app must be an app slug"); return null; }
+  if (!ctx || !ctx.uses.includes(app)) { bad(`options_from app "${app}" must be listed in this app's uses_apps`); return null; }
+  const entities = ctx.fieldsByApp[app];
+  if (!entities) { bad(`options_from app "${app}" is not installed`); return null; }
+  const fields = FIELD_KEY.test(entity) && Object.hasOwn(entities, entity) ? entities[entity] : null;
+  if (!fields) { bad(`options_from entity "${entity}" is not a table of ${app}`); return null; }
+  if (!FIELD_KEY.test(label) || !Object.hasOwn(fields, label) || !LABEL_TYPES.includes(fields[label])) bad(`options_from label "${label}" is not a text field of ${entity}`);
+  if (where !== null && (!FIELD_KEY.test(where) || !Object.hasOwn(fields, where) || fields[where] !== "checkbox")) bad(`options_from where "${where}" is not a checkbox field of ${entity}`);
+  return issues ? null : { app, entity, label, where };
+}
+
+export function checkForms(src: Pick<DeclSource, "file" | "slug">, raw: unknown, kindNames: ReadonlySet<string>, ctx?: FormContext): { forms: FormDecl[]; problems: string[] } {
   const forms: FormDecl[] = [];
   const problems: string[] = [];
   if (raw === undefined) return { forms, problems };
@@ -178,8 +208,13 @@ export function checkForms(src: Pick<DeclSource, "file" | "slug">, raw: unknown,
       const max = x.max === undefined ? DEFAULT_MAX[t] : x.max;
       if (!(Number.isInteger(max) && (max as number) >= 1 && (max as number) <= 4000)) fb("max must be a whole number from 1 to 4000");
       const options = list(x.options).map((o) => str(o).trim());
-      if (t === "select" && (options.length < 1 || options.length > 30 || options.some((o) => !o || o.length > 80 || !copyOk(o)))) fb("select needs 1 to 30 options, each 1 to 80 characters");
-      fields.push({ key: fk, label, type: t, required: x.required === true, max: max as number, options: t === "select" ? options : [] });
+      let from: OptionsFrom | null = null;
+      if (x.options_from !== undefined) {
+        if (t !== "select") fb("options_from is only for a select field");
+        else if (x.options !== undefined) fb("a select takes options or options_from, never both");
+        else from = checkOptionsFrom(x.options_from, ctx, fb);
+      } else if (t === "select" && (options.length < 1 || options.length > 30 || options.some((o) => !o || o.length > 80 || !copyOk(o)))) fb("select needs 1 to 30 options, each 1 to 80 characters");
+      fields.push({ key: fk, label, type: t, required: x.required === true, max: max as number, options: t === "select" && !from ? options : [], ...(from ? { options_from: from } : {}) });
     });
     const has = (k: string, t: FormFieldType) => fields.some((x) => x.key === k && x.type === t && x.required);
     if (!has("name", "text")) bad("needs a required name field of type text");
@@ -199,17 +234,18 @@ function usesOf(v: unknown): { uses: string[]; optionalUses: string[] } {
 }
 
 /** Every installed app definition and routine front matter key.yaml names. Missing or broken files are skipped here, because checkKeyFolder reports them. */
-export async function readSources(root: string): Promise<{ sources: DeclSource[]; routines: string[]; tablesByApp: Record<string, string[]>; problems: string[] }> {
+export async function readSources(root: string): Promise<{ sources: DeclSource[]; routines: string[]; tablesByApp: Record<string, string[]>; fieldsByApp: FieldsByApp; problems: string[] }> {
   const key = path.join(root, "key");
   const sources: DeclSource[] = [];
   const routines: string[] = [];
   const tablesByApp: Record<string, string[]> = {};
+  const fieldsByApp: FieldsByApp = {};
   const problems: string[] = [];
   let ring: unknown;
   let ringText: string;
-  try { ringText = await readFile(path.join(key, "key.yaml"), "utf8"); } catch { return { sources, routines, tablesByApp, problems }; }
-  try { ring = parse(ringText); } catch { problems.push("key/key.yaml: could not be read as YAML"); return { sources, routines, tablesByApp, problems }; }
-  if (!isObj(ring)) return { sources, routines, tablesByApp, problems };
+  try { ringText = await readFile(path.join(key, "key.yaml"), "utf8"); } catch { return { sources, routines, tablesByApp, fieldsByApp, problems }; }
+  try { ring = parse(ringText); } catch { problems.push("key/key.yaml: could not be read as YAML"); return { sources, routines, tablesByApp, fieldsByApp, problems }; }
+  if (!isObj(ring)) return { sources, routines, tablesByApp, fieldsByApp, problems };
   for (const a of list(ring.apps)) {
     const slug = isObj(a) ? str(a.slug) : "";
     const rel = isObj(a) ? str(a.definition) : "";
@@ -220,6 +256,9 @@ export async function readSources(root: string): Promise<{ sources: DeclSource[]
     try { def = parse(text); } catch { problems.push(`key/${rel}: could not be read as YAML`); continue; }
     if (!isObj(def)) continue;
     tablesByApp[slug] = list(def.entities).filter(isObj).map((e) => str(e.key)).filter(Boolean);
+    fieldsByApp[slug] = Object.fromEntries(list(def.entities).filter(isObj).filter((e) => str(e.key)).map((e) => [
+      str(e.key), Object.fromEntries(list(e.fields).filter(isObj).filter((f) => str(f.key)).map((f) => [str(f.key), str(f.type)])),
+    ]));
     sources.push({ type: "app", slug, file: `key/${rel}`, category: str(def.category), entryCategory: isObj(a) ? str(a.category) : "", app: slug, ...usesOf(def.uses_apps), data: def });
   }
   for (const r of list(ring.routines)) {
@@ -237,11 +276,11 @@ export async function readSources(root: string): Promise<{ sources: DeclSource[]
     }
     sources.push({ type: "routine", slug, file: `key/${rel}`, category: str(fm.data.category), entryCategory: isObj(r) ? str(r.category) : "", app: str(fm.data.app) || null, ...usesOf(fm.data.uses_apps), data: fm.data });
   }
-  return { sources, routines, tablesByApp, problems };
+  return { sources, routines, tablesByApp, fieldsByApp, problems };
 }
 
 export async function readDeclarations(root: string): Promise<Declarations> {
-  const { sources, routines, tablesByApp, problems: unreadable } = await readSources(root);
+  const { sources, routines, tablesByApp, fieldsByApp, problems: unreadable } = await readSources(root);
   const problems: string[] = [...unreadable];
   const kinds: CardKindDecl[] = [...CORE_CARD_KINDS];
   for (const s of sources) {
@@ -268,7 +307,7 @@ export async function readDeclarations(root: string): Promise<Declarations> {
   for (const s of sources) {
     if (s.data.forms === undefined) continue;
     if (s.type === "routine") { problems.push(`${s.file}: forms are declared in an app definition, never a routine`); continue; }
-    const found = checkForms(s, s.data.forms, kindNames);
+    const found = checkForms(s, s.data.forms, kindNames, { uses: s.uses, fieldsByApp });
     problems.push(...found.problems);
     for (const f of found.forms) {
       const taken = forms.find((x) => x.key === f.key);

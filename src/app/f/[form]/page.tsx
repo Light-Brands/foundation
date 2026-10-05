@@ -5,6 +5,7 @@ import { getProfile } from "@/lib/data/profile";
 import { readEnv } from "@/lib/env";
 import { loadForms } from "@/lib/forms/public";
 import { sourceFields } from "@/lib/forms/source";
+import { formChoices } from "@/lib/forms/options";
 import { PublicForm } from "@/components/PublicForm";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,9 @@ export default async function PublicFormPage({ params, searchParams }: {
   const { form: key } = await params;
   const form = key === "contact" ? undefined : (await loadForms()).get(key);
   if (!form) notFound();
-  const profile = await getProfile(await getDb(), readEnv().businessName);
+  const db = await getDb();
+  const profile = await getProfile(db, readEnv().businessName);
+  const choices = await formChoices(db, form);
   const source = sourceFields(await searchParams, (await headers()).get("referer"));
   return (
     <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-6 p-6">
@@ -25,7 +28,7 @@ export default async function PublicFormPage({ params, searchParams }: {
         <h1 className="mt-1 text-3xl text-zinc-50">{form.title}</h1>
         {form.intro && <p className="mt-2 text-mist">{form.intro}</p>}
       </div>
-      <PublicForm form={form} source={source} />
+      <PublicForm form={form} source={source} choices={choices} />
     </main>
   );
 }

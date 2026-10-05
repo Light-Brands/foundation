@@ -2,11 +2,12 @@
 import { useActionState } from "react";
 import { submitFormAction, type FormResult } from "@/app/f/actions";
 import type { FormDecl, FormField } from "@/lib/key/declarations";
+import type { Choice } from "@/lib/forms/options";
 
 const INPUT = "mt-1 w-full rounded-xl border border-white/10 bg-ink-50 px-3 py-2";
 const TYPE: Partial<Record<FormField["type"], string>> = { text: "text", email: "email", phone: "tel", date: "date", number: "text" };
 
-export function PublicForm({ form, source }: { form: FormDecl; source: Record<string, string> }) {
+export function PublicForm({ form, source, choices = {} }: { form: FormDecl; source: Record<string, string>; choices?: Record<string, Choice[]> }) {
   const [state, action, pending] = useActionState<FormResult | null, FormData>(submitFormAction, null);
   if (state?.ok) return <p role="status" className="surface p-6 text-zinc-100">{state.message}</p>;
   const keyFor = (k: string) => `${k}-${state?.values ? "v" : "p"}-${state?.values?.[k] ?? ""}`;
@@ -23,7 +24,7 @@ export function PublicForm({ form, source }: { form: FormDecl; source: Record<st
           ) : f.type === "select" ? (
             <select key={keyFor(f.key)} name={f.key} required={f.required} defaultValue={value(f.key)} className={INPUT}>
               <option value="">Choose one</option>
-              {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+              {(choices[f.key] ?? f.options.map((o) => ({ value: o, label: o }))).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           ) : f.type === "checkbox" ? (
             <input key={keyFor(f.key)} name={f.key} type="checkbox" value="yes" defaultChecked={value(f.key) === "yes"} className="ml-2" />

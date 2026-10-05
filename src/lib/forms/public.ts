@@ -6,6 +6,7 @@ import { writeCard, CARD_LIMITS } from "@/lib/data/cards";
 import { captureSource, type SourceMeta } from "@/lib/forms/source";
 import { clientHash, takeFormSlot } from "@/lib/forms/limit";
 import { cleanPhone, EMAIL } from "@/lib/validate";
+import { findChoice } from "@/lib/forms/options";
 
 // The one way a visitor's form becomes a record. It only inserts: a new card, and a contact created
 // or reused by email and never rewritten. Text a visitor sends is data, shown as plain text.
@@ -41,6 +42,8 @@ export type Submission =
   | { ok: false; bot: true }
   | { ok: false; errors: Record<string, string> };
 
+const PICK = "Pick one of the choices.";
+
 const realDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v;
 
 function fieldError(f: FormField, v: string): string | null {
@@ -49,7 +52,8 @@ function fieldError(f: FormField, v: string): string | null {
   if (f.type === "phone") { const p = cleanPhone(v); return p.ok ? null : p.error; }
   if (f.type === "date" && !realDate(v)) return "Use a date like 2026-10-05.";
   if (f.type === "number" && !/^-?\d+(\.\d+)?$/.test(v)) return "Use a number.";
-  if (f.type === "select" && !f.options.includes(v)) return "Pick one of the choices.";
+  // An options_from select is checked against its table in submitPublicForm, which has the database.
+  if (f.type === "select" && !f.options_from && !f.options.includes(v)) return PICK;
   return null;
 }
 
@@ -104,6 +108,17 @@ export async function submitPublicForm(
   const sub = readSubmission(form, input.data);
   if (!sub.ok) return "bot" in sub ? { status: "discarded" } : { status: "invalid", errors: sub.errors };
   if (!deps.db) return { status: "preview" };
+  // A choice read from an app table is checked against today's rows, so a forged or stale id is refused.
+  const picked: Record<string, string> = {};
+  const errors: Record<string, string> = {};
+  for (const f of form.fields) {
+    if (!f.options_from || !sub.answers[f.key]) continue;
+    const choice = await findChoice(deps.db, f.options_from, sub.answers[f.key]);
+    if (!choice) { errors[f.key] = PICK; continue; }
+    picked[f.key] = choice.value;
+    sub.answers[f.key] = choice.label;
+  }
+  if (Object.keys(errors).length) return { status: "invalid", errors };
   const keyHash = await clientHash(form.key, input.clientKey, deps.secret);
   if (!(await takeFormSlot(deps.db, { form: form.key, keyHash }, now))) return { status: "limited" };
   const { title, body } = cardText(form, sub.answers);
@@ -112,7 +127,7 @@ export async function submitPublicForm(
     // An empty phone stays off the contact, because the card writer refuses an empty one.
     contact: { name: sub.contact.name, email: sub.contact.email, ...(sub.contact.phone ? { phone: sub.contact.phone } : {}) },
     sourceApp: form.source === "core" ? null : form.source,
-    meta: { form: form.key, ...sub.source },
+    meta: { form: form.key, ...sub.source, ...(Object.keys(picked).length ? { picked } : {}) },
   }, now);
   if (r.status !== "written") throw new Error("The form's card was not written.");
   return { status: "saved", cardId: r.id };

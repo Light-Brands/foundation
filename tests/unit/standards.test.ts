@@ -31,6 +31,14 @@ describe("the coding standards", () => {
     for (const f of files) expect(readFileSync(path.join(ROOT, f), "utf8"), `${f} holds a long or short dash`).not.toMatch(/[–—]/);
   });
 
+  it("keeps long and short dashes out of every prompt", () => {
+    const walk = (d: string): string[] =>
+      readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
+    const files = walk(path.join(ROOT, "prompts"));
+    expect(files.length).toBeGreaterThan(5);
+    for (const f of files) expect(readFileSync(f, "utf8"), `${path.relative(ROOT, f)} holds a long or short dash`).not.toMatch(/[\u2013\u2014]/);
+  });
+
   it("gives every rule a reason", () => {
     for (const f of onDisk()) {
       const rules = read(f).split("\n").filter((l) => /^- \*\*[^*]*\.\*\*/.test(l));

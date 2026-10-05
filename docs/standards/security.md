@@ -1,6 +1,6 @@
 # Security
 
-- **Call `hasSession()` first in every server action.** It lives in `src/lib/auth/session.ts` and returns false when the PIN session is missing or expired. Return a plain message to the person when it is false, and change nothing. Why: a server action is a public endpoint, and the request gate does not protect it.
+- **Call `hasSession()` first in every server action behind the gate.** The public contact action in `src/app/contact/actions.ts` is the one exception, because `/contact` is a public page, and the rule on public forms below covers it. `hasSession()` lives in `src/lib/auth/session.ts` and returns false when the PIN session is missing or expired. Return a plain message to the person when it is false, and change nothing. Why: a server action is a public endpoint, and the request gate does not protect it.
 - **Send every redirect target through `safeNext`.** It lives in `src/lib/auth/gate.ts`, resolves the value against a fixed origin, and returns `/` for anything that leaves the site. Why: an unchecked `next` parameter turns the gate page into a link to anywhere.
 - **Keep secrets in server-only modules that begin with `import "server-only"`.** `src/lib/env.ts` and `src/lib/auth/session.ts` are the pattern. Why: the build fails if client code imports them, so a secret cannot ship to a browser by accident.
 - **Never give a secret a name that starts with `NEXT_PUBLIC_`.** Why: Next.js copies every such variable into the browser bundle.

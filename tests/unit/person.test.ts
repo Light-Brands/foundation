@@ -217,6 +217,24 @@ describe("forget", () => {
     if (r.status !== "card_raised") throw new Error("no card");
     await decideCard(x.db, x.kinds, { cardId: r.cardId, decision: "approve", actor: PIN_OWNER }, NOW);
   }
+  it("blanks a card that names the person only in its run key or source id, and one whose source row goes", async () => {
+    const x = await seeded();
+    const [lead] = await x.db.query<{ id: string }>("select id::text as id from leads_demo where message = 'lead Ada'");
+    const [bo] = await x.db.query<{ id: string }>("select id::text as id from leads_demo where message = 'lead Bo'");
+    await writeCard(x.db, x.kinds, { kind: "lead-new", title: "Keyed", body: "plain", runKey: "follow-up:Ada+x@harbor.example" }, NOW);
+    const sourced = await writeCard(x.db, x.kinds, { kind: "lead-new", title: "Sourced", body: "plain" }, NOW);
+    if (sourced.status !== "written") throw new Error("no card");
+    await x.db.query("update inbox_items set source_app = 'mail', source_id = 'ada@harbor.example' where id = $1", [sourced.id]);
+    await writeCard(x.db, x.kinds, { kind: "lead-new", title: "From the lead", body: "plain", sourceApp: "leads-demo", sourceId: lead.id }, NOW);
+    await writeCard(x.db, x.kinds, { kind: "lead-new", title: "From Bo's lead", body: "plain", sourceApp: "leads-demo", sourceId: bo.id }, NOW);
+    await approvedForget(x);
+    expect(await forgetPerson(x.db, x.kinds, x.refs, "ada@harbor.example", NOW, OWNER)).toMatchObject({ status: "forgotten" });
+    expect(await x.db.query("select title from inbox_items where title in ('Keyed', 'Sourced', 'From the lead', 'From Bo''s lead') order by title")).toEqual([{ title: "From Bo's lead" }]);
+    const text = JSON.stringify(await x.db.query("select run_key, source_id, title from inbox_items where kind <> 'person-forget'"));
+    expect(text).not.toMatch(/ada@|Ada\+x|harbor\.example.*Ada/i);
+    expect(text).not.toContain(lead.id);
+    await x.db.close();
+  });
   it("waits while an email to the person is being sent, and changes nothing", async () => {
     const x = await seeded();
     await approvedForget(x);

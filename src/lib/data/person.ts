@@ -79,7 +79,11 @@ export async function installedPersonRefs(root: string): Promise<PersonRef[]> {
   return ownedPersonRefs(apps).refs;
 }
 
-const CARDS_ABOUT = "kind <> 'person-forget' and (contact_id = any($1::uuid[]) or title ~* $2 or body ~* $2 or meta::text ~* $2)";
+const CARDS_ABOUT = "kind <> 'person-forget' and (contact_id = any($1::uuid[]) or title ~* $2 or body ~* $2 or meta::text ~* $2 or run_key ~* $2 or source_id ~* $2)";
+/** What a forgotten card keeps: its kind and dates. A run key that names the person goes, and the source with it. $2 is the address pattern. */
+const BLANK_CARD = "contact_id = null, title = 'A forgotten person', body = '', meta = '{}'::jsonb, source_id = null, run_key = case when run_key ~* $2 then null else run_key end";
+/** Cards raised from an app row that forget deletes, given the placeholders of the app and of the row ids. */
+const CARDS_FROM = (app: string, ids: string) => `kind <> 'person-forget' and source_app = ${app} and source_id = any(${ids}::text[])`;
 const OUTBOX_TO = (n: string, ids: string) => `(${N("to_email")} = ${n} or contact_id = any(${ids}::uuid[]))`;
 /** An opt-out row is this person's by today's hash, or by the address it keeps (one kept under an earlier secret). */
 const OPT_OUT_OF = `(email_hash = $1 or (email is not null and ${N("email")} = $2))`;
@@ -114,6 +118,16 @@ async function findCore(db: Queryable, n: string, hash: string): Promise<{ ids: 
       opt_outs: await db.query(`select * from opt_outs where ${OPT_OUT_OF}`, [hash, n]),
     },
   };
+}
+
+/** By app, the ids of the rows forget deletes: those holding the address in an entity that does not say forget: blank. */
+async function rowsToDelete(db: Queryable, refs: PersonRef[], n: string): Promise<Record<string, string[]>> {
+  const out: Record<string, string[]> = {};
+  for (const r of refs.filter((x) => x.how === "email" && x.forget === "delete")) {
+    const rows = await db.query<{ id: string }>(`select id::text as id from ${table(r.table)} where ${N(column(r.column))} = $1`, [n]);
+    if (rows.length) (out[r.app] ??= []).push(...rows.map((x) => x.id));
+  }
+  return out;
 }
 
 async function contactIds(db: Queryable, n: string): Promise<string[]> {
@@ -208,6 +222,11 @@ export async function planForget(db: Db, refs: PersonRef[], email: string, opts:
   await checkSecretFingerprint(db, key);
   const { core } = await findCore(db, n, hash);
   const counts: ForgetCounts = {};
+  const cards = new Set((core.inbox_items as Row[]).map((c) => String(c.id)));
+  for (const [app, ids] of Object.entries(await rowsToDelete(db, refs, n))) {
+    for (const c of await db.query<{ id: string }>(`select id from inbox_items where ${CARDS_FROM("$1", "$2")}`, [app, ids])) cards.add(c.id);
+  }
+  core.inbox_items = [...cards];
   for (const [k, v] of Object.entries(core)) {
     const held = k === "opt_outs" ? (v as { email: string | null }[]).filter((o) => o.email !== null) : v;
     if (held.length) counts[k] = held.length;
@@ -306,10 +325,7 @@ async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: 
     const { ids } = await findCore(tx, n, hash);
     // Team ids are read before the people rows go.
     const team = await teamIds(tx, refs, n);
-    bump("inbox_items", (await tx.query(
-      `update inbox_items set contact_id = null, title = 'A forgotten person', body = '', meta = '{}'::jsonb where ${CARDS_ABOUT} returning id`,
-      [ids, pattern],
-    )).length);
+    const cards = new Set((await tx.query<{ id: string }>(`update inbox_items set ${BLANK_CARD} where ${CARDS_ABOUT} returning id`, [ids, pattern])).map((x) => x.id));
     // A sent email is a record that stays, with every detail blanked. Its send key becomes forgotten:<id>, because
     // send keys are unique and the old one may name the person.
     bump("outbox", (await tx.query(`delete from outbox where ${OUTBOX_TO("$1", "$2")} and status <> 'sent' returning id`, [n, ids])).length);
@@ -325,12 +341,20 @@ async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: 
     for (const r of refs.filter((x) => x.how === "team_id")) {
       mark(`${r.app}/${r.table}`, await tx.query<{ id: unknown }>(`update ${table(r.table)} set ${column(r.column)} = '' where ${column(r.column)} = any($1::text[]) returning id`, [team]));
     }
+    const deleted: Record<string, string[]> = {};
     for (const r of refs.filter((x) => x.how === "email")) {
       const sql = r.forget === "blank"
         ? `update ${table(r.table)} set ${column(r.column)} = '' where ${N(column(r.column))} = $1 returning id`
         : `delete from ${table(r.table)} where ${N(column(r.column))} = $1 returning id`;
-      mark(`${r.app}/${r.table}`, await tx.query<{ id: unknown }>(sql, [n]));
+      const rows = await tx.query<{ id: unknown }>(sql, [n]);
+      mark(`${r.app}/${r.table}`, rows);
+      if (r.forget === "delete" && rows.length) (deleted[r.app] ??= []).push(...rows.map((x) => String(x.id)));
     }
+    // A card raised from a row that is now gone would be the only trace of it, so it is blanked too.
+    for (const [app, rowIds] of Object.entries(deleted)) {
+      for (const x of await tx.query<{ id: string }>(`update inbox_items set ${BLANK_CARD} where ${CARDS_FROM("$1", "$3")} returning id`, [app, pattern, rowIds])) cards.add(x.id);
+    }
+    bump("inbox_items", cards.size);
     for (const [k, v] of Object.entries(touched)) bump(k, v.size);
     // Only the hash stays, as an opt-out from every email. Any earlier row for this person, including one that
     // kept the address under an earlier secret, is replaced.

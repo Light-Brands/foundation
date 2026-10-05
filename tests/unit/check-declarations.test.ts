@@ -56,7 +56,10 @@ describe("check SQL", () => {
       ["select true as raise, 'x' as title, '' as body from leads_demo -- it's\n; delete from leads_demo; select 'a' as raise", /one statement[\s\S]*must only read|must only read[\s\S]*one statement/],
       ["select true as raise /* ' */, md5(message) as title /* ' */, '' as body from leads_demo", /calls "md5"/],
       ["select true as raise /* /* */ ' */, md5(message) as title, '' as body from leads_demo", /calls "md5"/],
-      ["select true as raise, E'\\'' , md5(message) as title, ' ' as body from leads_demo", /escape strings/],
+      // An escaped quote stays inside the E string, so md5 is outside it and seen.
+      ["select true as raise, E'\\'' , md5(message) as title, ' ' as body from leads_demo", /calls "md5"/],
+      ["select true as raise, e'\\\\' , md5(message) as title, '' as body from leads_demo", /calls "md5"/],
+      ["select true as raise, E'never closed\\' as title, '' as body from leads_demo", /unclosed string/],
       ["select $a1$'$a1$ as raise, md5(message) as title, '' as body from leads_demo", /dollar quoting/],
       ["select true as raise, pg_catalog.md5(message) as title, '' as body from leads_demo", /without a schema/],
       ["select true as raise, \"md5\"(message) as title, '' as body from leads_demo", /quoted identifiers/],
@@ -66,6 +69,10 @@ describe("check SQL", () => {
       ["select true as raise, 'x' as title, '' as body from leads_demo /* never closed", /unclosed comment/],
     ];
     for (const [sql, want] of sneaks) expect(checkSqlProblems(sql, ["leads_demo"]).join("\n"), sql).toMatch(want);
+  });
+  it("accepts escape strings, as the canon's checks use to join lines", () => {
+    expect(checkSqlProblems("select count(*) > 0 as raise, 'x' as title, string_agg(contact_email, E'\\n') as body from leads_demo", ["leads_demo"])).toEqual([]);
+    expect(checkSqlProblems("select true as raise, E'it\\'s; delete from accounts' as title, e'\\t' as body from leads_demo", ["leads_demo"])).toEqual([]);
   });
   it("ignores words inside string literals", () => {
     expect(checkSqlProblems("select true as raise, 'delete from accounts; pg_class' as title, '' as body from leads_demo", ["leads_demo"])).toEqual([]);

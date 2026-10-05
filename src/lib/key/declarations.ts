@@ -329,8 +329,8 @@ export type DraftDecl = { routine: string; handler: string; subcommands: string[
 /**
  * Reads SQL the way Postgres's scanner does: comments (nested block comments too) become spaces, each
  * string literal becomes '', a quoted name becomes the word q, and everything else folds to lower case.
- * Escape strings, Unicode strings, quoted names, dollar quoting and an unclosed comment or string are
- * reported, because each one can make text read one way here and another way in Postgres.
+ * Escape strings (E'...') are read with their backslash escapes. Unicode strings, quoted names, dollar
+ * quoting and an unclosed comment or string are reported, because each one can make text read one way here and another way in Postgres.
  */
 export function normalizeSql(sql: string): { text: string; problems: string[] } {
   const problems = new Set<string>();
@@ -358,12 +358,15 @@ export function normalizeSql(sql: string): { text: string; problems: string[] } 
       continue;
     }
     if (c === "'") {
-      // out is already lower case. A lone e or u& just before the quote changes how Postgres reads the string.
-      if (/(^|[^a-z0-9_$])e$/.test(out)) problems.add("sql must not use escape strings (E'...')");
+      // out is already lower case. A lone e just before the quote makes an escape string, where a backslash
+      // escapes the next character (E'\n', E'it\'s'). A lone u& makes a Unicode string, which is refused.
+      const escape = /(^|[^a-z0-9_$])e$/.test(out);
+      if (escape) out = out.slice(0, -1);
       if (/(^|[^a-z0-9_$])u&$/.test(out)) problems.add("sql must not use Unicode strings (U&'...')");
       i++;
       let closed = false;
       while (i < n) {
+        if (escape && sql[i] === "\\") { i += 2; continue; }
         if (sql[i] === "'" && sql[i + 1] === "'") { i += 2; continue; }
         if (sql[i] === "'") { closed = true; i++; break; }
         i++;

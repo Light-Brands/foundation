@@ -15,8 +15,16 @@ describe("allows", () => {
     expect(allows(team(["sell"]), "team", "sell")).toBe(true);
     expect(allows(team(["sell"]), "team", "money")).toBe(false);
     expect(allows(team([]), "team")).toBe(true);
+    expect(allows(team([]), "team", "sell")).toBe(false);
   });
   it("lets nobody in without an actor", () => {
     expect(allows(null, "team")).toBe(false);
+  });
+});
+
+describe("PIN_OWNER", () => {
+  it("is frozen", () => {
+    expect(Object.isFrozen(PIN_OWNER)).toBe(true);
+    expect(Object.isFrozen(PIN_OWNER.departments)).toBe(true);
   });
 });

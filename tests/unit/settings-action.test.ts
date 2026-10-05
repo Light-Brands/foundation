@@ -19,6 +19,11 @@ vi.mock("@/lib/data/pause", () => ({
     return v.length > 200 ? { ok: false, error: "Keep the reason under 200 characters." } : { ok: true, value: v };
   },
 }));
+const actorRef: { value: unknown } = { value: null };
+vi.mock("@/lib/auth/roles", async (orig) => {
+  const real = await orig<typeof import("@/lib/auth/roles")>();
+  return { ...real, get PIN_OWNER() { return actorRef.value ?? real.PIN_OWNER; } };
+});
 const revalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath: (...a: unknown[]) => revalidatePath(...a) }));
 const hasSession = vi.fn(async () => false);
@@ -120,11 +125,12 @@ describe("pauseAction", () => {
   beforeEach(() => {
     getDb.mockReset().mockResolvedValue({});
     setPause.mockClear();
+    actorRef.value = null;
   });
   it("refuses without a session", async () => {
     hasSession.mockResolvedValue(false);
     const r = await pauseAction(null, form({ paused: "on" }));
-    expect(r).toEqual({ ok: false, message: "Your session ended. Sign in again, then try once more." });
+    expect(r).toEqual({ ok: false, paused: false, message: "Your session ended. Sign in again, then try once more." });
     expect(getDb).not.toHaveBeenCalled();
     expect(setPause).not.toHaveBeenCalled();
   });
@@ -139,5 +145,27 @@ describe("pauseAction", () => {
     const r = await pauseAction(null, form({ paused: "on", reason: "x".repeat(201) }));
     expect(r.ok).toBe(false);
     expect(setPause).not.toHaveBeenCalled();
+  });
+  it("refuses a team actor", async () => {
+    hasSession.mockResolvedValue(true);
+    actorRef.value = { id: "a1", role: "team", via: "account", departments: ["sell"] };
+    const r = await pauseAction(null, form({ paused: "on" }));
+    expect(r).toEqual({ ok: false, paused: false, message: "Your session ended. Sign in again, then try once more." });
+    expect(getDb).not.toHaveBeenCalled();
+    expect(setPause).not.toHaveBeenCalled();
+  });
+  it("needs an explicit on or off", async () => {
+    hasSession.mockResolvedValue(true);
+    for (const v of [undefined, "", "yes", "ON", "true"]) {
+      const r = await pauseAction(null, form(v === undefined ? {} : { paused: v }));
+      expect(r.ok).toBe(false);
+    }
+    expect(setPause).not.toHaveBeenCalled();
+  });
+  it("reports the new state and records who", async () => {
+    hasSession.mockResolvedValue(true);
+    expect((await pauseAction(null, form({ paused: "on" }))).paused).toBe(true);
+    expect((await pauseAction(null, form({ paused: "off" }))).paused).toBe(false);
+    expect((setPause.mock.calls[0] as unknown[])[1]).toMatchObject({ by: "pin:owner" });
   });
 });

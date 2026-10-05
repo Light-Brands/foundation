@@ -1,3 +1,4 @@
+import { closeSync, constants, fchmodSync, lstatSync, mkdirSync, openSync, writeSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Db, Queryable } from "@/lib/db/types";
@@ -422,4 +423,36 @@ export function exportTarget(root: string, out: string | null, emailHashHex: str
   const rel = path.relative(path.join(base, ".data"), dir);
   if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) throw new Error("Save exports in a folder inside .data, such as .data/exports.");
   return path.join(dir, name);
+}
+
+export const EXPORT_LINK = "Exports are never written through a link. Choose a folder inside .data that holds no links.";
+
+const isLink = (p: string) => {
+  try { return lstatSync(p).isSymbolicLink(); } catch { return false; }
+};
+
+/**
+ * Writes an export readable only by the owner (mode 0600). The folder and the file are each checked with lstat
+ * first, and refused when either is a link, so an export can never land outside the folder it names. The file
+ * is then opened with O_NOFOLLOW, so a link made between the check and the write is refused too.
+ */
+export function writeExport(file: string, text: string): void {
+  const dir = path.dirname(file);
+  if (isLink(dir)) throw new Error(EXPORT_LINK);
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  if (isLink(dir) || isLink(file)) throw new Error(EXPORT_LINK);
+  let fd: number;
+  try {
+    fd = openSync(file, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW, 0o600);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ELOOP") throw new Error(EXPORT_LINK);
+    throw err;
+  }
+  try {
+    // Narrow first, so a file already there is never written while others can read it.
+    fchmodSync(fd, 0o600);
+    writeSync(fd, text);
+  } finally {
+    closeSync(fd);
+  }
 }

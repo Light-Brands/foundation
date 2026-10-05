@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { coreDb, KEY_EXT, ROOT } from "../support/db";
@@ -13,7 +13,7 @@ import { writeCard } from "@/lib/data/cards";
 import type { Db } from "@/lib/db/types";
 import type { KindRegistry } from "@/lib/data/card-kinds";
 import type { PersonRef } from "@/lib/key/schema";
-import { exportPerson, exportTarget, forgetPerson, forgetSummary, installedPersonRefs, OwnerOnlyError, planForget } from "@/lib/data/person";
+import { exportPerson, exportTarget, forgetPerson, forgetSummary, installedPersonRefs, OwnerOnlyError, planForget, writeExport, EXPORT_LINK } from "@/lib/data/person";
 
 const OWNER = { actor: PIN_OWNER };
 const TEAM: Actor = { id: "acct:team", role: "team", via: "account", departments: ["risk", "team", "sell"] };
@@ -196,6 +196,27 @@ describe("export", () => {
     expect(reviews.map((r) => Object.keys(r).sort().join()).sort()).toEqual(["owner_id,withheld", "person_id,withheld"]);
     expect((out.apps["team-demo/people"] as Record<string, unknown>[]).find((r) => r.withheld)).toEqual({ manager_id: ids.Ada, withheld: "This record also names someone else, so only the parts about this person are exported." });
     await db.close();
+  });
+  it("never writes an export through a link, for the file or its folder", () => {
+    const base = mkdtempSync(path.join(tmpdir(), "person-link-"));
+    const elsewhere = path.join(base, "elsewhere");
+    mkdirSync(elsewhere);
+    writeFileSync(path.join(elsewhere, "victim.txt"), "keep");
+    // The folder is a link.
+    mkdirSync(path.join(base, ".data"));
+    symlinkSync(elsewhere, path.join(base, ".data", "exports"));
+    expect(() => writeExport(path.join(base, ".data", "exports", "person.json"), "{}")).toThrow(EXPORT_LINK);
+    expect(readdirSync(elsewhere)).toEqual(["victim.txt"]);
+    // The file is a link.
+    mkdirSync(path.join(base, ".data", "real"));
+    symlinkSync(path.join(elsewhere, "victim.txt"), path.join(base, ".data", "real", "person.json"));
+    expect(() => writeExport(path.join(base, ".data", "real", "person.json"), "{}")).toThrow(EXPORT_LINK);
+    expect(readFileSync(path.join(elsewhere, "victim.txt"), "utf8")).toBe("keep");
+    // A plain folder and file: written, owner-only.
+    const ok = path.join(base, ".data", "plain", "person.json");
+    writeExport(ok, "{}");
+    expect(readFileSync(ok, "utf8")).toBe("{}");
+    expect(statSync(ok).mode & 0o777).toBe(0o600);
   });
   it("keeps exports inside .data, under a name that never holds the address", () => {
     const h = "a".repeat(64);

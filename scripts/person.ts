@@ -1,8 +1,7 @@
-import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { openScriptDb } from "../src/lib/db/script";
 import { loadCardKinds } from "../src/lib/data/card-kinds";
-import { exportPerson, exportTarget, forgetPerson, forgetSummary, installedPersonRefs, type ForgetOutcome } from "../src/lib/data/person";
+import { exportPerson, exportTarget, writeExport, forgetPerson, forgetSummary, installedPersonRefs, type ForgetOutcome } from "../src/lib/data/person";
 import { parseFlags } from "../src/lib/drafts/handler";
 import { parseEmail } from "../src/lib/email";
 import { PIN_OWNER } from "../src/lib/auth/roles";
@@ -44,11 +43,7 @@ async function main(argv: string[]): Promise<number> {
     if (cmd === "export") {
       const data = await exportPerson(db, refs, email, now, { actor: PIN_OWNER });
       const file = exportTarget(root, flags.out ?? null, data.email_hash, now.toISOString().slice(0, 10));
-      mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-      // Narrow first, so a file already there is never written while others can read it.
-      try { chmodSync(file, 0o600); } catch { /* a new file: its mode is set as it is created */ }
-      writeFileSync(file, JSON.stringify(data, null, 2), { mode: 0o600 });
-      chmodSync(file, 0o600);
+      writeExport(file, JSON.stringify(data, null, 2));
       console.log(`Saved everything held about this person to ${path.relative(root, file)}. Send it to them privately.`);
       return 0;
     }

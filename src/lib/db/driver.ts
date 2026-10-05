@@ -1,8 +1,17 @@
 import type { FoundationEnv } from "@/lib/env";
 
-export type DriverKind = "pglite" | "preview";
+export type DriverKind = "supabase" | "pglite" | "preview";
 
-// Phase 1 adds "supabase" ahead of these two, chosen when a database URL is set.
-export function selectDriver(env: FoundationEnv): DriverKind {
+// The hosted database wherever its address is set: on Vercel, in npm run dev and in every script.
+// Otherwise the local database on the owner's computer, and a preview that saves nothing on a deploy.
+export function selectDriver(env: Pick<FoundationEnv, "databaseUrl" | "onVercel">): DriverKind {
+  if (env.databaseUrl) return "supabase";
   return env.onVercel ? "preview" : "pglite";
 }
+
+/** Email sign-in needs the hosted database, both Supabase settings and an explicit FOUNDATION_SECRET. */
+export function emailSignIn(env: Pick<FoundationEnv, "databaseUrl" | "onVercel" | "supabaseUrl" | "supabaseSecretKey" | "secretExplicit">): boolean {
+  return selectDriver(env) === "supabase" && !!env.supabaseUrl && !!env.supabaseSecretKey && env.secretExplicit;
+}
+
+export const SIGNIN_NEEDS_SECRET = "Email sign-in needs one more setting, FOUNDATION_SECRET. Your setup guide adds it.";

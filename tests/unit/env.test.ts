@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { readEnv } from "@/lib/env";
 
 describe("readEnv", () => {
@@ -55,5 +57,28 @@ describe("readEnv", () => {
     expect(readEnv({ CRON_SECRET: "x".repeat(16) }).cronSecret).toBe("x".repeat(16));
     expect(readEnv({ CRON_SECRET: "short" }).cronSecret).toBeNull();
     expect(readEnv({}).cronSecret).toBeNull();
+  });
+  it("reads the hosted database settings, and refuses a malformed address", () => {
+    const env = readEnv({
+      FOUNDATION_DATABASE_URL: "postgresql://postgres.ref:pw@aws-0-us-west-1.pooler.supabase.com:6543/postgres",
+      FOUNDATION_SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co/",
+      FOUNDATION_SUPABASE_SECRET_KEY: " sb_secret_abc ",
+    });
+    expect(env.databaseUrl).toMatch(/^postgresql:\/\//);
+    expect(env.databaseProblem).toBeNull();
+    expect(env.supabaseUrl).toBe("https://abcdefghijklmnopqrst.supabase.co");
+    expect(env.supabaseSecretKey).toBe("sb_secret_abc");
+    expect(readEnv({ FOUNDATION_SUPABASE_SECRET_KEY: "eyJhbGciOiJIUzI1NiJ9.e30.x" })).toMatchObject({ supabaseSecretKey: null, supabaseKeyProblem: "legacy" });
+    // Explicit means a FOUNDATION_SECRET long enough to sign with (32 characters), never the build secret.
+    expect(readEnv({ FOUNDATION_SECRET: "s".repeat(32) }).secretExplicit).toBe(true);
+    expect(readEnv({ FOUNDATION_SECRET: "short" }, "build").secretExplicit).toBe(false);
+    expect(readEnv({}, "build").secretExplicit).toBe(false);
+    const bad = readEnv({ FOUNDATION_DATABASE_URL: "mysql://x", FOUNDATION_SUPABASE_URL: "http://plain.example" });
+    expect([bad.databaseUrl, bad.databaseProblem, bad.supabaseUrl]).toEqual([null, "invalid", null]);
+  });
+  it("no setting a browser can read holds a secret", () => {
+    const text = readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
+    expect(text).not.toMatch(/NEXT_PUBLIC_/);
+    expect(readFileSync(path.join(process.cwd(), "src/lib/db/supabase.ts"), "utf8").startsWith('import "server-only";')).toBe(true);
   });
 });

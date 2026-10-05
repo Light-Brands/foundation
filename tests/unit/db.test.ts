@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { selectDriver } from "@/lib/db/driver";
+import { emailSignIn, selectDriver } from "@/lib/db/driver";
 import { openPglite } from "@/lib/db/pglite";
 import { migrate, migrateAll, normalizeLegacyNames } from "@/lib/db/migrate";
 import { readEnv } from "@/lib/env";
@@ -13,6 +13,28 @@ describe("selectDriver", () => {
   it("runs PGlite locally and preview on Vercel", () => {
     expect(selectDriver(readEnv({}))).toBe("pglite");
     expect(selectDriver(readEnv({ VERCEL: "1" }))).toBe("preview");
+  });
+  it("uses the hosted database wherever its address is set", () => {
+    const url = "postgresql://postgres.ref:pw@pooler.example:6543/postgres";
+    expect(selectDriver(readEnv({ FOUNDATION_DATABASE_URL: url }))).toBe("supabase");
+    expect(selectDriver(readEnv({ FOUNDATION_DATABASE_URL: url, VERCEL: "1" }))).toBe("supabase");
+    expect(selectDriver(readEnv({ FOUNDATION_DATABASE_URL: "nonsense", VERCEL: "1" }))).toBe("preview");
+  });
+  it("offers email sign-in only with the hosted database, both Supabase settings and an explicit secret", () => {
+    const url = "postgresql://postgres.ref:pw@pooler.example:6543/postgres";
+    const all = { FOUNDATION_DATABASE_URL: url, FOUNDATION_SUPABASE_URL: "https://x.supabase.co", FOUNDATION_SUPABASE_SECRET_KEY: "sb_secret_k", FOUNDATION_SECRET: "a-long-random-value-of-32-characters" };
+    expect(emailSignIn(readEnv(all))).toBe(true);
+    expect(emailSignIn(readEnv({ ...all, FOUNDATION_SECRET: "" }))).toBe(false);
+    expect(emailSignIn(readEnv({ ...all, FOUNDATION_SECRET: "too-short" }))).toBe(false);
+    expect(emailSignIn(readEnv({ ...all, FOUNDATION_SUPABASE_SECRET_KEY: "" }))).toBe(false);
+    expect(emailSignIn(readEnv({ ...all, FOUNDATION_SUPABASE_URL: "" }))).toBe(false);
+    expect(emailSignIn(readEnv({ ...all, FOUNDATION_DATABASE_URL: "" }))).toBe(false);
+  });
+  it("builds a hosted handle without connecting until used", async () => {
+    const { openSupabase } = await import("@/lib/db/supabase");
+    const db = openSupabase("postgresql://postgres.ref:pw@pooler.invalid:6543/postgres");
+    expect(typeof db.transaction).toBe("function");
+    await db.close();
   });
 });
 

@@ -18,6 +18,11 @@ export default defineConfig({
       FOUNDATION_KEY_ROOT: ".data/e2e-key",
       // The inbound webhook test signs with this. It is a test value, never a real secret.
       E2E_HOOK_SECRET: "e2e-hook-secret",
+      // A developer's shell or .env.local may hold hosted settings. Process settings win over .env.local,
+      // so these blanks keep every end-to-end run on the local database with the PIN.
+      FOUNDATION_DATABASE_URL: "",
+      FOUNDATION_SUPABASE_URL: "",
+      FOUNDATION_SUPABASE_SECRET_KEY: "",
     },
   },
 });

@@ -203,6 +203,17 @@ describe("public forms in the Key", () => {
     expect(r.forms[0].contact).toBe(false);
     expect(bad({ contact: "no" })).toMatch(/contact must be true or false/);
   });
+  it("refuses a form key or a field key it does not know, naming each, so a newer Key never installs quietly", () => {
+    const problems = bad({ contacts: false, help: "x", fields: [...base.fields, { key: "cv", label: "CV", type: "text", accept: "pdf", hint: "x" }] });
+    expect(problems).toMatch(/forms\[0\] has a key this Foundation does not know: "contacts"/);
+    expect(problems).toMatch(/forms\[0\] has a key this Foundation does not know: "help"/);
+    expect(problems).toMatch(/fields\[2\] has a key this Foundation does not know: "accept"/);
+    expect(problems).toMatch(/fields\[2\] has a key this Foundation does not know: "hint"/);
+    expect(checkForms(src, [{ ...base, contacts: false }], kinds).forms).toEqual([]);
+    // Every key the Foundation does know passes, contact among them.
+    const full = { ...base, intro: "Hi.", submit: "Send", contact: false, fields: [...base.fields, { key: "pick", label: "Pick", type: "select", required: false, max: 80, options: ["A"] }] };
+    expect(checkForms(src, [full], kinds).problems).toEqual([]);
+  });
   it("takes a url field of at most 2000 characters", () => {
     const r = checkForms(src, [{ ...base, fields: [...base.fields, { key: "portfolio", label: "Portfolio link", type: "url" }] }], kinds);
     expect(r.problems).toEqual([]);

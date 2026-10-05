@@ -157,6 +157,10 @@ export type FieldsByApp = Record<string, Record<string, Record<string, string>>>
 export type FormContext = { uses: readonly string[]; fieldsByApp: FieldsByApp };
 
 const OPTIONS_FROM_KEYS = ["app", "entity", "label", "where"];
+/** Every key a form and a form field may hold. Any other key is refused, so a Key written for a newer core never installs quietly. */
+export const FORM_KEYS: readonly string[] = ["key", "title", "intro", "submit", "thanks", "card_kind", "fields", "contact"];
+export const FORM_FIELD_KEYS: readonly string[] = ["key", "label", "type", "required", "max", "options", "options_from"];
+const UNKNOWN_KEY = "has a key this Foundation does not know";
 const LABEL_TYPES = ["text", "select", "email", "url"];
 
 function checkOptionsFrom(v: unknown, self: string, ctx: FormContext | undefined, fb: (m: string) => void): OptionsFrom | null {
@@ -189,6 +193,7 @@ export function checkForms(src: Pick<DeclSource, "file" | "slug">, raw: unknown,
     const before = problems.length;
     const bad = (m: string) => problems.push(`${src.file}: forms[${i}] ${m}`);
     if (!isObj(f)) { bad("must be a mapping"); return; }
+    for (const k of Object.keys(f)) if (!FORM_KEYS.includes(k)) bad(`${UNKNOWN_KEY}: "${k}". Update the Foundation first`);
     const key = str(f.key);
     if (!SLUG.test(key)) bad("key must be a lowercase hyphenated slug");
     else if (key === "contact") bad('key "contact" is reserved for the contact page');
@@ -207,6 +212,7 @@ export function checkForms(src: Pick<DeclSource, "file" | "slug">, raw: unknown,
     rawFields.forEach((x, j) => {
       const fb = (m: string) => bad(`fields[${j}] ${m}`);
       if (!isObj(x)) { fb("must be a mapping"); return; }
+      for (const k of Object.keys(x)) if (!FORM_FIELD_KEYS.includes(k)) fb(`${UNKNOWN_KEY}: "${k}". Update the Foundation first`);
       const fk = str(x.key);
       if (!FIELD_KEY.test(fk)) fb(`key "${fk}" must be lowercase letters, digits and underscores, starting with a letter`);
       else if (RESERVED_FIELD_KEYS.includes(fk)) fb(`key "${fk}" is reserved`);

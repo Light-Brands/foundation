@@ -17,10 +17,15 @@ describe("readEnv", () => {
     expect(readEnv({ FOUNDATION_PIN: "12345a" }).pinProblem).toBe("invalid");
     expect(readEnv({ FOUNDATION_PIN: "1234567890123" }).pinProblem).toBe("invalid");
   });
-  it("prefers FOUNDATION_SECRET, then the Vercel production URL, then 'local' as the salt", () => {
-    expect(readEnv({ FOUNDATION_SECRET: "s" }).salt).toBe("s");
-    expect(readEnv({ VERCEL_PROJECT_PRODUCTION_URL: "a.vercel.app" }).salt).toBe("a.vercel.app");
-    expect(readEnv({}).salt).toBe("local");
+  it("uses FOUNDATION_SECRET if provided, otherwise the build secret", () => {
+    expect(readEnv({ FOUNDATION_SECRET: "mysecret" }, "buildsecret").secret).toBe("mysecret");
+    expect(readEnv({}, "buildsecret").secret).toBe("buildsecret");
+  });
+  it("never uses VERCEL_PROJECT_PRODUCTION_URL as the secret", () => {
+    expect(readEnv({ VERCEL_PROJECT_PRODUCTION_URL: "a.vercel.app" }, "buildsecret").secret).toBe("buildsecret");
+  });
+  it("falls through to build secret if FOUNDATION_SECRET is empty", () => {
+    expect(readEnv({ FOUNDATION_SECRET: "" }, "buildsecret").secret).toBe("buildsecret");
   });
   it("knows when it runs on Vercel", () => {
     expect(readEnv({ VERCEL: "1" }).onVercel).toBe(true);

@@ -1,14 +1,15 @@
 // The session is "v1.<expiry ms>.<HMAC>". The HMAC key is derived from the PIN
-// and a salt, so only someone who knows the PIN can mint a session, and
-// changing the PIN signs everyone out. Web Crypto runs in the proxy and in Node.
+// and the server secret, so only someone who knows both the PIN and the secret
+// can mint a session. Changing the PIN or the secret signs everyone out.
+// Web Crypto runs in the proxy and in Node.
 
 export const SESSION_COOKIE = "fc_session";
 export const SESSION_HOURS = 8;
 
 const enc = new TextEncoder();
 
-async function keyFor(pin: string, salt: string): Promise<CryptoKey> {
-  const raw = await crypto.subtle.digest("SHA-256", enc.encode(`foundation:v1:${salt}:${pin}`));
+async function keyFor(pin: string, secret: string): Promise<CryptoKey> {
+  const raw = await crypto.subtle.digest("SHA-256", enc.encode(`foundation:v1:${secret}:${pin}`));
   return crypto.subtle.importKey("raw", raw, { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
 
@@ -28,16 +29,16 @@ function fromB64url(s: string): Uint8Array | null {
   }
 }
 
-export async function signSession(pin: string, salt: string, now: number = Date.now()): Promise<string> {
+export async function signSession(pin: string, secret: string, now: number = Date.now()): Promise<string> {
   const exp = now + SESSION_HOURS * 3600_000;
-  const sig = await crypto.subtle.sign("HMAC", await keyFor(pin, salt), enc.encode(`v1.${exp}`));
+  const sig = await crypto.subtle.sign("HMAC", await keyFor(pin, secret), enc.encode(`v1.${exp}`));
   return `v1.${exp}.${toB64url(sig)}`;
 }
 
 export async function verifySession(
   token: string | undefined,
   pin: string,
-  salt: string,
+  secret: string,
   now: number = Date.now(),
 ): Promise<boolean> {
   if (!token) return false;
@@ -47,7 +48,7 @@ export async function verifySession(
   if (!Number.isSafeInteger(exp) || exp < now) return false;
   const sig = fromB64url(parts[2]);
   if (!sig) return false;
-  return crypto.subtle.verify("HMAC", await keyFor(pin, salt), sig as BufferSource, enc.encode(`v1.${exp}`));
+  return crypto.subtle.verify("HMAC", await keyFor(pin, secret), sig as BufferSource, enc.encode(`v1.${exp}`));
 }
 
 export async function pinMatches(candidate: string, pin: string): Promise<boolean> {

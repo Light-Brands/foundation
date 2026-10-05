@@ -1,7 +1,9 @@
+import { BUILD_SECRET } from "@/generated/build-secret";
+
 export type FoundationEnv = {
   pin: string | null;
   pinProblem: "missing" | "invalid" | null;
-  salt: string;
+  secret: string;
   onVercel: boolean;
   businessName: string;
   dataDir: string;
@@ -9,13 +11,13 @@ export type FoundationEnv = {
 
 const PIN_FORMAT = /^\d{6,12}$/;
 
-export function readEnv(e: Record<string, string | undefined> = process.env): FoundationEnv {
+export function readEnv(e: Record<string, string | undefined> = process.env, buildSecret: string = BUILD_SECRET): FoundationEnv {
   const raw = e.FOUNDATION_PIN?.trim() ?? "";
   const pinProblem = raw === "" ? "missing" : PIN_FORMAT.test(raw) ? null : "invalid";
   return {
     pin: pinProblem ? null : raw,
     pinProblem,
-    salt: e.FOUNDATION_SECRET || e.VERCEL_PROJECT_PRODUCTION_URL || "local",
+    secret: e.FOUNDATION_SECRET?.trim() || buildSecret,
     onVercel: e.VERCEL === "1",
     businessName: e.FOUNDATION_BUSINESS_NAME?.trim() || "Your business",
     dataDir: e.FOUNDATION_DATA_DIR?.trim() || ".data/pglite",

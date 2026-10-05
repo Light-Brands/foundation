@@ -101,6 +101,26 @@ describe("npm run setup", () => {
     const block = parse(readFileSync(path.join(dir, "key/knowledge/context-block.yaml"), "utf8"));
     expect(block.business).toBe("Harbor Studio & Co.");
   });
+  it("records the commit setup ran on as provenance.base, keeping the other provenance fields", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
+    const git = (...a: string[]) => execFileSync("git", a, { cwd: dir, encoding: "utf8", stdio: "pipe" });
+    git("init", "-q"); git("config", "user.email", "t@example.org"); git("config", "user.name", "t");
+    cpSync(SEED_KEY, path.join(dir, "key"), { recursive: true });
+    git("add", "."); git("commit", "-qm", "template");
+    const head = git("rev-parse", "HEAD").trim();
+    run(dir, ["--name", "Harbor Studio", "--pin", "246810"]);
+    const key = parse(readFileSync(path.join(dir, "key/key.yaml"), "utf8"));
+    expect(key.provenance.base).toBe(head);
+    expect(key.provenance.base).toMatch(/^[0-9a-f]{40}$/);
+    expect(key.provenance.guide).toBe("foundation");
+    expect(key.provenance.stated_by).toBe("");
+  });
+  it("records no base outside a git repository", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
+    cpSync(SEED_KEY, path.join(dir, "key"), { recursive: true });
+    run(dir, ["--name", "Harbor Studio", "--pin", "246810"]);
+    expect(parse(readFileSync(path.join(dir, "key/key.yaml"), "utf8")).provenance).not.toHaveProperty("base");
+  });
   it("leaves an already named Key alone", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
     cpSync(SEED_KEY, path.join(dir, "key"), { recursive: true });

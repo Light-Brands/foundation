@@ -154,6 +154,19 @@ describe("valid files", () => {
   });
 });
 
+describe("provenance.base", () => {
+  const withBase = (base: string) => `${keyYaml}provenance:\n  stated_by: ""\n  recorded: ""\n  guide: foundation\n  base: "${base}"\n`;
+  it("accepts a full 40 character commit id, and a Key with no base", () => {
+    expect(checkKeyYaml("key.yaml", withBase("0123456789abcdef0123456789abcdef01234567"))).toEqual([]);
+    expect(checkKeyYaml("key.yaml", keyYaml)).toEqual([]);
+  });
+  it("rejects a short or malformed base", () => {
+    for (const b of ["0123abc", "", "0123456789ABCDEF0123456789ABCDEF01234567", "g123456789abcdef0123456789abcdef01234567"]) {
+      expect(checkKeyYaml("key.yaml", withBase(b)), b).toContain("key.yaml: provenance.base must be a full 40 character commit id");
+    }
+  });
+});
+
 describe("bad fixtures fail with the file name and the rule", () => {
   const cases: [string, (n: string, t: string) => string[], RegExp][] = [
     ["charter-out-of-order.md", checkCharter, /order/],

@@ -5,6 +5,7 @@ import { CATEGORIES } from "@/lib/layout/categories";
 import { compareDefinition } from "@/lib/key/schema";
 
 export const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+export const COMMIT_ID = /^[0-9a-f]{40}$/;
 export const CHARTER_HEADINGS = ["Role", "Who I serve", "How I work", "What I know", "What I never do", "Tasks", "Skills", "Memory"];
 export const SKILL_SECTIONS = ["Input", "Steps", "Output", "Check"];
 export const OLD_WORKFLOWS = "workflows is now routines: rename the list to routines and the folder key/workflows/ to key/routines/";
@@ -79,6 +80,7 @@ export function checkKeyYaml(file: string, text: string): string[] {
     if (!isObj(r) || !str(r.persona).trim()) bad(`roster[${i}].persona must be a non-empty name`);
   });
   if ("workflows" in d) p.push(`${file}: ${OLD_WORKFLOWS}`);
+  if (isObj(d.provenance) && "base" in d.provenance && !COMMIT_ID.test(str(d.provenance.base))) bad("provenance.base must be a full 40 character commit id");
   p.push(...checkInstalled(file, d));
   for (const k of ["skills", "apps", "routines"] as const) {
     list(d[k]).forEach((e, i) => {

@@ -37,12 +37,19 @@ describe("log entries", () => {
   });
 });
 
-function repo(subject2 = "second", date2?: string) {
+// A repository the way a member has it: Light Brands' template history, then setup records
+// the commit it ran on as provenance.base, then the member's own commits.
+function repo(subject2 = "second", date2?: string, opts: { base?: boolean } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "logsync-"));
-  const git = (...a: string[]) => execFileSync("git", a, { cwd: dir, stdio: "pipe" });
+  const git = (...a: string[]) => execFileSync("git", a, { cwd: dir, encoding: "utf8", stdio: "pipe" });
   git("init", "-q"); git("config", "user.email", "t@example.org"); git("config", "user.name", "t");
   mkdirSync(path.join(dir, "key/log"), { recursive: true });
   writeFileSync(path.join(dir, "key/log/.gitkeep"), "");
+  writeFileSync(path.join(dir, "template.txt"), "scaffold");
+  git("add", "."); git("commit", "-qm", "template scaffold from light brands");
+  const base = git("rev-parse", "HEAD").trim();
+  const provenance = opts.base === false ? "" : `provenance:\n  guide: foundation\n  base: ${base}\n`;
+  writeFileSync(path.join(dir, "key/key.yaml"), `key: 1\nclient: harbor-studio\n${provenance}`);
   writeFileSync(path.join(dir, "a.txt"), "1");
   git("add", "."); git("commit", "-qm", "first — thing");
   writeFileSync(path.join(dir, "a.txt"), "2");
@@ -102,13 +109,29 @@ describe("log:sync", () => {
     sync(dir); // back-fills the first commit and the work commit
     // Start the log over: only the entry for the work commit, written the way a member does it.
     const logFile = path.join(dir, "key/log", readdirSync(path.join(dir, "key/log")).find((f) => f.endsWith(".md"))!);
-    const first = git("rev-list", "--max-parents=0", "HEAD").trim().slice(0, 7);
+    const first = git("rev-parse", "--short=7", "HEAD~1").trim();
     writeFileSync(logFile, formatEntry({ ...entry, commit: first, title: "First" }) + "\n" + formatEntry({ ...entry, commit: work, title: "Reminders" }));
     git("add", "key/log");
     git("commit", "-qm", "log: reminders entry");
     const out = sync(dir);
     expect(out).toContain("added 0 entries");
     expect(parseLog(readFileSync(logFile, "utf8")).map((e) => e.commit)).toEqual([first, work]);
+  }, 60000);
+
+  it("never logs a commit from before setup's base", () => {
+    const dir = repo();
+    expect(sync(dir)).toContain("added 2 entries");
+    const text = allLog(dir);
+    expect(text).not.toContain("template scaffold");
+    expect(parseLog(text).map((e) => e.title)).toEqual(["first , thing", "second"]);
+  }, 60000);
+
+  it("adds nothing and says why when setup has not recorded a base", () => {
+    const dir = repo("second", undefined, { base: false });
+    const out = sync(dir);
+    expect(out).toContain("The build log starts after setup records its base");
+    expect(out).toContain("added 0 entries");
+    expect(readdirSync(path.join(dir, "key/log")).filter((f) => f.endsWith(".md"))).toEqual([]);
   }, 60000);
 
   it("withholds a commit subject that names the platform", () => {

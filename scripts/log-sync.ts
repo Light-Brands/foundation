@@ -2,20 +2,43 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { formatEntry, logFileFor, missingCommits, parseLog, type CommitInfo } from "../src/lib/key/log";
-import { checkLogText } from "../src/lib/key/formats";
+import { checkLogText, COMMIT_ID } from "../src/lib/key/formats";
+import { parse } from "yaml";
 
 const i = process.argv.indexOf("--root");
 const root = path.resolve(i >= 0 ? process.argv[i + 1] : process.cwd());
 const logDir = path.join(root, "key/log");
 
-let raw = "";
-try {
-  raw = execFileSync("git", ["log", "-200", "--format=%h%x09%aI%x09%s", "--name-only"], { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
-} catch {
-  raw = "";
-}
-if (!raw.trim()) {
+const git = (args: string[]): string | null => {
+  try {
+    return execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
+  } catch {
+    return null;
+  }
+};
+if (!git(["rev-parse", "--verify", "HEAD"])?.trim()) {
   console.log("No git history yet. Nothing to add.");
+  process.exit(0);
+}
+
+// The log starts at the commit setup ran on (provenance.base in key/key.yaml), so the
+// template history from Light Brands never lands in the member's log.
+let base = "";
+try {
+  const key = parse(readFileSync(path.join(root, "key/key.yaml"), "utf8"));
+  base = String(key?.provenance?.base ?? "");
+} catch {
+  base = "";
+}
+if (!COMMIT_ID.test(base)) {
+  console.log("The build log starts after setup records its base in key/key.yaml, so there is nothing to add yet.");
+  console.log("log:sync added 0 entries");
+  process.exit(0);
+}
+const raw = git(["log", `${base}..HEAD`, "--format=%h%x09%aI%x09%s", "--name-only"]);
+if (raw === null) {
+  console.log("The base commit in key/key.yaml is not in this repository's history, so there is nothing to add.");
+  console.log("log:sync added 0 entries");
   process.exit(0);
 }
 mkdirSync(logDir, { recursive: true });

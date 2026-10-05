@@ -8,11 +8,15 @@ export function Shell({
   businessName,
   nav,
   banner,
+  headerEnd,
+  kicker = "Command center",
   children,
 }: {
   businessName: string;
   nav: NavGroup[];
   banner?: React.ReactNode;
+  headerEnd?: React.ReactNode;
+  kicker?: string;
   children: React.ReactNode;
 }) {
   const [drawer, setDrawer] = useState(false);
@@ -70,21 +74,8 @@ export function Shell({
               <Menu size={20} />
             </button>
             <span className="font-display text-sm tracking-wide text-zinc-100">{businessName}</span>
-            <span className="kicker ml-2 hidden sm:inline">Command center</span>
-            <form
-              action="/api/gate"
-              method="post"
-              className="ml-auto"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                await fetch("/api/gate", { method: "DELETE" });
-                window.location.href = "/gate";
-              }}
-            >
-              <button type="submit" className="chip transition-colors duration-200 ease-breath hover:border-white/20 hover:text-white">
-                Lock
-              </button>
-            </form>
+            <span className="kicker ml-2 hidden sm:inline">{kicker}</span>
+            <div className="ml-auto">{headerEnd ?? <LockButton />}</div>
           </div>
         </header>
         {banner}
@@ -109,5 +100,24 @@ export function Shell({
         </div>
       )}
     </div>
+  );
+}
+
+function LockButton() {
+  return (
+    <form
+      action="/api/gate"
+      method="post"
+      className="ml-auto"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        await fetch("/api/gate", { method: "DELETE" });
+        window.location.href = "/gate";
+      }}
+    >
+      <button type="submit" className="chip transition-colors duration-200 ease-breath hover:border-white/20 hover:text-white">
+        Lock
+      </button>
+    </form>
   );
 }

@@ -11,19 +11,25 @@ export const CORE_SCREENS: Record<string, string> = {
   "system.settings": "/system/settings",
 };
 
-export function hrefFor(category: string, sub: string): string {
-  return CORE_SCREENS[`${category}.${sub}`] ?? `/${category}/${sub}`;
+export type NavOptions = { base?: string; screens?: Record<string, string> };
+
+export function hrefFor(category: string, sub: string, opts: NavOptions = {}): string {
+  const screens = opts.screens ?? CORE_SCREENS;
+  const path = screens[`${category}.${sub}`] ?? `/${category}/${sub}`;
+  const base = opts.base ?? "";
+  return base && path === "/" ? base : base + path;
 }
 
-export function buildNav(badges: Record<string, number> = {}): NavGroup[] {
+export function buildNav(badges: Record<string, number> = {}, opts: NavOptions = {}): NavGroup[] {
+  const screens = opts.screens ?? CORE_SCREENS;
   return CATEGORIES.map((c) => {
     const items = c.subcategories.map((s) => {
       const key = `${c.id}.${s.id}`;
       return {
         key,
         label: s.label,
-        href: hrefFor(c.id, s.id),
-        state: key in CORE_SCREENS ? ("built" as const) : ("ready" as const),
+        href: hrefFor(c.id, s.id, opts),
+        state: key in screens ? ("built" as const) : ("ready" as const),
         badge: badges[key] ?? 0,
       };
     });
@@ -44,7 +50,7 @@ export function findSubcategory(categoryId: string, subId: string): { category: 
 export function activeKey(pathname: string, groups: NavGroup[]): string | null {
   let best: NavItem | null = null;
   for (const g of groups) for (const i of g.items) {
-    const hit = i.href === "/" ? pathname === "/" : pathname === i.href || pathname.startsWith(i.href + "/");
+    const hit = i.key === "command.home" ? pathname === i.href : pathname === i.href || pathname.startsWith(i.href + "/");
     if (hit && (!best || i.href.length > best.href.length)) best = i;
   }
   return best?.key ?? null;

@@ -123,8 +123,10 @@ describe("loading declarations at run time", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     await loadDeclarations(root);
     await loadDeclarations(root);
-    expect(warn).toHaveBeenCalledTimes(1);
+    // Two problems: the app is not installed, and so the routine's check reads a table that is not its app's.
+    expect(warn).toHaveBeenCalledTimes(2);
     expect(String(warn.mock.calls[0][0])).toMatch(/app "invoices" is not installed/);
+    expect(String(warn.mock.calls[1][0])).toMatch(/reads "leads_demo"/);
   });
   it("stays quiet when the Key is sound", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});

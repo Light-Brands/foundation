@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { parse } from "yaml";
@@ -32,13 +33,16 @@ export type DeclSource = {
   category: string;
   entryCategory: string; // the category on the source's entry in key.yaml
   app: string | null;
-  uses: string[]; // uses_apps: other installed apps whose tables this source's checks may read (K5)
+  uses: string[]; // uses_apps: every app named there, required or optional, whose tables this source's checks may read (K5)
+  optionalUses?: string[]; // the apps in uses_apps marked optional: true, which need not be installed
   data: Record<string, unknown>;
 };
 
 export type Declarations = {
   kinds: CardKindDecl[];
   forms: FormDecl[];
+  checks: CheckDecl[];
+  drafts: DraftDecl[];
   routines: string[];
   tablesByApp: Record<string, string[]>;
   problems: string[];
@@ -53,7 +57,27 @@ export const insideKey = (rel: string): boolean => rel !== "" && !path.isAbsolut
 // Jobs whose decisions belong to the owner alone: every Finance job, contracts, the team roster and hiring.
 export const OWNER_ONLY_JOBS: readonly string[] = ["money/*", "sell/contracts", "team/people", "team/hiring"];
 const ownerOnly = (category: string, sub: string): boolean => OWNER_ONLY_JOBS.includes(`${category}/*`) || OWNER_ONLY_JOBS.includes(`${category}/${sub}`);
-const slugList = (v: unknown): string[] => list(v).map(str);
+
+/**
+ * uses_apps lists app slugs, each either required (a plain slug, or {app: <slug>}) or optional
+ * ({app: <slug>, optional: true}). An optional app need not be installed: a check reading it waits.
+ */
+export function parseUses(v: unknown): { uses: string[]; optional: string[]; problems: string[] } {
+  const uses: string[] = [];
+  const optional: string[] = [];
+  const problems: string[] = [];
+  if (v === undefined) return { uses, optional, problems };
+  if (!Array.isArray(v)) return { uses, optional, problems: ["uses_apps must be a list of app slugs"] };
+  for (const e of v) {
+    if (typeof e === "string") { uses.push(e); continue; }
+    if (!isObj(e) || typeof e.app !== "string") { problems.push("uses_apps entries are app slugs, or {app: <slug>, optional: true}"); continue; }
+    if (e.optional !== undefined && typeof e.optional !== "boolean") problems.push(`uses_apps "${e.app}" has optional set to something other than true or false`);
+    if (Object.keys(e).some((k) => k !== "app" && k !== "optional")) problems.push(`uses_apps "${e.app}" holds only app and optional`);
+    uses.push(e.app);
+    if (e.optional === true) optional.push(e.app);
+  }
+  return { uses, optional, problems };
+}
 
 /** Member-facing words in a declaration follow docs/standards/copy.md. */
 export const copyOk = (s: string): boolean => !/[–—;]/.test(s);
@@ -165,6 +189,11 @@ export function checkForms(src: Pick<DeclSource, "file" | "slug">, raw: unknown,
   return { forms, problems };
 }
 
+function usesOf(v: unknown): { uses: string[]; optionalUses: string[] } {
+  const { uses, optional } = parseUses(v);
+  return { uses, optionalUses: optional };
+}
+
 /** Every installed app definition and routine front matter key.yaml names. Missing or broken files are skipped here, because checkKeyFolder reports them. */
 export async function readSources(root: string): Promise<{ sources: DeclSource[]; routines: string[]; tablesByApp: Record<string, string[]>; problems: string[] }> {
   const key = path.join(root, "key");
@@ -187,7 +216,7 @@ export async function readSources(root: string): Promise<{ sources: DeclSource[]
     try { def = parse(text); } catch { problems.push(`key/${rel}: could not be read as YAML`); continue; }
     if (!isObj(def)) continue;
     tablesByApp[slug] = list(def.entities).filter(isObj).map((e) => str(e.key)).filter(Boolean);
-    sources.push({ type: "app", slug, file: `key/${rel}`, category: str(def.category), entryCategory: isObj(a) ? str(a.category) : "", app: slug, uses: slugList(def.uses_apps), data: def });
+    sources.push({ type: "app", slug, file: `key/${rel}`, category: str(def.category), entryCategory: isObj(a) ? str(a.category) : "", app: slug, ...usesOf(def.uses_apps), data: def });
   }
   for (const r of list(ring.routines)) {
     const slug = isObj(r) ? str(r.slug) : "";
@@ -202,7 +231,7 @@ export async function readSources(root: string): Promise<{ sources: DeclSource[]
       if (text.trimStart().startsWith("---")) problems.push(`key/${rel}: front matter could not be read as YAML`);
       continue;
     }
-    sources.push({ type: "routine", slug, file: `key/${rel}`, category: str(fm.data.category), entryCategory: isObj(r) ? str(r.category) : "", app: str(fm.data.app) || null, uses: slugList(fm.data.uses_apps), data: fm.data });
+    sources.push({ type: "routine", slug, file: `key/${rel}`, category: str(fm.data.category), entryCategory: isObj(r) ? str(r.category) : "", app: str(fm.data.app) || null, ...usesOf(fm.data.uses_apps), data: fm.data });
   }
   return { sources, routines, tablesByApp, problems };
 }
@@ -213,10 +242,10 @@ export async function readDeclarations(root: string): Promise<Declarations> {
   const kinds: CardKindDecl[] = [...CORE_CARD_KINDS];
   for (const s of sources) {
     if (s.type === "routine" && s.app !== null && !(s.app in tablesByApp)) problems.push(`${s.file}: app "${s.app}" is not installed`);
-    if (s.data.uses_apps !== undefined && !Array.isArray(s.data.uses_apps)) problems.push(`${s.file}: uses_apps must be a list of app slugs`);
+    for (const m of parseUses(s.data.uses_apps).problems) problems.push(`${s.file}: ${m}`);
     for (const u of s.uses) {
       if (!SLUG.test(u)) problems.push(`${s.file}: uses_apps "${u}" must be an app slug`);
-      else if (!(u in tablesByApp)) problems.push(`${s.file}: uses_apps names "${u}", which is not installed. Install it first, as the entry's uses say`);
+      else if (!(u in tablesByApp) && !(s.optionalUses ?? []).includes(u)) problems.push(`${s.file}: uses_apps names "${u}", which is not installed. Install it first, as the entry's uses say`);
     }
     if (s.entryCategory !== "" && s.category !== s.entryCategory) {
       problems.push(`${s.file}: category "${s.category}" does not match "${s.entryCategory}" in key.yaml, so its card kinds are not loaded`);
@@ -243,5 +272,158 @@ export async function readDeclarations(root: string): Promise<Declarations> {
       else forms.push(f);
     }
   }
-  return { kinds, forms, routines, tablesByApp, problems };
+  const checks: CheckDecl[] = [];
+  const drafts: DraftDecl[] = [];
+  for (const s of sources) {
+    if (s.data.checks !== undefined) {
+      const found = checkChecks(s, s.data.checks, { kindNames, tablesByApp });
+      problems.push(...found.problems);
+      for (const c of found.checks) {
+        if (checks.some((x) => x.slug === c.slug)) problems.push(`${s.file}: check "${c.slug}" is already declared`);
+        else checks.push(c);
+      }
+    }
+    if (s.data.draft !== undefined) {
+      if (s.type === "app") { problems.push(`${s.file}: a drafting command is declared in a routine, never an app`); continue; }
+      const found = checkDraftBlock(s, s.data.draft, (p) => existsSync(path.join(root, p)));
+      problems.push(...found.problems);
+      if (found.draft) drafts.push(found.draft);
+    }
+  }
+  return { kinds, forms, checks, drafts, routines, tablesByApp, problems };
+}
+
+// Every table the Foundation itself creates. A check may read only the few in CHECK_CORE_TABLES.
+export const CORE_TABLES = ["business_profile", "contacts", "inbox_items", "pause", "form_hits", "form_counts", "webhook_events", "check_runs", "outbox", "opt_outs", "connections", "accounts"];
+
+export const CHECK_PERIODS = ["day", "week"] as const;
+// Core tables a check may read. K7 appends "connections" when that table exists. The outbox stays out: it holds message bodies.
+export const CHECK_CORE_TABLES: readonly string[] = ["contacts", "inbox_items", "business_profile", "check_runs"];
+export const CHECK_FUNCTIONS: ReadonlySet<string> = new Set([
+  "count", "sum", "min", "max", "avg", "coalesce", "nullif", "greatest", "least", "lower", "upper", "trim", "btrim",
+  "ltrim", "rtrim", "length", "char_length", "concat", "concat_ws", "format", "left", "right", "replace", "split_part",
+  "string_agg", "array_agg", "array_to_string", "array_length", "cardinality", "to_char", "date_trunc", "date_part",
+  "make_interval", "age", "now", "abs", "round", "floor", "ceil", "ceiling", "bool_or", "bool_and", "jsonb_build_object", "jsonb_agg",
+]);
+// Words that may stand before an opening parenthesis without being a function call.
+const SQL_WORDS = new Set([
+  "and", "or", "not", "in", "exists", "any", "all", "some", "filter", "over", "values", "on", "using", "from", "join",
+  "where", "select", "when", "then", "else", "by", "as", "with", "case", "numeric", "decimal", "between", "having", "is", "distinct", "row", "cast", "lateral",
+]);
+const WRITE_WORDS = /\b(insert|update|delete|merge|truncate|drop|alter|create|grant|revoke|copy|call|do|execute|prepare|deallocate|listen|notify|unlisten|set|reset|lock|vacuum|analyze|cluster|reindex|refresh|comment|security|into|nextval|setval)\b/i;
+const TABLE_NAME = /^[a-z][a-z0-9_]*$/;
+
+/**
+ * slug is the check's full slug, <app or routine slug>/<key>. absent names the optional apps in uses_apps
+ * that are not installed, when the check reads a table none of the installed apps or the core list holds:
+ * such a check waits, and the runner records a skip for it each period and raises no card.
+ */
+export type CheckDecl = { slug: string; key: string; name: string; period: "day" | "week"; card_kind: string; reads: string[]; sql: string; source: string; absent?: string[] };
+export type DraftDecl = { routine: string; handler: string; subcommands: string[] };
+
+export function checkSqlProblems(sql: string, reads: readonly string[]): string[] {
+  const p = new Set<string>();
+  if (/\$[A-Za-z_]*\$/.test(sql)) p.add("sql must not use dollar quoting");
+  const text = sql
+    .replace(/'(?:[^']|'')*'/g, "''")
+    .replace(/--[^\n]*/g, " ")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .trim()
+    .replace(/;\s*$/, "");
+  if (text.includes(";")) p.add("sql must be one statement");
+  if (!/^(select|with)\b/i.test(text)) p.add("sql must start with select or with");
+  if (text.includes('"')) p.add("sql must not use quoted identifiers");
+  const write = WRITE_WORDS.exec(text);
+  if (write) p.add(`sql must only read: "${write[1].toLowerCase()}" is not allowed`);
+  if (/\b(pg_[a-z_]*|information_schema)\b/i.test(text)) p.add("sql must not read system catalogs");
+  for (const m of text.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)) {
+    const f = m[1].toLowerCase();
+    if (!CHECK_FUNCTIONS.has(f) && !SQL_WORDS.has(f)) p.add(`sql calls "${f}", which checks may not use`);
+  }
+  for (const m of text.matchAll(/\$(\d+)(::[a-z]+)?/gi)) {
+    if (m[1] !== "1" && m[1] !== "2") p.add("sql may use only $1::date and $2::timestamptz");
+    else if (m[1] === "1" && m[2]?.toLowerCase() !== "::date") p.add("write $1 as $1::date");
+    else if (m[1] === "2" && m[2]?.toLowerCase() !== "::timestamptz") p.add("write $2 as $2::timestamptz");
+  }
+  // Every table comes in through from or join, so a comma list of tables (an old-style join) is refused.
+  if (/\bfrom\s+[a-z_][a-z0-9_]*(\s+(as\s+)?(?!where\b|join\b|left\b|right\b|inner\b|full\b|cross\b|group\b|order\b|limit\b|on\b)[a-z_][a-z0-9_]*)?\s*,/i.test(text)) p.add("sql must join tables with join, never a comma");
+  const ctes = new Set([...text.matchAll(/\b([a-z_][a-z0-9_]*)\s+as\s*\(/gi)].map((m) => m[1].toLowerCase()));
+  for (const m of text.matchAll(/\b(?:from|join)\s+([A-Za-z_][A-Za-z0-9_]*)(\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)?/gi)) {
+    const t = m[1].toLowerCase();
+    if (m[2]) { p.add(`sql must name tables without a schema ("${t}${m[2].replace(/\s/g, "")}")`); continue; }
+    if (t === "lateral" || ctes.has(t)) continue;
+    if (!reads.includes(t)) p.add(`sql reads "${t}", which is not in reads`);
+  }
+  return [...p];
+}
+
+export function checkChecks(
+  src: Pick<DeclSource, "file" | "slug" | "type" | "app" | "uses" | "optionalUses">,
+  raw: unknown,
+  ctx: { kindNames: ReadonlySet<string>; tablesByApp: Record<string, string[]> },
+): { checks: CheckDecl[]; problems: string[] } {
+  const checks: CheckDecl[] = [];
+  const problems: string[] = [];
+  if (raw === undefined) return { checks, problems };
+  if (!Array.isArray(raw)) return { checks, problems: [`${src.file}: checks must be a list`] };
+  if (src.type === "routine" && !src.app) problems.push(`${src.file}: a routine that declares checks names its app with app: <slug>`);
+  const own = src.app ? ctx.tablesByApp[src.app] ?? [] : [];
+  const used = src.uses.flatMap((u) => ctx.tablesByApp[u] ?? []);
+  const allowed = new Set<string>([...own, ...used, ...CHECK_CORE_TABLES]);
+  // An optional app that is not installed has no known tables. A table no installed app and no core list
+  // holds may be one of its tables, so the check waits for it. A known table never waits.
+  const absentApps = (src.optionalUses ?? []).filter((u) => !(u in ctx.tablesByApp));
+  const known = new Set<string>([...Object.values(ctx.tablesByApp).flat(), ...CORE_TABLES]);
+  const mayWait = (t: string) => absentApps.length > 0 && TABLE_NAME.test(t) && !t.startsWith("pg_") && !known.has(t);
+  const coreKinds = new Set(CORE_CARD_KINDS.map((k) => k.kind));
+  const keys = new Set<string>();
+  raw.forEach((c, i) => {
+    const before = problems.length;
+    const bad = (m: string) => problems.push(`${src.file}: checks[${i}] ${m}`);
+    if (!isObj(c)) { bad("must be a mapping"); return; }
+    const key = str(c.key);
+    if (!SLUG.test(key)) bad("key must be a lowercase hyphenated slug");
+    else if (keys.has(key)) bad(`key "${key}" repeats`);
+    keys.add(key);
+    const name = words("", "name", c.name, 1, 80, bad);
+    const period = str(c.period);
+    if (!(CHECK_PERIODS as readonly string[]).includes(period)) bad("period must be day or week");
+    const kind = str(c.card_kind);
+    if (coreKinds.has(kind)) bad(`card_kind "${kind}" is a core kind. Declare a kind for this job`);
+    else if (!ctx.kindNames.has(kind)) bad(`card_kind "${kind}" is not declared in the Key`);
+    const reads = list(c.reads).map(str);
+    if (reads.length === 0) bad("reads must list the tables the check reads");
+    let waits = false;
+    for (const t of reads) {
+      if (allowed.has(t)) continue;
+      if (mayWait(t)) { waits = true; continue; }
+      bad(`reads "${t}", which is not this app's table, a table of an app in uses_apps, or a core table checks may read`);
+    }
+    const sql = str(c.sql).trim();
+    if (sql.length < 1 || sql.length > 4000) bad("sql must be 1 to 4000 characters");
+    else for (const m of checkSqlProblems(sql, reads)) bad(m);
+    if (problems.length === before) {
+      checks.push({
+        slug: `${src.slug}/${key}`, key, name, period: period as "day" | "week", card_kind: kind, reads, sql, source: src.slug,
+        ...(waits ? { absent: absentApps } : {}),
+      });
+    }
+  });
+  return { checks, problems };
+}
+
+const HANDLER_PATH = /^(src|modules)\/[A-Za-z0-9_./-]+\.ts$/;
+
+export function checkDraftBlock(src: Pick<DeclSource, "file" | "slug">, raw: unknown, exists: (repoPath: string) => boolean): { draft: DraftDecl | null; problems: string[] } {
+  if (!isObj(raw)) return { draft: null, problems: [`${src.file}: draft must be a mapping with handler and subcommands`] };
+  const problems: string[] = [];
+  const bad = (m: string) => problems.push(`${src.file}: draft ${m}`);
+  const handler = str(raw.handler);
+  if (!HANDLER_PATH.test(handler) || handler.split("/").some((seg) => seg === "" || seg === "." || seg === "..")) bad("handler must be a .ts file under src/ or modules/, written from the top of the repository");
+  else if (!exists(handler)) bad(`handler ${handler} does not exist`);
+  const subs = list(raw.subcommands).map(str);
+  if (subs.length < 1 || subs.length > 12) bad("subcommands must list 1 to 12 steps");
+  else if (subs.some((x) => !SLUG.test(x))) bad("each subcommand must be a lowercase hyphenated slug");
+  else if (new Set(subs).size !== subs.length) bad("subcommands must not repeat");
+  return problems.length ? { draft: null, problems } : { draft: { routine: src.slug, handler, subcommands: subs }, problems };
 }

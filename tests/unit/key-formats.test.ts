@@ -6,7 +6,7 @@ import {
   checkKeyFolder, checkKeyYaml, checkCharter, checkSkill, checkRoutine, checkDefinition, checkLogText, parseFrontMatter, checkInstalled, checkRunBrief, codePathOk,
 } from "@/lib/key/formats";
 import { parse } from "yaml";
-import { checkCardKinds, checkForms } from "@/lib/key/declarations";
+import { checkCardKinds, checkChecks, checkDraftBlock, checkForms } from "@/lib/key/declarations";
 import { contextBlockFromProfile } from "@/lib/key/context-block";
 import { PROFILE_FIELDS, type Profile } from "@/lib/validate";
 
@@ -457,6 +457,15 @@ describe("the examples in docs/standards/key.md", () => {
   it("the public forms example passes checkForms", () => {
     const decl = parse(section("Public forms", "yaml")) as { forms: unknown };
     expect(checkForms({ file: "key.md", slug: "bookings" }, decl.forms, new Set(["booking-request"])).problems).toEqual([]);
+  });
+  it("the checks example passes checkChecks", () => {
+    const decl = parse(section("Checks", "yaml")) as { checks: unknown };
+    const src = { file: "key.md", slug: "bookings", type: "app" as const, app: "bookings", uses: [] as string[] };
+    expect(checkChecks(src, decl.checks, { kindNames: new Set(["requests-waiting"]), tablesByApp: { bookings: ["bookings"] } }).problems).toEqual([]);
+  });
+  it("the drafting example passes checkDraftBlock", () => {
+    const fm = parseFrontMatter(section("Drafting commands", "markdown"));
+    expect(checkDraftBlock({ file: "key.md", slug: "review-ask" }, fm?.data.draft, () => true).problems).toEqual([]);
   });
   it("the context block has exactly the context block fields", () => {
     const block = parse(section("The context block", "yaml")) as Record<string, unknown>;

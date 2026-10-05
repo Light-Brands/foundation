@@ -3,7 +3,7 @@ import path from "node:path";
 import { parse } from "yaml";
 import { CATEGORIES } from "@/lib/layout/categories";
 import { parseFrontMatter, SLUG } from "./frontmatter";
-import { readDeclarations } from "./declarations";
+import { CORE_TABLES, readDeclarations } from "./declarations";
 import { checkWebhook } from "@/lib/hooks/declaration";
 import { compareDefinition, rlsProblems } from "@/lib/key/schema";
 
@@ -23,7 +23,7 @@ export { parseFrontMatter, SLUG };
 // A slug that would collide with the core migration names.
 const RESERVED_APP_SLUGS = ["core"];
 // Core tables live in the same database as every app. No entity may take one of their names.
-export const CORE_TABLES = ["business_profile", "contacts", "inbox_items", "pause", "form_hits", "form_counts", "webhook_events", "check_runs", "outbox", "opt_outs", "connections", "accounts"];
+export { CORE_TABLES } from "./declarations";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);

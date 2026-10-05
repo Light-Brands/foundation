@@ -262,6 +262,55 @@ forms:
 - **Give every form a required `name` text field and a required `email` field, and a `phone` field of type `phone` when you ask for one.** Those three create or reuse the contact, and every other answer lands on the card. Why: a person's details live once, on the contact, and never in an app's own table.
 - **Keep the reserved field keys out of a form:** `website`, `_form`, `source`, `utm_source`, `utm_medium`, `utm_campaign`, `utm_content` and `referrer`. Why: the helper uses them for its honeypot and for where the visitor came from.
 
+## Checks
+
+An app's `definition.yaml` or a routine's front matter declares its checks, under `checks`. A check is SQL the Foundation runs read-only, at most once per period, raising at most one card. A routine that declares checks names the app it acts for with a top-level `app: <slug>`. A check that reads another app's table names that app in a top-level `uses_apps` in the same file. The install writes `uses_apps` from the entry's `uses`, and the Key checker refuses an app there that is not installed. An app written `{app: <slug>, optional: true}` may be absent: while it is, a check that reads its tables is skipped each period with a record in `check_runs` and no card, and once it is installed the check runs like any other.
+
+```yaml
+checks:
+  - key: requests-waiting
+    name: Booking requests waiting
+    period: day
+    card_kind: requests-waiting
+    reads: [bookings]
+    sql: |
+      select count(*) > 0 as raise,
+             count(*)::text || ' booking requests are waiting' as title,
+             coalesce(string_agg(client_email, ', '), '') as body
+        from bookings
+       where status = 'new' and starts <= $1::date + 2
+```
+
+`key` is a slug, unique in its app or routine, and the check's full slug is `<app or routine slug>/<key>`. `name` is 1 to 80 characters and titles the card when the check cannot run. `period` is `day` or `week`, in the business's time zone. `card_kind` is a kind declared in the Key, never a core kind. `reads` lists every table the SQL reads.
+
+The SQL is one `select` (or `with ... select`) statement. It returns zero rows (nothing to raise) or one row with `raise` (boolean), `title` (text, used when `raise` is true) and `body` (text or null). It may use two parameters, written `$1::date` (today in the business's time zone) and `$2::timestamptz` (now). It never names a schema, never quotes an identifier, never uses dollar quoting, never reads `pg_` or `information_schema` objects, and calls only these functions: `count`, `sum`, `min`, `max`, `avg`, `coalesce`, `nullif`, `greatest`, `least`, `lower`, `upper`, `trim`, `btrim`, `ltrim`, `rtrim`, `length`, `char_length`, `concat`, `concat_ws`, `format`, `left`, `right`, `replace`, `split_part`, `string_agg`, `array_agg`, `array_to_string`, `array_length`, `cardinality`, `to_char`, `date_trunc`, `date_part`, `make_interval`, `age`, `now`, `abs`, `round`, `floor`, `ceil`, `ceiling`, `bool_or`, `bool_and`, `jsonb_build_object`, `jsonb_agg`. The outbox is never readable by a check, because it holds customers' message bodies.
+
+Three layers hold a check to reading. The Key checker refuses any writing word, unknown function, schema name, catalog read or table outside `reads`. At run time the runner asks Postgres for the statement's plan and fails the check when the plan touches any relation that is not a `public` table in `reads`. Then it runs the statement inside a read-only transaction with a five second limit, wrapped in an outer select, so a data-modifying statement cannot even be parsed. Only the runner writes: one row in `check_runs` and at most one card.
+
+- **Write a check as one read-only select that returns raise, title and body, and list every table it reads.** It reads only its own app's tables, the tables of the apps listed in its file's `uses_apps` (written at install from the entry's `uses`, each one installed unless marked optional), and the core tables `contacts`, `inbox_items`, `business_profile` and `check_runs` (and `connections` once it exists), and uses `$1::date` for today and `$2::timestamptz` for now. Why: the Key checker, the plan check and a read-only transaction all hold a check to reading, and one result row means at most one card.
+- **Mark an app in `uses_apps` as `{app: <slug>, optional: true}` when the check must keep working while that app is absent.** The checker accepts an optional app that is not installed, and the runner skips, with a record and no card, any check that reads its tables until it is. A table the core or an installed app holds is never excused this way. Why: one register's removal must not stop every other register's card.
+
+## Drafting commands
+
+A drafting routine runs on the owner's computer through one command, `npm run draft -- <routine> <step>`. It declares its handler and its steps in its front matter, under `draft`.
+
+```markdown
+---
+name: Review ask
+agent: front-desk
+category: keep
+trigger: cron
+cron: "0 10 * * 1"
+draft:
+  handler: src/lib/drafts/review-ask.ts
+  subcommands: [list, save, check, blocked]
+---
+```
+
+`handler` is a `.ts` file under `src/` or `modules/`, written from the top of the repository. `subcommands` lists 1 to 12 slugs. The command refuses an unknown routine, an unknown step or a missing handler file with exit code 2, holds one drafting lock (`.data/draft.lock`), reads the pause switch, then runs the handler with the step and its flags. A handler prints machine output as one JSON object per line, reads drafted text from standard input, writes cards only through `writeCard`, and exits 0 when done, 1 with a plain message when it fails and 2 for a step it does not know. New handlers use `runHandler` from `src/lib/drafts/handler.ts`, which does all of that. An installed `monday-brief` without a `draft` block runs its existing `src/lib/data/briefs-command.ts`.
+
+- **Give a drafting routine a `draft` block naming its handler and its steps, and run it with `npm run draft -- <routine> <step>`.** The handler is a `.ts` file under `src/` or `modules/`. The pause switch is read twice: `npm run draft` writes one `runner/draft` skipped row and exits 3 when paused, and every handler (through `runHandler`, or by hand for an older handler) does the same when started directly. Why: every drafting routine runs the same way, under one lock, with the pause switch read first.
+
 ## App definition
 
 `key/apps/<app>/definition.yaml` registers the app and describes its tables. Field types are limited to `text`, `number`, `date`, `select`, `multi_select`, `checkbox`, `user`, `multi_user`, `url`, `email` and `attachment`. A `select` or `multi_select` field needs `options`. An automation names a routine that exists. `migrations` is always `migrations/`. Every table the migrations create turns on row level security (see `data.md`). The SQL for each type is in `data.md`.

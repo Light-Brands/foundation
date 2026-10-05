@@ -33,7 +33,11 @@ export function createLimiter(map: LimitMap = new Map()) {
 
 export const gateLimiter = createLimiter();
 
-export function clientKey(req: Request): string {
-  const first = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+export function clientKeyFromHeaders(h: { get(name: string): string | null }): string {
+  const first = h.get("x-forwarded-for")?.split(",")[0]?.trim();
   return first || "local";
+}
+
+export function clientKey(req: Request): string {
+  return clientKeyFromHeaders(req.headers);
 }

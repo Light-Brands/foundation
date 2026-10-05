@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createLimiter } from "@/lib/auth/limit";
+import { createLimiter, clientKeyFromHeaders } from "@/lib/auth/limit";
 
 const MIN = 60_000;
 
@@ -45,5 +45,12 @@ describe("wrong PIN limiter", () => {
     const l = createLimiter(m);
     l.fail("a", 0);
     expect(m.size).toBe(1);
+  });
+});
+
+describe("clientKeyFromHeaders", () => {
+  it("reads the first forwarded address, or local", () => {
+    expect(clientKeyFromHeaders(new Headers({ "x-forwarded-for": " 203.0.113.9 , 10.0.0.1" }))).toBe("203.0.113.9");
+    expect(clientKeyFromHeaders(new Headers())).toBe("local");
   });
 });

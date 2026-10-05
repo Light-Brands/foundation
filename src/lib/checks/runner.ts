@@ -43,7 +43,7 @@ const PLAN_SYNTAX: ReadonlySet<string> = new Set([
   "TIME", "ZONE",
 ]);
 // Functions Postgres prints in its SQL standard form, in capitals: POSITION(a IN b) is position(b, a).
-const PLAN_SQL_FORMS: Readonly<Record<string, string>> = { POSITION: "position", SUBSTRING: "substring" };
+const PLAN_SQL_FORMS: Readonly<Record<string, string>> = { POSITION: "position", SUBSTRING: "substring", TRIM: "trim" };
 // A quoted name made only of lower case letters, digits and underscores is a plain name Postgres quoted
 // because it is a keyword, as in "left"(...) and "right"(...). Any other quoted name stays the marker "q".
 const PLAIN_QUOTED = /^[a-z_][a-z0-9_$]*$/;

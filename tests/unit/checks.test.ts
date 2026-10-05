@@ -44,6 +44,14 @@ describe("runCheckSql", () => {
     expect(await runCheckSql(deps.db, { ...base, sql }, "2026-10-05", MON)).toEqual({ raise: true, title: "2026-10-05", body: "16:00" });
     await deps.db.close();
   });
+  it("passes trim(x) and trim(both from x), which Postgres prints as TRIM in the plan", async () => {
+    const deps = await setup();
+    const base = deps.checks[0];
+    await addLead(deps);
+    const sql = "select true as raise, trim(both from contact_email) as title, trim(contact_email) as body from leads_demo limit 1";
+    expect(await runCheckSql(deps.db, { ...base, sql }, "2026-10-05", MON)).toEqual({ raise: true, title: "ada@example.com", body: "ada@example.com" });
+    await deps.db.close();
+  });
   it("the read-only wrap refuses a write even when the plan check would allow it", async () => {
     const deps = await setup();
     const base = deps.checks[0];

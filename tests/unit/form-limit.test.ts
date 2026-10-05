@@ -33,6 +33,17 @@ describe("the public form limiter", () => {
     expect(await takeFormSlot(db, { form: "f", keyHash: "c9" }, at(10), limits)).toBe(false);
     await db.close();
   });
+  it("lets exactly the limit through when saves arrive at once", async () => {
+    const db = await coreDb();
+    const n = 4;
+    const limits = { ...FORM_LIMITS, perClient: n };
+    const results = await Promise.all(Array.from({ length: n + 5 }, () => takeFormSlot(db, { form: "f", keyHash: "same" }, T0, limits)));
+    expect(results.filter(Boolean)).toHaveLength(n);
+    const formLimits = { ...FORM_LIMITS, perForm: n };
+    const spread = await Promise.all(Array.from({ length: n + 5 }, (_, i) => takeFormSlot(db, { form: "g", keyHash: `c${i}` }, T0, formLimits)));
+    expect(spread.filter(Boolean)).toHaveLength(n);
+    await db.close();
+  });
   it("the limit survives a restart", async () => {
     const dir = path.join(mkdtempSync(path.join(tmpdir(), "hits-")), "pglite");
     const first = await openPglite(dir);

@@ -138,6 +138,9 @@ describe("optional apps in uses_apps", () => {
     expect(await checkKeyFolder(root)).toEqual([]);
     const d = await readDeclarations(root);
     expect(d.checks.map((c) => [c.slug, c.absent ?? []])).toEqual([["lead-watch/new-leads", []], ["lead-watch/vendor-renewals", ["vendors"]]]);
+    // A mistyped table name would wait silently, so each waiting table is named in a warning, never a problem.
+    expect(d.warnings).toEqual(['key/routines/lead-watch.md: checks[1] waits for table "vendors" from an app that is not installed (vendors)']);
+    expect(d.problems).toEqual([]);
   });
   const src = { file: "r.md", slug: "renewal-watch", type: "routine" as const, app: "leads-demo", uses: ["invoices"], optionalUses: ["invoices"] };
   const ctx = (installed: boolean) => ({

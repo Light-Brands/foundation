@@ -39,12 +39,19 @@ export function planRelations(plan: unknown): { schema: string; name: string }[]
 const PLAN_SYNTAX: ReadonlySet<string> = new Set([
   "AND", "OR", "NOT", "IN", "ANY", "ALL", "ARRAY", "ROW", "EXISTS", "COALESCE", "GREATEST", "LEAST", "NULLIF", "EXTRACT",
   "FILTER", "OVER", "WHERE", "WHEN", "THEN", "ELSE", "CASE", "BY", "AS", "IS", "DISTINCT", "BETWEEN", "WITHIN", "GROUP",
+  // x AT TIME ZONE (InitPlan 1).col1, when the zone comes from a subquery.
+  "TIME", "ZONE",
 ]);
+// Functions Postgres prints in its SQL standard form, in capitals: POSITION(a IN b) is position(b, a).
+const PLAN_SQL_FORMS: Readonly<Record<string, string>> = { POSITION: "position", SUBSTRING: "substring" };
+// A quoted name made only of lower case letters, digits and underscores is a plain name Postgres quoted
+// because it is a keyword, as in "left"(...) and "right"(...). Any other quoted name stays the marker "q".
+const PLAIN_QUOTED = /^[a-z_][a-z0-9_$]*$/;
 // Core tables a check never reads, whatever its declaration says. The outbox is one of them.
 const NEVER_READ: ReadonlySet<string> = new Set(CORE_TABLES.filter((t) => !CHECK_CORE_TABLES.includes(t)));
 
-// A plan expression with its string literals emptied and each quoted name turned into the marker "q",
-// keeping the case and the schema names exactly as Postgres printed them.
+// A plan expression with its string literals emptied and each quoted name turned into the marker "q" (or
+// its plain name, when Postgres quoted a keyword), keeping the case and the schema names as Postgres printed them.
 function planText(text: string): string {
   let out = "";
   for (let i = 0; i < text.length; i++) {
@@ -52,7 +59,8 @@ function planText(text: string): string {
     if (c === "'" || c === '"') {
       let j = i + 1;
       while (j < text.length && !(text[j] === c && text[j + 1] !== c)) j += text[j] === c ? 2 : 1;
-      out += c === "'" ? "''" : '"q"';
+      const inner = text.slice(i + 1, j);
+      out += c === "'" ? "''" : PLAIN_QUOTED.test(inner) ? inner : '"q"';
       i = j;
       continue;
     }
@@ -70,8 +78,9 @@ export function planFunctions(plan: unknown): string[] {
   const found = new Set<string>();
   const scan = (text: string) => {
     for (const m of planText(text).matchAll(/(?:([A-Za-z_][A-Za-z0-9_$]*|"q")\s*\.\s*)?([A-Za-z_][A-Za-z0-9_$]*|"q")\s*\(/g)) {
-      const [, schema, name] = m;
-      if (!schema && PLAN_SYNTAX.has(name)) continue;
+      const [, schema, printed] = m;
+      if (!schema && PLAN_SYNTAX.has(printed)) continue;
+      const name = !schema && Object.hasOwn(PLAN_SQL_FORMS, printed) ? PLAN_SQL_FORMS[printed] : printed;
       found.add(schema && schema !== "pg_catalog" ? `${schema}.${name}` : name);
     }
   };
@@ -122,6 +131,8 @@ async function readCheck(tx: Tx, check: CheckDecl, today: string, now: Date, fun
   const sql = `select * from (${inner}) as check_result where $1::date is not null and $2::timestamptz is not null`;
   const params = [today, now];
   await tx.exec(`set local statement_timeout = '${STATEMENT_TIMEOUT}'`);
+  // The Key checker's string reading assumes this (see normalizeSql), so the database reads the same way.
+  await tx.exec("set local standard_conforming_strings = on");
   const [plan] = await tx.query<Record<string, unknown>>(`explain (format json, verbose) ${sql}`, params);
   // Postgres has parsed the statement, resolved views, CTEs and names: its plan is what will run.
   for (const r of planRelations(plan?.["QUERY PLAN"])) {
@@ -232,8 +243,12 @@ export async function runChecks(deps: RunnerDeps, now: Date): Promise<RunReport>
   return { paused: false, outcomes, lapsed };
 }
 
-/** The home screen's run: at most once per 15 minute window, however many times the page opens. */
+/**
+ * The home screen's run: at most once per 15 minute window, however many times the page opens. While paused
+ * it writes no home marker, only the one runner/checks skipped record that runChecks writes.
+ */
 export async function runChecksIfDue(deps: RunnerDeps, now: Date): Promise<RunReport | null> {
+  if ((await getPause(deps.db)).paused) return runChecks(deps, now);
   const window = new Date(Math.floor(now.getTime() / HOME_DEBOUNCE_MS) * HOME_DEBOUNCE_MS).toISOString();
   const [mark] = await deps.db.query<{ id: string }>(
     "insert into check_runs (check_slug, period, result, ran_at) values ('runner/home', $1, 'ran', $2) on conflict (check_slug, period) do nothing returning id",

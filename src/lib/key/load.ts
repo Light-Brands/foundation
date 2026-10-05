@@ -10,6 +10,7 @@ async function readOnce(root: string): Promise<Declarations> {
   if (!warned.has(root)) {
     warned.add(root);
     for (const p of d.problems) console.warn(`Key declaration problem: ${p}`);
+    for (const w of d.warnings) console.warn(`Key declaration note: ${w}`);
   }
   return d;
 }

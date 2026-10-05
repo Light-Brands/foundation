@@ -46,6 +46,8 @@ export type Declarations = {
   routines: string[];
   tablesByApp: Record<string, string[]>;
   problems: string[];
+  /** Notes that never block the Key: each table a check waits for from an optional app that is not installed. */
+  warnings: string[];
 };
 
 type Obj = Record<string, unknown>;
@@ -317,10 +319,12 @@ export async function readDeclarations(root: string): Promise<Declarations> {
   }
   const checks: CheckDecl[] = [];
   const drafts: DraftDecl[] = [];
+  const warnings: string[] = [];
   for (const s of sources) {
     if (s.data.checks !== undefined) {
       const found = checkChecks(s, s.data.checks, { kindNames, tablesByApp });
       problems.push(...found.problems);
+      warnings.push(...found.warnings);
       for (const c of found.checks) {
         if (checks.some((x) => x.slug === c.slug)) problems.push(`${s.file}: check "${c.slug}" is already declared`);
         else checks.push(c);
@@ -333,7 +337,7 @@ export async function readDeclarations(root: string): Promise<Declarations> {
       if (found.draft) drafts.push(found.draft);
     }
   }
-  return { kinds, forms, checks, drafts, routines, tablesByApp, problems };
+  return { kinds, forms, checks, drafts, routines, tablesByApp, problems, warnings };
 }
 
 // Every table the Foundation itself creates. A check may read only the few in CHECK_CORE_TABLES.
@@ -347,11 +351,14 @@ export const CHECK_FUNCTIONS: ReadonlySet<string> = new Set([
   "ltrim", "rtrim", "length", "char_length", "concat", "concat_ws", "format", "left", "right", "replace", "split_part",
   "string_agg", "array_agg", "array_to_string", "array_length", "cardinality", "to_char", "date_trunc", "date_part",
   "make_interval", "age", "now", "abs", "round", "floor", "ceil", "ceiling", "bool_or", "bool_and", "jsonb_build_object", "jsonb_agg",
+  "substr", "position",
 ]);
 // Words that may stand before an opening parenthesis without being a function call.
 export const SQL_WORDS: ReadonlySet<string> = new Set([
   "and", "or", "not", "in", "exists", "any", "all", "some", "filter", "over", "values", "on", "using", "from", "join",
   "where", "select", "when", "then", "else", "by", "as", "with", "case", "numeric", "decimal", "between", "having", "is", "distinct", "row", "cast", "lateral",
+  // x at time zone (select ...) puts zone before a parenthesis.
+  "zone",
 ]);
 const WRITE_WORDS = /\b(insert|update|delete|merge|truncate|drop|alter|create|grant|revoke|copy|call|do|execute|prepare|deallocate|listen|notify|unlisten|set|reset|lock|vacuum|analyze|cluster|reindex|refresh|comment|security|into|nextval|setval)\b/i;
 const TABLE_NAME = /^[a-z][a-z0-9_]*$/;
@@ -374,6 +381,8 @@ export type DraftDecl = { routine: string; handler: string; subcommands: string[
  * string literal becomes '', a quoted name becomes the word q, and everything else folds to lower case.
  * Escape strings (E'...') are read with their backslash escapes. Unicode strings, quoted names, dollar
  * quoting and an unclosed comment or string are reported, because each one can make text read one way here and another way in Postgres.
+ * The plain-string rule assumes standard_conforming_strings = on (a backslash in '...' is an ordinary
+ * character). runCheckSql sets it on for every check's transaction, so Postgres reads the text the same way.
  */
 export function normalizeSql(sql: string): { text: string; problems: string[] } {
   const problems = new Set<string>();
@@ -482,11 +491,12 @@ export function checkChecks(
   src: Pick<DeclSource, "file" | "slug" | "type" | "app" | "uses" | "optionalUses">,
   raw: unknown,
   ctx: { kindNames: ReadonlySet<string>; tablesByApp: Record<string, string[]> },
-): { checks: CheckDecl[]; problems: string[] } {
+): { checks: CheckDecl[]; problems: string[]; warnings: string[] } {
   const checks: CheckDecl[] = [];
   const problems: string[] = [];
-  if (raw === undefined) return { checks, problems };
-  if (!Array.isArray(raw)) return { checks, problems: [`${src.file}: checks must be a list`] };
+  const warnings: string[] = [];
+  if (raw === undefined) return { checks, problems, warnings };
+  if (!Array.isArray(raw)) return { checks, problems: [`${src.file}: checks must be a list`], warnings };
   if (src.type === "routine" && !src.app) problems.push(`${src.file}: a routine that declares checks names its app with app: <slug>`);
   const own = src.app ? ctx.tablesByApp[src.app] ?? [] : [];
   const used = src.uses.flatMap((u) => ctx.tablesByApp[u] ?? []);
@@ -515,9 +525,10 @@ export function checkChecks(
     const reads = list(c.reads).map(str);
     if (reads.length === 0) bad("reads must list the tables the check reads");
     let waits = false;
+    const waiting: string[] = [];
     for (const t of reads) {
       if (allowed.has(t)) continue;
-      if (mayWait(t)) { waits = true; continue; }
+      if (mayWait(t)) { waits = true; waiting.push(t); continue; }
       bad(`reads "${t}", which is not this app's table, a table of an app in uses_apps, or a core table checks may read`);
     }
     const sql = str(c.sql).trim();
@@ -528,9 +539,11 @@ export function checkChecks(
         slug: `${src.slug}/${key}`, key, name, period: period as "day" | "week", card_kind: kind, reads, sql, source: src.slug, may_read: [...allowed],
         ...(waits ? { absent: absentApps } : {}),
       });
+      // A mistyped table name also waits, so each waiting table is named where the owner and the builder see it.
+      for (const t of waiting) warnings.push(`${src.file}: checks[${i}] waits for table "${t}" from an app that is not installed (${absentApps.join(", ")})`);
     }
   });
-  return { checks, problems };
+  return { checks, problems, warnings };
 }
 
 const HANDLER_PATH = /^(src|modules)\/[A-Za-z0-9_./-]+\.ts$/;

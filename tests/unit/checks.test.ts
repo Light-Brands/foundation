@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { extDb, KEY_EXT } from "../support/db";
-import { CHECK_FUNCTIONS, readDeclarations, type CheckDecl } from "@/lib/key/declarations";
+import { CHECK_FUNCTIONS, checkSqlProblems, readDeclarations, type CheckDecl } from "@/lib/key/declarations";
 import { registryFrom } from "@/lib/data/card-kinds";
 import { writeCard } from "@/lib/data/cards";
 import { setPause } from "@/lib/data/pause";
@@ -151,9 +151,95 @@ describe("the run reads only what the check may read, whatever its declaration s
   it("runs a check that joins lines with an escape string", async () => {
     expect(await refused("select count(*) >= 0 as raise, 'x' as title, string_agg(contact_email, E'\\n') as body from leads_demo", ["leads_demo"])).toBe("ran");
   });
+  it("runs the pure string functions left, right, substr and position, as Postgres prints them", async () => {
+    // Postgres prints left and right quoted ("left"(...)) and position as POSITION(... IN ...).
+    const sql = "select count(*) >= 0 as raise, coalesce(left(min(status), 2) || right(min(status), 1) || substr(min(status), 1, 1) || position('e' in min(status))::text, '') as title, '' as body from leads_demo";
+    expect(checkSqlProblems(sql, ["leads_demo"])).toEqual([]);
+    expect(await refused(sql, ["leads_demo"])).toBe("ran");
+  });
+  it("runs AT TIME ZONE with a zone read from a column or a subquery", async () => {
+    const sql = "select count(*) >= 0 as raise, coalesce(to_char(max(created_at) at time zone (select timezone from business_profile limit 1), 'YYYY'), '') as title, '' as body from leads_demo";
+    expect(checkSqlProblems(sql, ["leads_demo", "business_profile"])).toEqual([]);
+    expect(await refused(sql, ["leads_demo", "business_profile"])).toBe("ran");
+  });
+  it("still refuses a function Postgres had to quote for a reason other than a keyword", async () => {
+    const prep = "create function \"Sneaky\"(int) returns int language plpgsql as $f$ begin return 1; end $f$";
+    expect(await refused(`select "Sneaky"(1) >= 0 as raise, 'x' as title, '' as body from leads_demo`, ["leads_demo"], prep)).toMatch(/calls/);
+  });
   it("still runs every allowed function", async () => {
     const sql = "select count(*) >= 0 or bool_or(true) as raise, concat_ws(' ', upper(min(status)), lower(max(status)), btrim(' a '), left('ab', 1), to_char(now(), 'YYYY'), coalesce(null, 'z'), greatest(1, 2)::text, date_trunc('day', $2::timestamptz)::text, age($2::timestamptz, $2::timestamptz)::text, make_interval(days => 1)::text, round(abs(-1.5))::text) as title, string_agg(contact_email, ', ') as body from leads_demo where created_at <= $2::timestamptz and starts_ok(1)";
     expect(await refused(sql.replace(" and starts_ok(1)", ""), ["leads_demo"])).toBe("ran");
+  });
+});
+
+describe("the runner and Postgres read strings the same way", () => {
+  it("runs each check with standard_conforming_strings on, whatever the session says", async () => {
+    const deps = await setup();
+    await deps.db.exec("set standard_conforming_strings = off");
+    const check = { ...deps.checks[0], reads: ["leads_demo"], sql: "select current_setting('standard_conforming_strings') = 'on' as raise, 'x' as title, '' as body" };
+    expect(await runCheckSql(deps.db, check, "2026-10-05", MON, widen("current_setting"))).toEqual({ raise: true, title: "x", body: "" });
+    await deps.db.close();
+  });
+});
+
+describe("the canon health check", () => {
+  // routines/health-check from the Ninja framework dictionary, its Essentials SQL verbatim.
+  const HEALTH_SQL = `with hosted as (
+  select min(to_char(c.updated_at, 'YYYY-MM-DD')) as since
+    from connections c
+   where c.service = 'hosted-database' and c.status = 'connected'
+),
+own as (
+  select min(left(r.period, 10)) as first_day
+    from check_runs r
+    join hosted h on left(r.period, 10) >= h.since
+   where r.check_slug = 'health-check/routines'
+     and r.result in ('clear', 'raised', 'failed')
+     and left(r.period, 10) < to_char($1::date, 'YYYY-MM-DD')
+),
+last_day as (
+  select max(left(r.period, 10)) as day
+    from check_runs r
+   where ((r.check_slug not like 'runner/%' and r.result in ('clear', 'raised', 'failed'))
+       or (r.check_slug = 'runner/checks' and r.result = 'skipped_paused'))
+     and left(r.period, 10) < to_char($1::date, 'YYYY-MM-DD')
+),
+findings as (
+  select 1 as sort_key, l.day as sort_day,
+         case when l.day::date + 1 = $1::date - 1
+              then 'No check ran on ' || to_char($1::date - 1, 'FMMonth FMDD')
+              else 'No check ran from ' || to_char(l.day::date + 1, 'FMMonth FMDD')
+                   || ' to ' || to_char($1::date - 1, 'FMMonth FMDD') end
+         || '. Look at the schedule on your host.' as line
+    from last_day l
+    join own o on o.first_day is not null and l.day >= o.first_day
+   where l.day::date < $1::date - 1
+  union all
+  select 2, left(r.period, 10),
+         'The check ' || r.check_slug || ' started ' || to_char(r.ran_at, 'FMMonth FMDD')
+         || ' and never finished. It runs again next period.'
+    from check_runs r
+   where r.result = 'running'
+     and r.ran_at < $2::timestamptz - make_interval(hours => 1)
+     and r.ran_at > $2::timestamptz - make_interval(days => 2)
+)
+select count(*) > 0 as raise,
+       case when count(*) = 1 then '1 thing in your routines needs a look'
+            else count(*)::text || ' things in your routines need a look' end as title,
+       string_agg(line, E'\n' order by sort_key, sort_day, line) as body
+  from findings`;
+  it("passes the Key checker and runs at run time, left() calls and all", async () => {
+    expect(checkSqlProblems(HEALTH_SQL, ["check_runs", "connections"])).toEqual([]);
+    const deps = await setup();
+    await deps.db.query("insert into connections (service, door, status, updated_at) values ('hosted-database', 'own', 'connected', '2026-09-30T12:00:00Z')");
+    await deps.db.query("insert into check_runs (check_slug, period, result, ran_at) values ('health-check/routines', '2026-10-01', 'clear', '2026-10-01T11:00:00Z'), ('lead-watch/new-leads', '2026-10-02', 'clear', '2026-10-02T11:00:00Z'), ('lead-watch/stalled', '2026-10-05', 'running', '2026-10-05T12:00:00Z')");
+    const check = { ...deps.checks[0], slug: "health-check/routines", reads: ["check_runs", "connections"], sql: HEALTH_SQL };
+    expect(await runCheckSql(deps.db, check, "2026-10-05", MON)).toEqual({
+      raise: true,
+      title: "2 things in your routines need a look",
+      body: "No check ran from October 3 to October 4. Look at the schedule on your host.\nThe check lead-watch/stalled started October 5 and never finished. It runs again next period.",
+    });
+    await deps.db.close();
   });
 });
 
@@ -236,6 +322,13 @@ describe("runChecks", () => {
     await runChecks(deps, later(60_000));
     expect(await deps.db.query("select check_slug, period, result from check_runs")).toEqual([{ check_slug: "runner/checks", period: "2026-10-05", result: "skipped_paused" }]);
     expect(await cards(deps)).toEqual([]);
+    await deps.db.close();
+  });
+  it("a home open while paused leaves only the runner/checks record", async () => {
+    const deps = await setup();
+    await setPause(deps.db, { paused: true, reason: "", by: "pin:owner" }, MON);
+    expect(await runChecksIfDue(deps, MON)).toEqual({ paused: true, outcomes: [], lapsed: { closed: 0, raised: 0 } });
+    expect(await deps.db.query("select check_slug, result from check_runs")).toEqual([{ check_slug: "runner/checks", result: "skipped_paused" }]);
     await deps.db.close();
   });
   it("an expired card follows its kind's lapse rule", async () => {

@@ -1,13 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { activeKey, type NavGroup } from "@/lib/layout/registry";
 import { ICONS } from "./icons";
 
 export function Rail({ groups, onNavigate }: { groups: NavGroup[]; onNavigate?: () => void }) {
   const pathname = usePathname();
+  const uid = useId();
   const active = activeKey(pathname, groups);
   const owner = groups.find((g) => g.items.some((i) => i.key === active))?.id ?? "command";
   const [open, setOpen] = useState<string>(owner);
@@ -24,7 +25,7 @@ export function Rail({ groups, onNavigate }: { groups: NavGroup[]; onNavigate?: 
         const Icon = ICONS[g.icon];
         const isOpen = open === g.id;
         const holdsActive = g.id === owner && active !== null;
-        const panelId = `nav-${g.id}`;
+        const panelId = `${uid}-nav-${g.id}`;
         return (
           <div key={g.id}>
             <button

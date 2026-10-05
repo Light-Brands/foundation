@@ -47,7 +47,7 @@ export function Shell({
   }, [drawer]);
 
   return (
-    <div className="relative min-h-dvh">
+    <div className="relative min-h-dvh overflow-x-clip">
       <div inert={drawer} className="relative min-h-dvh">
         <div
           aria-hidden

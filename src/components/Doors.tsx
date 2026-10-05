@@ -18,7 +18,7 @@ export function Doors({ categoryId, categoryLabel, subId, subLabel }: {
         <p className="mt-2 text-sm text-zinc-300">Paste the prompt into Claude Code inside this project. Claude builds it with you, step by step.</p>
         <div className="mt-4 flex flex-wrap gap-2">
           <CopyButton text={lessonPr} />
-          <a className="btn-quiet" href={lessonHref(categoryId, subId)} target="_blank" rel="noreferrer">Open the lesson</a>
+          <a className="btn-quiet" href={lessonHref(categoryId, subId)} target="_blank" rel="noreferrer">Open the Dojo</a>
         </div>
       </div>
       <div className="surface p-5">

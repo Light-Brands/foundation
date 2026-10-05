@@ -44,3 +44,16 @@ test("a deep link outside the site never escapes the gate", async ({ page }) => 
   await page.getByRole("button", { name: "Open" }).click();
   await expect(page).toHaveURL("http://localhost:3100/");
 });
+
+test("pages never scroll sideways on a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/gate");
+  await page.getByLabel("Your PIN").fill("246810");
+  await page.getByRole("button", { name: "Open" }).click();
+  await expect(page).toHaveURL("http://localhost:3100/");
+  for (const path of ["/", "/system/setup", "/deliver/booking"]) {
+    await page.goto(path);
+    const width = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(width, path).toBeLessThanOrEqual(375);
+  }
+});

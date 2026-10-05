@@ -32,6 +32,15 @@ describe("the shipped Ninja framework", () => {
     expect(existsSync("ninja/VERSION"), "ninja/VERSION is missing: the dictionary must ship in this repository").toBe(true);
     expect(readFileSync("ninja/VERSION", "utf8")).toMatch(/^dictionary: \d+\.\d+\.\d+\n?$/);
   });
+  it("is pointed at from CLAUDE.md: the guide for how to ask, the runner for how runs work", () => {
+    const section = readFileSync("CLAUDE.md", "utf8").split("## The Ninja framework")[1]?.split("\n## ")[0] ?? "";
+    for (const f of ["ninja/guide.md", "ninja/runner/run.md"]) {
+      expect(section, `CLAUDE.md's Ninja framework section names ${f}`).toContain(`\`${f}\``);
+      expect(existsSync(f), `${f} ships`).toBe(true);
+    }
+    expect(section).toMatch(/ninja\/guide\.md`[^.]*how to ask/);
+    expect(section).toMatch(/ninja\/runner\/run\.md`[^.]*how runs work/);
+  });
   it("labels match the dictionary's departments", () => {
     const d = parse(readFileSync("ninja/foundation/departments.yaml", "utf8"));
     const want = d.departments.map((x: { id: string; label: string; jobs: { id: string; label: string }[] }) => [x.id, x.label, x.jobs.map((j) => [j.id, j.label])]);

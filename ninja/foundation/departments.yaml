@@ -1,0 +1,77 @@
+departments:
+  - id: command
+    label: Command center
+    jobs:
+      - {id: home, label: See your day}
+      - {id: inbox, label: Handle what needs you}
+      - {id: alerts, label: Get alerted}
+  - id: attract
+    label: Marketing
+    jobs:
+      - {id: content, label: Create content}
+      - {id: social, label: Post on social}
+      - {id: ads, label: Run ads}
+      - {id: referrals, label: Get referrals}
+      - {id: events, label: Host events}
+  - id: sell
+    label: Sales
+    jobs:
+      - {id: leads, label: Capture leads}
+      - {id: pipeline, label: Follow up and close}
+      - {id: proposals, label: Send proposals}
+      - {id: checkout, label: Take payment}
+      - {id: contracts, label: Sign contracts}
+  - id: deliver
+    label: Delivery
+    jobs:
+      - {id: booking, label: Book appointments}
+      - {id: projects, label: Run projects}
+      - {id: programs, label: Run programs}
+      - {id: orders, label: Fulfill orders}
+  - id: keep
+    label: Customer care
+    jobs:
+      - {id: support, label: Answer customers}
+      - {id: client-success, label: Keep clients happy}
+      - {id: community, label: Run a community}
+      - {id: reviews, label: Collect reviews}
+  - id: money
+    label: Finance
+    jobs:
+      - {id: invoicing, label: Invoice and collect}
+      - {id: books, label: Keep the books}
+      - {id: bills, label: Pay bills}
+      - {id: pay-prep, label: Prepare payroll}
+  - id: team
+    label: People
+    jobs:
+      - {id: people, label: Manage your team}
+      - {id: hiring, label: Hire}
+      - {id: tasks, label: Assign work}
+  - id: plan
+    label: Leadership
+    jobs:
+      - {id: scorecard, label: Track your numbers}
+      - {id: priorities, label: Set priorities}
+      - {id: reports, label: Get reports}
+  - id: vendors
+    label: Operations
+    jobs:
+      - {id: vendors, label: Manage suppliers}
+      - {id: stock, label: Track stock}
+      - {id: equipment, label: Maintain equipment}
+  - id: risk
+    label: Protection
+    jobs:
+      - {id: compliance, label: Stay compliant}
+      - {id: access, label: Control access}
+      - {id: backups, label: Back up your data}
+  - id: system
+    label: Settings
+    jobs:
+      - {id: connections, label: Connect your tools}
+      - {id: modules, label: Add capabilities}
+      - {id: setup, label: Set up}
+      - {id: users, label: Users}
+      - {id: settings, label: Preferences}
+      - {id: requests, label: Requests}

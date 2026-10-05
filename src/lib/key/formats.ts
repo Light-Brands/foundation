@@ -105,6 +105,10 @@ const realDate = (v: unknown): boolean => {
 };
 const dateText = (v: unknown): string => (v instanceof Date && !Number.isNaN(v.getTime()) ? v.toISOString().slice(0, 10) : str(v));
 
+// A code path is relative to the repository root and sits under src/ or modules/.
+export const codePathOk = (f: unknown): boolean =>
+  typeof f === "string" && /^(src|modules)\/./.test(f) && !f.includes("\\") && !f.split("/").includes("..");
+
 export function checkInstalled(file: string, d: Obj): string[] {
   const p: string[] = [];
   const bad = (m: string) => p.push(`${file}: ${m}`);
@@ -118,6 +122,7 @@ export function checkInstalled(file: string, d: Obj): string[] {
     if (!TIERS.includes(str(e.tier))) bad(`${at}.tier must be one of ${TIERS.join(", ")}`);
     const fl = list(e.files);
     if (fl.length === 0 || fl.some((f) => !str(f).trim() || path.isAbsolute(str(f)) || str(f).split("/").includes(".."))) bad(`${at}.files must be a non-empty list of paths relative to key/`);
+    if (e.code !== undefined && (!Array.isArray(e.code) || e.code.some((c) => !codePathOk(c)))) bad(`${at}.code must be a list of paths relative to the repository root, each starting with src/ or modules/`);
     if (!realDate(e.installed)) bad(`${at}.installed must be a date like 2026-10-06`);
   });
   return p;
@@ -330,6 +335,16 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
         const full = path.join(key, f);
         if (reported.has(full)) continue;
         if (!(await exists(full))) { reported.add(full); problems.push(`${rel(full)}: named in installed but missing`); }
+      }
+    }
+    const codeRoot = root;
+    for (const e of list(ring.installed)) {
+      if (!isObj(e)) continue;
+      for (const f of list(e.code)) {
+        if (!codePathOk(f)) continue;
+        const full = path.join(codeRoot, f as string);
+        if (reported.has(full)) continue;
+        if (!(await exists(full))) { reported.add(full); problems.push(`${rel(full)}: named in installed code but missing`); }
       }
     }
     const listed = new Set(list(ring.apps).filter(isObj).map((e) => str(e.slug)));

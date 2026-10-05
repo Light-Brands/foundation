@@ -343,6 +343,28 @@ describe("guards", () => {
   });
 });
 
+describe("installed code", () => {
+  const ok = { entry: "modules/sell/leads", from: "dictionary@0.1.0", tier: "complete", files: ["routines/x.md"], installed: "2026-10-06" };
+  const run = (over: object) => checkInstalled("k", { installed: [{ ...ok, ...over }] }).join("\n");
+  it("accepts a row with code and a row without", () => {
+    expect(run({ code: ["src/app/leads/page.tsx", "modules/sell/leads.ts"] })).toBe("");
+    expect(run({})).toBe("");
+  });
+  it("rejects code that is not a list of strings", () => {
+    expect(run({ code: "src/x.ts" })).toMatch(/installed\[0\]\.code/);
+    expect(run({ code: [3] })).toMatch(/installed\[0\]\.code/);
+  });
+  it("rejects paths that leave src/ and modules/", () => {
+    for (const c of ["../x", "src/../x.ts", "/etc/x", "\\x", "lib/x.ts"]) expect(run({ code: [c] })).toMatch(/installed\[0\]\.code/);
+  });
+  it("reports a missing code file once even when listed twice", async () => {
+    const row = (c: string) => `  - {entry: routines/nightly-follow-up, from: dictionary@0.1.0, tier: complete, files: [routines/nightly-follow-up.md], code: [${c}], installed: 2026-10-06}\n`;
+    const text = keyYaml + "installed:\n" + row("src/gone.ts, src/gone.ts") + row("src/gone.ts");
+    const problems = await checkKeyFolder(keyRoot({ "key/key.yaml": text, "src/here.ts": "x" }));
+    expect(problems).toEqual(["src/gone.ts: named in installed code but missing"]);
+  });
+});
+
 describe("a run brief", () => {
   it("accepts a module entry, every slash becoming a hyphen", () => {
     const md = "---\nverb: install\nentry: modules/sell/leads\ntier: complete\nstage: 3\nconsents: {write: true}\nstarted: 2026-10-06\nupdated: 2026-10-06\n---\n";

@@ -296,7 +296,8 @@ export function personFieldProblems(file: string, definition: unknown): string[]
       const k = String(f.key ?? "");
       const t = String(f.type ?? "");
       const at = `${file}: entity "${entity}": field "${k}"`;
-      if (/(^|_)email$/.test(k) && t !== "email") problems.push(`${at} holds an email, so its type must be email`);
+      // A text field with email anywhere in its name holds an address, the same way the phone rule reads a name.
+      if ((/(^|_)email$/.test(k) || (t === "text" && /email/i.test(k))) && t !== "email") problems.push(`${at} holds an email, so its type must be email`);
       if (/phone/.test(k)) problems.push(`${at} holds a phone. Phones live on the contact (contacts.phone), never in an app`);
       if (t === "user" || t === "multi_user") problems.push(`${at} names a person with type ${t}. Use person_id, owner_id or manager_id holding a team member's id`);
       if (TEAMISH_ID.test(k) && !(TEAM_ID_FIELDS as readonly string[]).includes(k)) problems.push(`${at} names a team member. Call it person_id, owner_id or manager_id`);

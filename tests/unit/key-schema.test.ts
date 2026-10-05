@@ -226,6 +226,11 @@ describe("person fields", () => {
     expect(out([{ key: "owner_id", type: "number" }])).toMatch(/holds a team member's id, so its type must be text/);
     expect(personFieldProblems("d.yaml", def([], { forget: "archive" })).join()).toMatch(/forget must be delete or blank/);
     expect(out([{ key: "work_email", type: "email" }, { key: "manager_id", type: "text" }])).toBe("");
+    // Like the phone rule, an address hides anywhere in a text field's name.
+    for (const key of ["email_address", "emailaddr", "backup_email_2", "personalemail"]) {
+      expect(out([{ key, type: "text" }])).toMatch(new RegExp(`field "${key}" holds an email, so its type must be email`));
+    }
+    expect(out([{ key: "email_opt_in", type: "checkbox" }])).toBe("");
   });
   it("keeps person fields to the declaring app's own tables", () => {
     const app = (slug: string, entities: unknown[], sql: string) => ({ slug, file: `key/apps/${slug}/definition.yaml`, definition: { app: slug, entities }, migrationsSql: [sql] });
@@ -250,6 +255,13 @@ describe("person fields", () => {
     const sql = readdirSync(dir).filter((f) => f.endsWith(".sql")).map((f) => readFileSync(path.join(dir, f), "utf8")).join("\n;\n");
     const core = Object.keys(tablesFromSql(sql));
     for (const t of core) expect(CORE_TABLES).toContain(t);
+  });
+  it("fails the Key checker on a text field with email inside its name", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "person-email-"));
+    cpSync(path.join(root, "tests/fixtures/key-ext"), dir, { recursive: true });
+    const f = path.join(dir, "key/apps/leads-demo/definition.yaml");
+    writeFileSync(f, readFileSync(f, "utf8").replace("{ key: message, name: Message, type: text }", "{ key: message, name: Message, type: text }\n      - { key: email_address, name: Email address, type: text }"));
+    expect((await checkKeyFolder(dir)).join("\n")).toMatch(/field "email_address" holds an email, so its type must be email/);
   });
   it("fails the Key checker on an app that declares a person field on a core table", async () => {
     const dir = mkdtempSync(path.join(tmpdir(), "person-own-"));

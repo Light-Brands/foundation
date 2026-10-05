@@ -106,3 +106,43 @@ export async function writeCard(db: Queryable, kinds: KindRegistry, input: CardI
   const [existing] = await db.query<{ id: string }>("select id from inbox_items where kind = $1 and run_key = $2", [k.kind, runKey]);
   return { status: "exists", id: existing?.id ?? null };
 }
+
+export type RouteResult = { status: "routed" | "not_found" | "not_routable" | "unknown_kind" };
+
+/**
+ * Moves a new contact message to the owning job's declared kind. Its title, body and details stay as the
+ * visitor sent them. Called from server code on the owner's computer or the session-checked Inbox action.
+ */
+export async function routeCard(db: Queryable, kinds: KindRegistry, input: { cardId: string; toKind: string }, now: Date): Promise<RouteResult> {
+  const k = kinds.get(input.toKind);
+  if (!k || k.source === "core") return { status: "unknown_kind" };
+  const expires = k.expires_days === null ? null : new Date(now.getTime() + k.expires_days * 86_400_000);
+  const rows = await db.query<{ id: string }>(
+    `update inbox_items set kind = $2, category = $3, subcategory = $4, always_human = $5, expires_at = $6
+      where id = $1 and kind = 'contact' and status = 'new'
+      returning id`,
+    [input.cardId, k.kind, k.category, k.subcategory, k.always_human, expires],
+  );
+  if (rows.length) return { status: "routed" };
+  const [found] = await db.query<{ id: string }>("select id from inbox_items where id = $1", [input.cardId]);
+  return { status: found ? "not_routable" : "not_found" };
+}
+
+const IDENTIFIER = /^[a-z][a-z0-9_]*$/;
+
+/**
+ * The owning job's record for a card, created once. The table needs a unique index on card_id
+ * (see data.md). Names are checked, values are parameters.
+ */
+export async function insertOncePerCard(db: Queryable, table: string, cardId: string, row: Record<string, unknown>): Promise<"inserted" | "exists"> {
+  const cols = Object.keys(row);
+  for (const name of [table, ...cols]) if (!IDENTIFIER.test(name)) throw new TypeError(`"${name}" is not a table or column name`);
+  if (cols.includes("card_id")) throw new TypeError("card_id comes from the card");
+  const names = ["card_id", ...cols].map((c) => `"${c}"`).join(", ");
+  const params = ["$1", ...cols.map((_, i) => `$${i + 2}`)].join(", ");
+  const rows = await db.query<{ id: string }>(
+    `insert into "${table}" (${names}) values (${params}) on conflict (card_id) do nothing returning id`,
+    [cardId, ...cols.map((c) => row[c])],
+  );
+  return rows.length ? "inserted" : "exists";
+}

@@ -50,7 +50,7 @@ export default async function InboxPage() {
                 </p>
               )}
               {i.always_human && i.status === "new" && <p className="mt-2 text-xs text-amber-200">Only the owner decides this one.</p>}
-              <CardActions id={i.id} status={i.status} mode={kinds.get(i.kind)?.decide ?? "done"} />
+              <CardActions id={i.id} status={i.status} mode={kinds.get(i.kind)?.decide ?? "done"} routes={i.kind === "contact" ? [...kinds.values()].filter((k) => k.source !== "core" && k.decide === "done").map((k) => ({ kind: k.kind, label: k.label })) : []} />
             </li>
           ))}
         </ul>

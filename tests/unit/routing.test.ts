@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { coreDb } from "../support/db";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { coreDb, extDb, KEY_EXT, ROOT } from "../support/db";
+import { loadCardKinds } from "@/lib/data/card-kinds";
+import { routeCard, insertOncePerCard } from "@/lib/data/cards";
 import { captureSource, sourceFields } from "@/lib/forms/source";
 import { submitContact } from "@/lib/data/inbox";
 
@@ -40,5 +44,46 @@ describe("the contact message", () => {
       meta: { source: "news", utm_source: "news", utm_content: "footer" },
     }]);
     await db.close();
+  });
+});
+
+describe("routing", () => {
+  it("routes a message to the owning job without changing its text", async () => {
+    const db = await extDb();
+    const kinds = await loadCardKinds(KEY_EXT);
+    const id = await submitContact(db, ADA, { source: captureSource({ utm_source: "news" }), now: NOW });
+    expect(await routeCard(db, kinds, { cardId: id, toKind: "lead-new" }, NOW)).toEqual({ status: "routed" });
+    const [c] = await db.query<Record<string, unknown>>(
+      "select kind, category, subcategory, title, body, meta, expires_at = $2::timestamptz as expiry_ok from inbox_items where id = $1",
+      [id, new Date("2026-10-19T16:00:00Z")],
+    );
+    expect(c).toEqual({ kind: "lead-new", category: "sell", subcategory: "leads", title: "Ada sent a message", body: "Do you work weekends?", meta: { source: "news", utm_source: "news" }, expiry_ok: true });
+    await db.close();
+  });
+  it("routes only a new message, and only to a declared job kind", async () => {
+    const db = await extDb();
+    const kinds = await loadCardKinds(KEY_EXT);
+    const id = await submitContact(db, ADA, { now: NOW });
+    expect(await routeCard(db, kinds, { cardId: id, toKind: "invoice-new" }, NOW)).toEqual({ status: "unknown_kind" });
+    expect(await routeCard(db, kinds, { cardId: id, toKind: "check-failed" }, NOW)).toEqual({ status: "unknown_kind" });
+    await routeCard(db, kinds, { cardId: id, toKind: "lead-new" }, NOW);
+    expect(await routeCard(db, kinds, { cardId: id, toKind: "lead-reply" }, NOW)).toEqual({ status: "not_routable" });
+    expect(await routeCard(db, kinds, { cardId: "00000000-0000-0000-0000-000000000000", toKind: "lead-new" }, NOW)).toEqual({ status: "not_found" });
+    await db.close();
+  });
+  it("the owning job creates exactly one record per card", async () => {
+    const db = await extDb();
+    const id = await submitContact(db, ADA, { now: NOW });
+    expect(await insertOncePerCard(db, "leads_demo", id, { contact_email: "ada@example.com", status: "new", message: "Do you work weekends?" })).toBe("inserted");
+    expect(await insertOncePerCard(db, "leads_demo", id, { contact_email: "ada@example.com", status: "new", message: "again" })).toBe("exists");
+    expect(await db.query("select card_id, message from leads_demo")).toEqual([{ card_id: id, message: "Do you work weekends?" }]);
+    await expect(insertOncePerCard(db, "leads_demo; drop table contacts", id, {})).rejects.toBeInstanceOf(TypeError);
+    await expect(insertOncePerCard(db, "leads_demo", id, { "status = 'x'": 1 })).rejects.toBeInstanceOf(TypeError);
+    await db.close();
+  });
+  it("no public action can route a card", () => {
+    for (const f of ["src/app/contact/actions.ts"]) {
+      expect(readFileSync(path.join(ROOT, f), "utf8"), f).not.toMatch(/routeCard|insertOncePerCard/);
+    }
   });
 });

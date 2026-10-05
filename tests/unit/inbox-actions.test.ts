@@ -10,10 +10,12 @@ vi.mock("@/lib/data/inbox", () => ({
   decideCard: (...a: unknown[]) => (decideCard as (...x: unknown[]) => unknown)(...a),
   markCardDone: (...a: unknown[]) => (markCardDone as (...x: unknown[]) => unknown)(...a),
 }));
+const routeCard = vi.fn(async () => ({ status: "routed" }));
+vi.mock("@/lib/data/cards", () => ({ routeCard: (...a: unknown[]) => (routeCard as (...x: unknown[]) => unknown)(...a) }));
 vi.mock("@/lib/data/card-kinds", () => ({ loadCardKinds: async () => new Map() }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
-import { decideCardAction, markDoneAction } from "@/app/(console)/command/inbox/actions";
+import { decideCardAction, markDoneAction, routeCardAction } from "@/app/(console)/command/inbox/actions";
 
 const ID = "6f1c2a4e-1b2c-4d5e-8f90-1234567890ab";
 const form = (v: Record<string, string>) => { const f = new FormData(); for (const [k, x] of Object.entries(v)) f.set(k, x); return f; };
@@ -57,5 +59,21 @@ describe("markDoneAction", () => {
     hasSession.mockResolvedValue(true);
     getDb.mockResolvedValue({});
     expect(await markDoneAction(null, form({ id: ID }))).toEqual({ ok: true, message: "Marked done." });
+  });
+});
+
+describe("routeCardAction", () => {
+  it("routeCardAction refuses without a session", async () => {
+    hasSession.mockResolvedValue(false);
+    getDb.mockReset();
+    expect((await routeCardAction(null, form({ id: ID, to: "lead-new" }))).ok).toBe(false);
+    expect(getDb).not.toHaveBeenCalled();
+    expect(routeCard).not.toHaveBeenCalled();
+  });
+  it("refuses a malformed kind before opening the database", async () => {
+    hasSession.mockResolvedValue(true);
+    getDb.mockReset();
+    expect((await routeCardAction(null, form({ id: ID, to: "Lead New" }))).ok).toBe(false);
+    expect(getDb).not.toHaveBeenCalled();
   });
 });

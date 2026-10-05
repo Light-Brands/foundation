@@ -5,6 +5,8 @@ import { hasSession } from "@/lib/auth/session";
 import { PIN_OWNER, SESSION_ENDED_MESSAGE } from "@/lib/auth/roles";
 import { loadCardKinds } from "@/lib/data/card-kinds";
 import { decideCard, markCardDone, type DecideResult, type DoneResult } from "@/lib/data/inbox";
+import { routeCard } from "@/lib/data/cards";
+import { SLUG } from "@/lib/key/frontmatter";
 import { PREVIEW_MESSAGE } from "@/lib/data/profile";
 
 export type CardActionResult = { ok: boolean; message: string };
@@ -51,6 +53,25 @@ export async function markDoneAction(_prev: CardActionResult | null, form: FormD
     return r.status === "done" ? { ok: true, message: "Marked done." } : { ok: false, message: REFUSED[r.status] };
   } catch (err) {
     console.error("markDoneAction failed", err);
+    return { ok: false, message: FAILED };
+  }
+}
+
+export async function routeCardAction(_prev: CardActionResult | null, form: FormData): Promise<CardActionResult> {
+  if (!(await hasSession())) return { ok: false, message: SESSION_ENDED_MESSAGE };
+  const id = String(form.get("id") ?? "");
+  const to = String(form.get("to") ?? "");
+  if (!UUID.test(id) || !SLUG.test(to)) return { ok: false, message: "That card could not be read. Reload the page and try again." };
+  try {
+    const db = await getDb();
+    if (!db) return { ok: false, message: PREVIEW_MESSAGE };
+    const kinds = await loadCardKinds();
+    const r = await routeCard(db, kinds, { cardId: id, toKind: to }, new Date());
+    revalidatePath("/", "layout");
+    if (r.status === "routed") return { ok: true, message: `Moved to ${kinds.get(to)?.label ?? "its job"}.` };
+    return { ok: false, message: r.status === "not_routable" ? "Only a new message can be moved." : r.status === "unknown_kind" ? "That job is not installed." : REFUSED.not_found };
+  } catch (err) {
+    console.error("routeCardAction failed", err);
     return { ok: false, message: FAILED };
   }
 }

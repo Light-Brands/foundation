@@ -18,8 +18,8 @@ const IDENTIFIER = /^[a-z][a-z0-9_]*$/;
 const SYSTEM_COLUMNS = ["id", "created_at", "updated_at"];
 const MEMORY_TYPES = ["preference", "feedback", "reference", "context"];
 const CATEGORY_IDS: string[] = CATEGORIES.map((c) => c.id);
-// A slug that would collide with the core migration names.
 export { parseFrontMatter, SLUG };
+// A slug that would collide with the core migration names.
 const RESERVED_APP_SLUGS = ["core"];
 // Core tables live in the same database as every app. No entity may take one of their names.
 export const CORE_TABLES = ["business_profile", "contacts", "inbox_items", "pause", "form_hits", "check_runs", "outbox", "opt_outs", "connections", "accounts"];
@@ -380,7 +380,12 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
       if (!listed.has(folder)) problems.push(`${rel(path.join(key, "apps", folder))}: app folder is not listed in key.yaml`);
     }
   }
-  problems.push(...(await readDeclarations(root)).problems);
+  const unreadable = / could not be read as YAML$/;
+  for (const d of (await readDeclarations(root)).problems) {
+    // checkKeyYaml and checkDefinition already say a file is not valid YAML, so say it once.
+    if (unreadable.test(d) && problems.some((x) => x.startsWith(d.split(":")[0] + ":"))) continue;
+    problems.push(d);
+  }
   for (const f of await files(path.join(key, "runs"), ".md")) problems.push(...checkRunBrief(rel(f), await read(f)));
   for (const f of await files(path.join(key, "log"), ".md")) problems.push(...checkLogText(rel(f), await read(f)));
   return problems;

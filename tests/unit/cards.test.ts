@@ -1,9 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { coreDb, KEY_EXT, ROOT } from "../support/db";
 import { loadCardKinds } from "@/lib/data/card-kinds";
 import { writeCard, UnknownCardKindError, type CardInput } from "@/lib/data/cards";
+import type { Queryable } from "@/lib/db/types";
+import { registryFrom } from "@/lib/data/card-kinds";
+import { CORE_CARD_KINDS } from "@/lib/key/core-kinds";
 
 const NOW = new Date("2026-10-05T16:00:00Z");
 const count = async (db: Awaited<ReturnType<typeof coreDb>>, table: string) =>
@@ -71,6 +74,124 @@ describe("writeCard", () => {
     await expect(writeCard(db, kinds, { kind: "lead-new", title: "x".repeat(201) }, NOW)).rejects.toBeInstanceOf(RangeError);
     await expect(writeCard(db, kinds, { kind: "lead-new", title: "x", meta: { big: "y".repeat(9000) } }, NOW)).rejects.toBeInstanceOf(RangeError);
     await expect(writeCard(db, kinds, { kind: "lead-new", title: "" }, NOW)).rejects.toBeInstanceOf(RangeError);
+    await db.close();
+  });
+});
+
+describe("card input bounds", () => {
+  // One database for the group: every refusal must leave it empty, so it is safe to share.
+  let db: Awaited<ReturnType<typeof coreDb>>;
+  beforeAll(async () => { db = await coreDb(); });
+  afterAll(async () => { await db.close(); });
+  const refused = async (input: Partial<CardInput> & Record<string, unknown>, type: ErrorConstructor = RangeError) => {
+    const kinds = await loadCardKinds(KEY_EXT);
+    let err: unknown;
+    try { await writeCard(db, kinds, { kind: "lead-new", title: "x", ...input } as CardInput, NOW); } catch (e) { err = e; }
+    expect(err).toBeInstanceOf(type);
+    expect((err as Error).message).not.toMatch(/[\u2013\u2014;]/);
+    expect(await count(db, "inbox_items")).toBe(0);
+    expect(await count(db, "contacts")).toBe(0);
+  };
+  const ada = { name: "Ada", email: "ada@example.com" };
+  it("bounds the source app and source id", async () => {
+    await refused({ sourceApp: "" });
+    await refused({ sourceApp: "x".repeat(201) });
+    await refused({ sourceApp: "has space" });
+    await refused({ sourceId: "" });
+    await refused({ sourceId: "y".repeat(201) });
+    await refused({ sourceId: "a\nb" });
+  });
+  it("bounds the contact", async () => {
+    await refused({ contact: { ...ada, name: "" } });
+    await refused({ contact: { ...ada, name: "n".repeat(201) } });
+    await refused({ contact: { ...ada, email: "" } });
+    await refused({ contact: { ...ada, email: "not-an-email" } });
+    await refused({ contact: { ...ada, email: `${"a".repeat(320)}@example.com` } });
+    await refused({ contact: { ...ada, phone: "" } });
+    await refused({ contact: { ...ada, phone: "1".repeat(41) } });
+  });
+  it("takes a contact id only in uuid shape", async () => {
+    await refused({ contactId: "not-a-uuid" });
+  });
+  it("refuses a contact together with a contact id", async () => {
+    await refused({ contact: ada, contactId: "6f1c2a4e-1b2c-4d5e-8f90-1234567890ab" }, TypeError);
+  });
+  it("limits the body and the run key", async () => {
+    await refused({ body: "b".repeat(20_001) });
+    await refused({ runKey: "" });
+    await refused({ runKey: "r".repeat(201) });
+  });
+  it("trims the title first, then refuses an empty one", async () => {
+    await refused({ title: "   " });
+    const own = await coreDb();
+    const kinds = await loadCardKinds(KEY_EXT);
+    await writeCard(own, kinds, { kind: "lead-new", title: "  Ada asked  " }, NOW);
+    expect(await own.query("select title from inbox_items")).toEqual([{ title: "Ada asked" }]);
+    await own.close();
+  });
+  it("refuses a NUL character with a RangeError, never a driver error", async () => {
+    await refused({ title: "a\u0000b" });
+    await refused({ body: "a\u0000b" });
+    await refused({ meta: { note: "a\u0000b" } });
+    await refused({ contact: { ...ada, name: "A\u0000da" } });
+  });
+  it("refuses a title that is not text", async () => {
+    await refused({ title: 42 as unknown as string }, TypeError);
+    await refused({ title: undefined as unknown as string }, TypeError);
+  });
+});
+
+describe("core kinds through the writer", () => {
+  it("gives a check-failed card its seven day expiry, and takes a contact card", async () => {
+    const db = await coreDb();
+    const kinds = registryFrom(CORE_CARD_KINDS);
+    await writeCard(db, kinds, { kind: "check-failed", title: "A check could not run" }, NOW);
+    const [c] = await db.query("select category, subcategory, expires_at = $1::timestamptz as expiry_ok from inbox_items where kind = 'check-failed'", [new Date("2026-10-12T16:00:00Z")]);
+    expect(c).toEqual({ category: "command", subcategory: "alerts", expiry_ok: true });
+    const r = await writeCard(db, kinds, { kind: "contact", title: "Ada sent a message", contact: { name: "Ada", email: "ada@example.com" } }, NOW);
+    expect(r.status).toBe("written");
+    expect(await db.query("select category, subcategory, expires_at from inbox_items where kind = 'contact'")).toEqual([{ category: "command", subcategory: "inbox", expires_at: null }]);
+    await db.close();
+  });
+});
+
+describe("a run key that already has its card", () => {
+  it("leaves the stored contact alone, even with a new name and phone", async () => {
+    const db = await coreDb();
+    const kinds = await loadCardKinds(KEY_EXT);
+    const key = "lead-watch/new-leads:2026-10-05";
+    await writeCard(db, kinds, { kind: "lead-waiting", title: "One", runKey: key, contact: { name: "Ada", email: "ada@example.com", phone: "503" } }, NOW);
+    const again = await writeCard(db, kinds, { kind: "lead-waiting", title: "Two", runKey: key, contact: { name: "Other", email: "ada@example.com", phone: "999" } }, NOW);
+    expect(again.status).toBe("exists");
+    expect(await count(db, "inbox_items")).toBe(1);
+    expect(await db.query("select name, phone from contacts")).toEqual([{ name: "Ada", phone: "503" }]);
+    await db.close();
+  });
+});
+
+describe("writing inside a transaction", () => {
+  it("leaves no card behind when the transaction fails", async () => {
+    const db = await coreDb();
+    const kinds = await loadCardKinds(KEY_EXT);
+    const tx: Queryable = { query: (sql, params) => db.query(sql, params) };
+    await db.query("begin");
+    try {
+      await writeCard(tx, kinds, { kind: "lead-new", title: "Inside", contact: { name: "Ada", email: "ada@example.com" } }, NOW);
+      expect(await count(db, "inbox_items")).toBe(1);
+      throw new Error("the drafts failed");
+    } catch {
+      await db.query("rollback");
+    }
+    expect(await count(db, "inbox_items")).toBe(0);
+    expect(await count(db, "contacts")).toBe(0);
+    await db.close();
+  });
+});
+
+describe("an empty registry", () => {
+  it("says the Key's declarations could not be read", async () => {
+    const db = await coreDb();
+    await expect(writeCard(db, new Map(), { kind: "lead-new", title: "x" }, NOW)).rejects.toThrow(/could not be read/);
     await db.close();
   });
 });

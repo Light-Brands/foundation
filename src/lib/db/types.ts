@@ -3,3 +3,6 @@ export interface Db {
   exec(sql: string): Promise<void>;
   close(): Promise<void>;
 }
+
+/** What a query needs: a Db or a transaction handle both fit, so a caller can write inside one transaction. */
+export type Queryable = Pick<Db, "query">;

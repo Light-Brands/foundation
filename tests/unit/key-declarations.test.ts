@@ -1,10 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { loadDeclarations } from "@/lib/key/load";
 import { KEY_EXT } from "../support/db";
 import { checkKeyFolder } from "@/lib/key/formats";
-import { checkCardKinds, readDeclarations } from "@/lib/key/declarations";
+import { checkCardKinds, readDeclarations, readSources } from "@/lib/key/declarations";
 
 function copyFixture(): string {
   const root = mkdtempSync(path.join(tmpdir(), "keyext-"));
@@ -74,5 +75,60 @@ describe("card kinds in the Key", () => {
     const root = copyFixture();
     writeFileSync(routineFile(root), readFileSync(routineFile(root), "utf8").replace("app: leads-demo", "app: invoices"));
     expect((await checkKeyFolder(root)).join("\n")).toMatch(/app "invoices" is not installed/);
+  });
+});
+
+describe("a Key that cannot be read", () => {
+  it("reports malformed YAML in key.yaml without crashing", async () => {
+    const root = copyFixture();
+    writeFileSync(path.join(root, "key/key.yaml"), "apps: [unclosed\n  - : :");
+    const src = await readSources(root);
+    expect(src.sources).toEqual([]);
+    expect(src.problems.join("\n")).toMatch(/key\/key\.yaml: could not be read as YAML/);
+    expect((await readDeclarations(root)).problems.join("\n")).toMatch(/key\.yaml: could not be read as YAML/);
+  });
+  it("reports malformed YAML in a definition and in routine front matter", async () => {
+    const root = copyFixture();
+    const def = path.join(root, "key/apps/leads-demo/definition.yaml");
+    writeFileSync(def, "app: [broken\n  x: : :");
+    writeFileSync(routineFile(root), "---\ncategory: [broken\n---\nbody\n");
+    const d = await readDeclarations(root);
+    const text = d.problems.join("\n");
+    expect(text).toMatch(/definition\.yaml: could not be read as YAML/);
+    expect(text).toMatch(/lead-watch\.md: front matter could not be read as YAML/);
+    expect(d.kinds.map((k) => k.kind).sort()).toEqual(["brief", "brief-blocked", "check-failed", "contact"]);
+  });
+  it("drops a kind whose category differs from its key.yaml entry", async () => {
+    const root = copyFixture();
+    const def = path.join(root, "key/apps/leads-demo/definition.yaml");
+    writeFileSync(def, readFileSync(def, "utf8").replace(/^category: sell/m, "category: money"));
+    const d = await readDeclarations(root);
+    expect(d.problems.join("\n")).toMatch(/category "money" does not match "sell" in key\.yaml/);
+    expect(d.kinds.find((k) => k.kind === "lead-new")).toBeUndefined();
+  });
+  it("drops a routine kind whose front matter category differs from its key.yaml entry", async () => {
+    const root = copyFixture();
+    writeFileSync(routineFile(root), readFileSync(routineFile(root), "utf8").replace(/^category: sell/m, "category: money"));
+    const d = await readDeclarations(root);
+    expect(d.problems.join("\n")).toMatch(/lead-watch\.md: category "money" does not match "sell" in key\.yaml/);
+    expect(d.kinds.find((k) => k.kind === "lead-waiting")).toBeUndefined();
+  });
+});
+
+describe("loading declarations at run time", () => {
+  afterEach(() => vi.restoreAllMocks());
+  it("warns once per problem, on the first load only", async () => {
+    const root = copyFixture();
+    writeFileSync(routineFile(root), readFileSync(routineFile(root), "utf8").replace("app: leads-demo", "app: invoices"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await loadDeclarations(root);
+    await loadDeclarations(root);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toMatch(/app "invoices" is not installed/);
+  });
+  it("stays quiet when the Key is sound", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await loadDeclarations(copyFixture());
+    expect(warn).not.toHaveBeenCalled();
   });
 });

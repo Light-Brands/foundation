@@ -233,6 +233,7 @@ card_kinds:
 - **Declare every card kind a job writes, once, in the Key.** `kind` is a slug no other app, routine or core kind uses (`contact`, `check-failed`, `brief`, `brief-blocked` are core), `subcategory` is a job in the declaring category, and `label` is 1 to 60 characters in plain words. Why: the card writer refuses a kind nobody declared, so every card has an owner and a place.
 - **Set `decide` to `approve` when the card waits for a yes or no, and `always_human: true` when only the owner may give it.** Money, signing, people and deleting records are always the owner's: the checker refuses a `decide: approve` kind without `always_human: true` in any Finance job, in Sign contracts, in Manage your team and in Hire. Why: the Inbox shows Approve and Decline only where a decision is wanted, and a team member can never decide what belongs to the owner.
 - **Give a card that goes stale an `expires_days` and an `on_lapse` rule.** `stays` keeps it, `closes` marks it done, and `raised_again` brings it back to the top. Why: an Inbox full of old cards hides the ones that matter.
+- **Restart the app after a run adds a routine or a card kind in production.** In production the app reads the Key's declarations once and keeps them for the life of the process. Why: a deployed app never changes its Key, so reading once is safe, and a restart is how a new declaration shows up.
 
 ## App definition
 

@@ -30,6 +30,7 @@ export type DeclSource = {
   slug: string;
   file: string;
   category: string;
+  entryCategory: string; // the category on the source's entry in key.yaml
   app: string | null;
   uses: string[]; // uses_apps: other installed apps whose tables this source's checks may read (K5)
   data: Record<string, unknown>;
@@ -95,23 +96,28 @@ export function checkCardKinds(src: Pick<DeclSource, "file" | "category" | "slug
 }
 
 /** Every installed app definition and routine front matter key.yaml names. Missing or broken files are skipped here, because checkKeyFolder reports them. */
-export async function readSources(root: string): Promise<{ sources: DeclSource[]; routines: string[]; tablesByApp: Record<string, string[]> }> {
+export async function readSources(root: string): Promise<{ sources: DeclSource[]; routines: string[]; tablesByApp: Record<string, string[]>; problems: string[] }> {
   const key = path.join(root, "key");
   const sources: DeclSource[] = [];
   const routines: string[] = [];
   const tablesByApp: Record<string, string[]> = {};
+  const problems: string[] = [];
   let ring: unknown;
-  try { ring = parse(await readFile(path.join(key, "key.yaml"), "utf8")); } catch { return { sources, routines, tablesByApp }; }
-  if (!isObj(ring)) return { sources, routines, tablesByApp };
+  let ringText: string;
+  try { ringText = await readFile(path.join(key, "key.yaml"), "utf8"); } catch { return { sources, routines, tablesByApp, problems }; }
+  try { ring = parse(ringText); } catch { problems.push("key/key.yaml: could not be read as YAML"); return { sources, routines, tablesByApp, problems }; }
+  if (!isObj(ring)) return { sources, routines, tablesByApp, problems };
   for (const a of list(ring.apps)) {
     const slug = isObj(a) ? str(a.slug) : "";
     const rel = isObj(a) ? str(a.definition) : "";
     if (!SLUG.test(slug) || !insideKey(rel)) continue;
+    let text: string;
+    try { text = await readFile(path.join(key, rel), "utf8"); } catch { continue; }
     let def: unknown;
-    try { def = parse(await readFile(path.join(key, rel), "utf8")); } catch { continue; }
+    try { def = parse(text); } catch { problems.push(`key/${rel}: could not be read as YAML`); continue; }
     if (!isObj(def)) continue;
     tablesByApp[slug] = list(def.entities).filter(isObj).map((e) => str(e.key)).filter(Boolean);
-    sources.push({ type: "app", slug, file: `key/${rel}`, category: str(def.category), app: slug, uses: slugList(def.uses_apps), data: def });
+    sources.push({ type: "app", slug, file: `key/${rel}`, category: str(def.category), entryCategory: isObj(a) ? str(a.category) : "", app: slug, uses: slugList(def.uses_apps), data: def });
   }
   for (const r of list(ring.routines)) {
     const slug = isObj(r) ? str(r.slug) : "";
@@ -122,15 +128,18 @@ export async function readSources(root: string): Promise<{ sources: DeclSource[]
     let text: string;
     try { text = await readFile(path.join(key, rel), "utf8"); } catch { continue; }
     const fm = parseFrontMatter(text);
-    if (!fm) continue;
-    sources.push({ type: "routine", slug, file: `key/${rel}`, category: str(fm.data.category), app: str(fm.data.app) || null, uses: slugList(fm.data.uses_apps), data: fm.data });
+    if (!fm) {
+      if (text.trimStart().startsWith("---")) problems.push(`key/${rel}: front matter could not be read as YAML`);
+      continue;
+    }
+    sources.push({ type: "routine", slug, file: `key/${rel}`, category: str(fm.data.category), entryCategory: isObj(r) ? str(r.category) : "", app: str(fm.data.app) || null, uses: slugList(fm.data.uses_apps), data: fm.data });
   }
-  return { sources, routines, tablesByApp };
+  return { sources, routines, tablesByApp, problems };
 }
 
 export async function readDeclarations(root: string): Promise<Declarations> {
-  const { sources, routines, tablesByApp } = await readSources(root);
-  const problems: string[] = [];
+  const { sources, routines, tablesByApp, problems: unreadable } = await readSources(root);
+  const problems: string[] = [...unreadable];
   const kinds: CardKindDecl[] = [...CORE_CARD_KINDS];
   for (const s of sources) {
     if (s.type === "routine" && s.app !== null && !(s.app in tablesByApp)) problems.push(`${s.file}: app "${s.app}" is not installed`);
@@ -138,6 +147,10 @@ export async function readDeclarations(root: string): Promise<Declarations> {
     for (const u of s.uses) {
       if (!SLUG.test(u)) problems.push(`${s.file}: uses_apps "${u}" must be an app slug`);
       else if (!(u in tablesByApp)) problems.push(`${s.file}: uses_apps names "${u}", which is not installed. Install it first, as the entry's uses say`);
+    }
+    if (s.entryCategory !== "" && s.category !== s.entryCategory) {
+      problems.push(`${s.file}: category "${s.category}" does not match "${s.entryCategory}" in key.yaml, so its card kinds are not loaded`);
+      continue;
     }
     const found = checkCardKinds(s, s.data.card_kinds);
     problems.push(...found.problems);

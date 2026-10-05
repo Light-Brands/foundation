@@ -1,4 +1,4 @@
-import type { Db } from "@/lib/db/types";
+import type { Queryable } from "@/lib/db/types";
 import type { KindRegistry } from "@/lib/data/card-kinds";
 
 // The one way to create a card. Called from server code and commands, never with a kind or a category
@@ -6,13 +6,27 @@ import type { KindRegistry } from "@/lib/data/card-kinds";
 // when it lapses.
 
 export class UnknownCardKindError extends Error {
-  constructor(kind: string) {
-    super(`Card kind "${kind}" is not declared in the installed Key`);
+  constructor(kind: string, registrySize = 1) {
+    super(registrySize === 0
+      ? `Card kind "${kind}" could not be checked, because the Key's declarations could not be read`
+      : `Card kind "${kind}" is not declared in the installed Key`);
     this.name = "UnknownCardKindError";
   }
 }
 
-export const CARD_LIMITS = { title: 200, body: 20_000, meta: 8_192, runKey: 200 } as const;
+export const CARD_LIMITS = {
+  title: 200, body: 20_000, meta: 8_192, runKey: 200,
+  sourceApp: 200, sourceId: 200, contactName: 200, contactEmail: 320, contactPhone: 40,
+} as const;
+
+const SOURCE_SHAPE = /^[A-Za-z0-9][A-Za-z0-9_.:-]*$/;
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const NUL = "\u0000";
+
+function within(value: string, max: number, what: string): void {
+  if (value.length < 1 || value.length > max) throw new RangeError(`${what} is 1 to ${max} characters.`);
+}
 
 export type CardContact = { name: string; email: string; phone?: string };
 export type CardInput = {
@@ -32,20 +46,42 @@ const COLUMNS = "kind, category, subcategory, title, body, source_app, source_id
 const CREATED = "coalesce($12::timestamptz, now())";
 const EXPIRES = `case when $10::int is null then null else ${CREATED} + make_interval(days => $10::int) end`;
 
-export async function writeCard(db: Db, kinds: KindRegistry, input: CardInput, now?: Date): Promise<WriteResult> {
+export async function writeCard(db: Queryable, kinds: KindRegistry, input: CardInput, now?: Date): Promise<WriteResult> {
   const k = kinds.get(input.kind);
-  if (!k) throw new UnknownCardKindError(input.kind);
+  if (!k) throw new UnknownCardKindError(input.kind, kinds.size);
+  if (typeof input.title !== "string") throw new TypeError("A card title must be text.");
+  const title = input.title.trim();
   const body = input.body ?? "";
   const meta = JSON.stringify(input.meta ?? {});
   const runKey = input.runKey ?? null;
-  if (input.title.length < 1 || input.title.length > CARD_LIMITS.title) throw new RangeError("A card title is 1 to 200 characters.");
+  within(title, CARD_LIMITS.title, "A card title");
   if (body.length > CARD_LIMITS.body) throw new RangeError("A card body is at most 20,000 characters.");
+  if (title.includes(NUL) || body.includes(NUL) || meta.includes("\\u0000")) throw new RangeError("A card holds no NUL characters.");
   if (meta.length > CARD_LIMITS.meta) throw new RangeError("A card's details are at most 8 KB.");
-  if (runKey !== null && (runKey.length < 1 || runKey.length > CARD_LIMITS.runKey)) throw new RangeError("A run key is 1 to 200 characters.");
+  if (runKey !== null) within(runKey, CARD_LIMITS.runKey, "A run key");
+  if (input.sourceApp != null) {
+    within(input.sourceApp, CARD_LIMITS.sourceApp, "A source app");
+    if (!SOURCE_SHAPE.test(input.sourceApp)) throw new RangeError("A source app is a slug or an id, with no spaces.");
+  }
+  if (input.sourceId != null) {
+    within(input.sourceId, CARD_LIMITS.sourceId, "A source id");
+    if (!SOURCE_SHAPE.test(input.sourceId)) throw new RangeError("A source id is a slug or an id, with no spaces.");
+  }
+  if (input.contactId != null && !UUID_SHAPE.test(input.contactId)) throw new RangeError("A contact id is a UUID.");
   if (input.contact && input.contactId) throw new TypeError("Give a contact or a contact id, not both.");
+  if (input.contact) {
+    const { name, email, phone } = input.contact;
+    within(name, CARD_LIMITS.contactName, "A contact name");
+    within(email, CARD_LIMITS.contactEmail, "A contact email");
+    if (!EMAIL_SHAPE.test(email)) throw new RangeError("A contact email needs the form name@example.com.");
+    if (phone !== undefined) within(phone, CARD_LIMITS.contactPhone, "A contact phone number");
+    if (name.includes(NUL) || email.includes(NUL) || (phone ?? "").includes(NUL)) throw new RangeError("A card holds no NUL characters.");
+  }
   // With no clock given, the card takes the database's now(), and its expiry counts from that same instant,
   // so cards written one after another always sort in the order they were written.
-  const values = [k.kind, k.category, k.subcategory, input.title, body, input.sourceApp ?? null, input.sourceId ?? null, runKey, k.always_human, k.expires_days, meta, now ?? null];
+  const values = [k.kind, k.category, k.subcategory, title, body, input.sourceApp ?? null, input.sourceId ?? null, runKey, k.always_human, k.expires_days, meta, now ?? null];
+  // When a run key already has its card, the insert below is skipped, but the contact upsert still runs.
+  // That is harmless: its conflict branch only sets email = contacts.email, so it never rewrites an existing contact.
   const rows = input.contact
     ? await db.query<{ id: string }>(
         `with c as (

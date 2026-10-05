@@ -7,7 +7,7 @@ Read CLAUDE.md in this project. Then look at my command center and tell me, in p
 1. What is running today.
 2. Which setup step is next, and what it gives my business.
 3. Which three parts of my business, from the categories in my command center, would give me the most time back first, based on what I tell you about my business.
-4. If your command center folder is open in Claude Code, add an entry to the build log in key/log/ as docs/standards/log.md describes, in its own log-only commit made right after the work commit and naming that commit's id, then run npm run key:sync.
+4. If your command center folder is open in Claude Code, run npm run key:sync, then make the work commit with key/knowledge/system.md in it, then add an entry to the build log in key/log/ as docs/standards/log.md describes, in its own log-only commit made right after the work commit and naming that commit's id.
 
 If I upgraded from an earlier version, ask me to open Settings, then Preferences, and press Save once so my Key holds my business details.
 

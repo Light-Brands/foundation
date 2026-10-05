@@ -4,8 +4,8 @@ import { getDb } from "@/lib/db";
 import { getProfile } from "@/lib/data/profile";
 import { readEnv } from "@/lib/env";
 import { loadForms } from "@/lib/forms/public";
-import { sourceFields } from "@/lib/forms/source";
-import { formChoices } from "@/lib/forms/options";
+import { ownHosts, sourceFields } from "@/lib/forms/source";
+import { formChoices, formReady, NOT_READY } from "@/lib/forms/options";
 import { PublicForm } from "@/components/PublicForm";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,9 @@ export default async function PublicFormPage({ params, searchParams }: {
   const db = await getDb();
   const profile = await getProfile(db, readEnv().businessName);
   const choices = await formChoices(db, form);
-  const source = sourceFields(await searchParams, (await headers()).get("referer"));
+  const h = await headers();
+  // A visit from the business's own site is never a referral.
+  const source = sourceFields(await searchParams, h.get("referer"), ownHosts(h.get("host"), profile.website));
   return (
     <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-6 p-6">
       <div>
@@ -28,7 +30,7 @@ export default async function PublicFormPage({ params, searchParams }: {
         <h1 className="mt-1 text-3xl text-zinc-50">{form.title}</h1>
         {form.intro && <p className="mt-2 text-mist">{form.intro}</p>}
       </div>
-      <PublicForm form={form} source={source} choices={choices} />
+      {formReady(form, choices) ? <PublicForm form={form} source={source} choices={choices} /> : <p className="surface p-6 text-zinc-100">{NOT_READY}</p>}
     </main>
   );
 }

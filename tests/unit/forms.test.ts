@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { coreDb, KEY_EXT } from "../support/db";
 import { loadCardKinds } from "@/lib/data/card-kinds";
 import { CONTACT_FORM, loadForms, readSubmission, submitPublicForm, BODY_MAX } from "@/lib/forms/public";
+import type { FormDecl } from "@/lib/key/declarations";
 import { FORM_LIMITS } from "@/lib/forms/limit";
 
 const NOW = new Date("2026-10-05T16:00:00Z");
@@ -91,6 +92,41 @@ describe("submitPublicForm", () => {
     const r = await submitPublicForm(d, { formKey: "contact", data: { _form: "contact", name: "Ada", email: "ada@example.com", message: "Hi" }, clientKey: "a" }, NOW);
     expect(r.status).toBe("saved");
     expect(await d.db.query("select kind, title, body from inbox_items")).toEqual([{ kind: "contact", title: "Ada sent a message", body: "Hi" }]);
+    await d.db.close();
+  });
+});
+
+describe("a url field", () => {
+  const FORM: FormDecl = {
+    ...CONTACT_FORM, key: "apply", card_kind: "lead-new", source: "leads-demo", contact: true,
+    fields: [...CONTACT_FORM.fields.slice(0, 2), { key: "portfolio", label: "Portfolio link", type: "url", required: true, max: 2000, options: [] }],
+  };
+  const read = (portfolio: string) => readSubmission(FORM, { name: "Ada", email: "ada@example.com", portfolio });
+  it("takes one https address of at most 2000 characters", () => {
+    expect(read(" https://ada.example/work?x=1 ")).toMatchObject({ ok: true, answers: { portfolio: "https://ada.example/work?x=1" } });
+    expect(read(`https://ada.example/${"a".repeat(2000 - 20)}`).ok).toBe(true);
+  });
+  it("refuses anything else", () => {
+    for (const v of ["http://ada.example", "javascript:alert(1)", "ada.example", "https://", "https://user:pw@ada.example/", "https://ada.example/ a", `https://ada.example/${"a".repeat(2000)}`]) {
+      const r = read(v);
+      expect(r.ok, v).toBe(false);
+      if (!r.ok && "errors" in r) expect(r.errors.portfolio, v).toBe(v.length > 2000 ? "Keep this under 2000 characters." : "Use a link that starts with https://.");
+    }
+  });
+});
+
+describe("a form with contact: false", () => {
+  it("puts the name and email on the card and creates no core contact", async () => {
+    const d = await deps();
+    const form: FormDecl = { ...(d.forms.get("get-in-touch") as FormDecl), key: "apply", contact: false };
+    const r = await submitPublicForm({ ...d, forms: new Map([["apply", form]]) }, { formKey: "apply", data: { ...GOOD, _form: "apply" }, clientKey: "203.0.113.9" }, NOW);
+    expect(r.status).toBe("saved");
+    expect(await d.db.query("select count(*)::int as n from contacts")).toEqual([{ n: 0 }]);
+    expect(await d.db.query("select title, body, contact_id from inbox_items")).toEqual([{
+      title: "Ada: Tell us what you need",
+      body: "Your name: Ada\nEmail: ada@example.com\nPhone: 503 555 0100\nWhat you need: Recovery\nTell us more: My knee",
+      contact_id: null,
+    }]);
     await d.db.close();
   });
 });

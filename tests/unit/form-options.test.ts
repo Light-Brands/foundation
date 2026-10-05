@@ -8,7 +8,7 @@ import { checkKeyFolder } from "@/lib/key/formats";
 import { readDeclarations } from "@/lib/key/declarations";
 import { loadCardKinds } from "@/lib/data/card-kinds";
 import { loadForms, submitPublicForm } from "@/lib/forms/public";
-import { loadChoices, formChoices } from "@/lib/forms/options";
+import { loadChoices, formChoices, formReady, NOT_READY } from "@/lib/forms/options";
 
 // A select whose options come from another app's table (options_from), as Marketing's forms use for
 // open events or current offers. The choices are read at render and checked again at save.
@@ -69,6 +69,14 @@ describe("options_from in the Key", () => {
       options_from: { app: "offers-demo", entity: "offers_demo", label: "title", where: "active" },
     });
   });
+  it("an optional options_from app that is not installed fails the checker, and the form is not served", async () => {
+    const root = keyWith({ uses: "uses_apps: [{app: offers-demo, optional: true}]" });
+    const keyFile = path.join(root, "key/key.yaml");
+    writeFileSync(keyFile, readFileSync(keyFile, "utf8").replace("  - slug: offers-demo\n    definition: apps/offers-demo/definition.yaml\n    category: attract\n", ""));
+    expect((await checkKeyFolder(root)).join("\n")).toMatch(/options_from app "offers-demo" is not installed/);
+    expect((await loadForms(root)).has("get-in-touch")).toBe(false);
+    expect((await loadCardKinds(root)).has("lead-new")).toBe(true);
+  });
   it("refuses an app that is not in the declaring app's uses_apps", async () => {
     expect((await checkKeyFolder(keyWith({ uses: "" }))).join("\n")).toMatch(/options_from app "offers-demo" is another app, so it must be listed in this app's uses_apps/);
   });
@@ -126,6 +134,22 @@ describe("options_from at render and at save", () => {
     expect(stale).toEqual({ status: "invalid", errors: { offer: "Pick one of the choices." } });
     expect(await db.query("select id from inbox_items")).toEqual([]);
     expect(await db.query("select id from form_hits")).toEqual([]);
+    await db.close();
+  });
+});
+
+describe("a required options_from select with no choices", () => {
+  it("leaves the form not ready, with a plain line", async () => {
+    const { db, deps, root } = await setup();
+    const form = deps.forms.get("get-in-touch")!;
+    expect(formReady(form, await formChoices(db, form))).toBe(true);
+    await db.query("update offers_demo set active = false");
+    expect(formReady(form, await formChoices(db, form))).toBe(true); // the field is optional here
+    const required = { ...form, fields: form.fields.map((f) => (f.options_from ? { ...f, required: true } : f)) };
+    expect(formReady(required, await formChoices(db, required))).toBe(false);
+    expect(formReady(required, await formChoices(null, required))).toBe(false);
+    expect(NOT_READY).toBe("This form is not ready yet.");
+    expect(root).toBeTruthy();
     await db.close();
   });
 });

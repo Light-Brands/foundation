@@ -122,10 +122,12 @@ export function checkCardKinds(src: Pick<DeclSource, "file" | "category" | "slug
   return { kinds, problems };
 }
 
-export const FORM_FIELD_TYPES = ["text", "long_text", "email", "phone", "date", "number", "select", "checkbox"] as const;
+export const FORM_FIELD_TYPES = ["text", "long_text", "email", "phone", "date", "number", "select", "checkbox", "url"] as const;
 export type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
 export const RESERVED_FIELD_KEYS: readonly string[] = ["website", "_form", "source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "referrer"];
-const DEFAULT_MAX: Record<FormFieldType, number> = { text: 200, long_text: 4000, email: 254, phone: 40, date: 10, number: 30, select: 120, checkbox: 3 };
+const DEFAULT_MAX: Record<FormFieldType, number> = { text: 200, long_text: 4000, email: 254, phone: 40, date: 10, number: 30, select: 120, checkbox: 3, url: 2000 };
+/** The longest link a url field takes. */
+export const URL_MAX = 2000;
 const FIELD_KEY = /^[a-z][a-z0-9_]*$/;
 /** The longest name a form may ask for: CARD_LIMITS.title and CARD_LIMITS.contactName are both 200. */
 export const NAME_MAX = 200;
@@ -133,7 +135,8 @@ export const NAME_MAX = 200;
 /** A select's options read at render from an app table: the rows where `where` is true, shown by `label`. */
 export type OptionsFrom = { app: string; entity: string; label: string; where: string | null };
 export type FormField = { key: string; label: string; type: FormFieldType; required: boolean; max: number; options: string[]; options_from?: OptionsFrom };
-export type FormDecl = { key: string; title: string; intro: string; submit: string; thanks: string; card_kind: string; fields: FormField[]; source: string };
+/** contact: false keeps the name and email on the card only, and never creates or reuses a core contact. */
+export type FormDecl = { key: string; title: string; intro: string; submit: string; thanks: string; card_kind: string; fields: FormField[]; source: string; contact: boolean };
 
 function words(at: string, name: string, v: unknown, min: number, max: number, bad: (m: string) => void): string {
   const s = str(v).trim();
@@ -190,6 +193,7 @@ export function checkForms(src: Pick<DeclSource, "file" | "slug">, raw: unknown,
     const kind = str(f.card_kind);
     if (coreKinds.has(kind)) bad(`card_kind "${kind}" is a core kind. Declare a kind for this job`);
     else if (!kindNames.has(kind)) bad(`card_kind "${kind}" is not declared in the Key`);
+    if (f.contact !== undefined && typeof f.contact !== "boolean") bad("contact must be true or false");
     const rawFields = list(f.fields);
     if (rawFields.length < 2 || rawFields.length > 20) bad("fields must list 2 to 20 fields");
     const seen = new Set<string>();
@@ -223,9 +227,10 @@ export function checkForms(src: Pick<DeclSource, "file" | "slug">, raw: unknown,
     if (!has("email", "email")) bad("needs a required email field of type email");
     if (fields.some((x) => x.key === "phone" && x.type !== "phone")) bad("a phone field must have type phone");
     if (fields.some((x) => x.key === "email" && x.max > 254)) bad("an email field's max is at most 254");
+    if (fields.some((x) => x.type === "url" && x.max > URL_MAX)) bad(`a url field's max is at most ${URL_MAX}`);
     // The name makes the contact and starts the card title, so it can never be longer than either holds.
     if (fields.some((x) => x.key === "name" && x.max > NAME_MAX)) bad(`a name field's max is at most ${NAME_MAX}`);
-    if (problems.length === before) forms.push({ key, title, intro, submit, thanks, card_kind: kind, fields, source: src.slug });
+    if (problems.length === before) forms.push({ key, title, intro, submit, thanks, card_kind: kind, fields, source: src.slug, contact: f.contact !== false });
   });
   return { forms, problems };
 }

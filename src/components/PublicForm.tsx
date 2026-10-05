@@ -5,7 +5,7 @@ import type { FormDecl, FormField } from "@/lib/key/declarations";
 import type { Choice } from "@/lib/forms/options";
 
 const INPUT = "mt-1 w-full rounded-xl border border-white/10 bg-ink-50 px-3 py-2";
-const TYPE: Partial<Record<FormField["type"], string>> = { text: "text", email: "email", phone: "tel", date: "date", number: "text" };
+const TYPE: Partial<Record<FormField["type"], string>> = { text: "text", email: "email", phone: "tel", date: "date", number: "text", url: "url" };
 
 export function PublicForm({ form, source, choices = {} }: { form: FormDecl; source: Record<string, string>; choices?: Record<string, Choice[]> }) {
   const [state, action, pending] = useActionState<FormResult | null, FormData>(submitFormAction, null);

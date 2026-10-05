@@ -1,6 +1,6 @@
 import type { Db } from "@/lib/db/types";
 import type { KindRegistry } from "@/lib/data/card-kinds";
-import type { FormDecl, FormField } from "@/lib/key/declarations";
+import { URL_MAX, type FormDecl, type FormField } from "@/lib/key/declarations";
 import { loadDeclarations } from "@/lib/key/load";
 import { writeCard, CARD_LIMITS } from "@/lib/data/cards";
 import { captureSource, type SourceMeta } from "@/lib/forms/source";
@@ -22,6 +22,7 @@ export const CONTACT_FORM: FormDecl = {
   thanks: "Thank you. Your message is in, and you will hear back soon.",
   card_kind: "contact",
   source: "core",
+  contact: true,
   fields: [
     { key: "name", label: "Your name", type: "text", required: true, max: 120, options: [] },
     { key: "email", label: "Email", type: "email", required: true, max: 254, options: [] },
@@ -43,6 +44,18 @@ export type Submission =
   | { ok: false; errors: Record<string, string> };
 
 const PICK = "Pick one of the choices.";
+const LINK = "Use a link that starts with https://.";
+
+/** One https address with a host and no user name or password in it. Length is checked against the field's max first. */
+function httpsLink(v: string): boolean {
+  if (/\s/.test(v)) return false;
+  try {
+    const u = new URL(v);
+    return u.protocol === "https:" && u.hostname !== "" && u.username === "" && u.password === "";
+  } catch {
+    return false;
+  }
+}
 
 const realDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v;
 
@@ -52,6 +65,7 @@ function fieldError(f: FormField, v: string): string | null {
   if (f.type === "phone") { const p = cleanPhone(v); return p.ok ? null : p.error; }
   if (f.type === "date" && !realDate(v)) return "Use a date like 2026-10-05.";
   if (f.type === "number" && !/^-?\d+(\.\d+)?$/.test(v)) return "Use a number.";
+  if (f.type === "url" && (v.length > URL_MAX || !httpsLink(v))) return LINK;
   // An options_from select is checked against its table in submitPublicForm, which has the database.
   if (f.type === "select" && !f.options_from && !f.options.includes(v)) return PICK;
   return null;
@@ -85,7 +99,8 @@ export function readSubmission(form: FormDecl, data: Record<string, unknown>): S
 function cardText(form: FormDecl, answers: Record<string, string>): { title: string; body: string } {
   const name = answers.name.slice(0, 120);
   const title = form.key === "contact" ? `${name} sent a message` : `${name}: ${form.title}`.slice(0, CARD_LIMITS.title);
-  const rest = form.fields.filter((f) => !CONTACT_KEYS.has(f.key) && answers[f.key]);
+  // With contact: false there is no contact to hold the name, email and phone, so the card carries them.
+  const rest = form.fields.filter((f) => (form.contact === false || !CONTACT_KEYS.has(f.key)) && answers[f.key]);
   const body = rest.length === 1 ? answers[rest[0].key] : rest.map((f) => `${f.label}: ${answers[f.key]}`).join("\n");
   return { title, body: body.slice(0, CARD_LIMITS.body) };
 }
@@ -124,8 +139,9 @@ export async function submitPublicForm(
   const { title, body } = cardText(form, sub.answers);
   const r = await writeCard(deps.db, deps.kinds, {
     kind: form.card_kind, title, body,
-    // An empty phone stays off the contact, because the card writer refuses an empty one.
-    contact: { name: sub.contact.name, email: sub.contact.email, ...(sub.contact.phone ? { phone: sub.contact.phone } : {}) },
+    // An empty phone stays off the contact, because the card writer refuses an empty one. A form declared
+    // contact: false writes no contact at all: the card's body holds the name and email.
+    ...(form.contact === false ? {} : { contact: { name: sub.contact.name, email: sub.contact.email, ...(sub.contact.phone ? { phone: sub.contact.phone } : {}) } }),
     sourceApp: form.source === "core" ? null : form.source,
     meta: { form: form.key, ...sub.source, ...(Object.keys(picked).length ? { picked } : {}) },
   }, now);

@@ -59,3 +59,11 @@ export async function formChoices(db: Queryable | null, form: FormDecl): Promise
   }
   return out;
 }
+
+/** The line a form shows in place of its fields when it cannot be filled in yet. */
+export const NOT_READY = "This form is not ready yet.";
+
+/** False when a required options_from select has no choices it can show, so no visitor could send the form. */
+export function formReady(form: FormDecl, choices: Record<string, Choice[]>): boolean {
+  return form.fields.every((f) => !f.options_from || !f.required || (choices[f.key]?.length ?? 0) > 0);
+}

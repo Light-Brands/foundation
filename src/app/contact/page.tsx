@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { sourceFields } from "@/lib/forms/source";
+import { ownHosts, sourceFields } from "@/lib/forms/source";
 import { getDb } from "@/lib/db";
 import { getProfile } from "@/lib/data/profile";
 import { readEnv } from "@/lib/env";
@@ -10,7 +10,9 @@ export const dynamic = "force-dynamic";
 
 export default async function ContactPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const profile = await getProfile(await getDb(), readEnv().businessName);
-  const source = sourceFields(await searchParams, (await headers()).get("referer"));
+  const h = await headers();
+  // A visit from the business's own site is never a referral.
+  const source = sourceFields(await searchParams, h.get("referer"), ownHosts(h.get("host"), profile.website));
   return (
     <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-6 p-6">
       <div>

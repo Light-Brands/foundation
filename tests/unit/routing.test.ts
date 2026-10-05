@@ -4,7 +4,7 @@ import path from "node:path";
 import { coreDb, extDb, KEY_EXT, ROOT } from "../support/db";
 import { loadCardKinds } from "@/lib/data/card-kinds";
 import { routeCard, insertOncePerCard } from "@/lib/data/cards";
-import { captureSource, sourceFields } from "@/lib/forms/source";
+import { captureSource, ownHosts, sourceFields } from "@/lib/forms/source";
 import { submitContact } from "@/lib/data/inbox";
 
 const NOW = new Date("2026-10-05T16:00:00Z");
@@ -26,6 +26,24 @@ describe("captureSource", () => {
     expect(out.utm_source).toBe("abc");
     expect(out.utm_campaign).toHaveLength(200);
     expect(out.referrer).toBeUndefined();
+  });
+  it("caps on whole characters, so an emoji at the limit is never split in half", () => {
+    const out = captureSource({ utm_campaign: `${"x".repeat(199)}😀😀`, referrer: `https://news.example/${"é".repeat(5)}` });
+    expect(out.utm_campaign).toBe(`${"x".repeat(199)}😀`);
+    expect([...out.utm_campaign!]).toHaveLength(200);
+    expect(out.utm_campaign).not.toMatch(/[\uD800-\uDBFF]$/);
+  });
+  it("a visit from the business's own site is not a referral", () => {
+    expect(captureSource({ referrer: "https://command.harbor.example/contact" }, ["command.harbor.example"])).toEqual({ source: "direct" });
+    expect(captureSource({ referrer: "https://www.harbor.example/about" }, ["harbor.example"])).toEqual({ source: "direct" });
+    expect(captureSource({ referrer: "https://friend.example/" }, ["harbor.example"])).toEqual({ source: "referral", referrer: "https://friend.example/" });
+    expect(sourceFields({}, "https://harbor.example/blog", ["Harbor.Example"])).toEqual({ source: "direct" });
+    expect(sourceFields({ utm_source: "news" }, "https://harbor.example/blog", ["harbor.example"])).toEqual({ source: "news", utm_source: "news" });
+  });
+  it("reads the business's own hosts from the request and the saved website", () => {
+    expect(ownHosts("command.harbor.example:3000", "harbor.example")).toEqual(["command.harbor.example", "harbor.example"]);
+    expect(ownHosts(null, "https://www.Harbor.example/home")).toEqual(["harbor.example"]);
+    expect(ownHosts(null, "not a site")).toEqual([]);
   });
   it("turns the page's address and referer into the hidden fields", () => {
     expect(sourceFields({ utm_source: ["ads", "x"], utm_content: "v2" }, "https://ads.example/p")).toEqual({

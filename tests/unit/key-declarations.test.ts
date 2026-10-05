@@ -176,6 +176,19 @@ describe("public forms in the Key", () => {
     expect(bad({ fields: [{ ...base.fields[0], max: 200 }, base.fields[1]] })).toBe("");
     expect(NAME_MAX).toBeLessThanOrEqual(Math.min(CARD_LIMITS.title, CARD_LIMITS.contactName));
   });
+  it("takes contact: false, so the form writes no core contact, and defaults to true", () => {
+    expect(checkForms(src, [base], kinds).forms[0].contact).toBe(true);
+    const r = checkForms(src, [{ ...base, contact: false }], kinds);
+    expect(r.problems).toEqual([]);
+    expect(r.forms[0].contact).toBe(false);
+    expect(bad({ contact: "no" })).toMatch(/contact must be true or false/);
+  });
+  it("takes a url field of at most 2000 characters", () => {
+    const r = checkForms(src, [{ ...base, fields: [...base.fields, { key: "portfolio", label: "Portfolio link", type: "url" }] }], kinds);
+    expect(r.problems).toEqual([]);
+    expect(r.forms[0].fields.find((f) => f.key === "portfolio")).toMatchObject({ type: "url", max: 2000 });
+    expect(bad({ fields: [...base.fields, { key: "portfolio", label: "Portfolio link", type: "url", max: 2001 }] })).toMatch(/a url field's max is at most 2000/);
+  });
   it("holds the words to the copy rules", () => {
     expect(bad({ thanks: "Thanks; talk soon." })).toMatch(/thanks must hold no long or short dash and no semicolon/);
   });

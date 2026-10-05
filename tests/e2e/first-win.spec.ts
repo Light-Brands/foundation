@@ -30,6 +30,10 @@ test("the first win: in with the PIN, profile saved, a real message in the Inbox
   await expect(page.getByText("Ada sent a message")).toBeVisible();
   await expect(page.getByText("<script>alert(1)</script> Hello")).toBeVisible();
 
+  await page.goto("/system/modules");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("What you have built");
+  await expect(page.getByText("Nothing is built yet.")).toBeVisible();
+
   await page.goto("/deliver/booking");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Booking");
   await expect(page.getByText("Have Light Brands build it")).toBeVisible();

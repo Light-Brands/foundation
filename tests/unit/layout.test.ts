@@ -44,6 +44,11 @@ describe("the nav", () => {
     expect(hrefFor("system", "setup")).toBe("/system/setup");
     expect(hrefFor("deliver", "booking")).toBe("/deliver/booking");
   });
+  it("builds the Modules screen at /system/modules", () => {
+    expect(hrefFor("system", "modules")).toBe("/system/modules");
+    const system = buildNav().find((g) => g.id === "system")!;
+    expect(system.items.find((i) => i.key === "system.modules")!.state).toBe("built");
+  });
   it("marks built core screens and leaves the rest ready to set up", () => {
     const nav = buildNav();
     const command = nav.find((g) => g.id === "command")!;

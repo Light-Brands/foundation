@@ -7,6 +7,7 @@ export type NavGroup = { id: CategoryId; label: string; icon: IconName; items: N
 export const CORE_SCREENS: Record<string, string> = {
   "command.home": "/",
   "command.inbox": "/command/inbox",
+  "system.modules": "/system/modules",
   "system.setup": "/system/setup",
   "system.settings": "/system/settings",
 };

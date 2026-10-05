@@ -19,9 +19,10 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         <label key={f.name} className="block">
           <span className="kicker">{f.label}</span>
           <input
+            key={`${f.name}-${state?.values ? "v" : "p"}-${JSON.stringify(state?.values?.[f.name] ?? "")}`}
             name={f.name}
             type={f.type ?? "text"}
-            defaultValue={profile[f.name]}
+            defaultValue={state?.values?.[f.name] ?? profile[f.name]}
             className="mt-1 w-full rounded-xl border border-white/10 bg-ink-50 px-3 py-2 text-zinc-100"
           />
           {state?.errors?.[f.name] && <span className="mt-1 block text-sm text-amber-200">{state.errors[f.name]}</span>}

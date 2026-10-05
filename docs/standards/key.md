@@ -104,7 +104,7 @@ stated_by: Jo Harbor
 recorded: 2026-10-05
 ```
 
-- **Change a business fact in Settings, then Preferences, and press Save.** Never edit the file by hand. Why: the Preferences save is the only writer, and the next Save rewrites the file from the database row.
+- **Change a business fact in Settings, then Preferences, and press Save.** Never edit the file by hand. Commit the files the save changed, `key/key.yaml` and `key/knowledge/context-block.yaml`, by name as one commit named `chore: business facts`. The first session's setup commit, `chore: set up <business>`, holds any save made before it. Why: the Preferences save is the only writer, and the next Save rewrites the file from the database row. One commit name for every save makes the history of business facts easy to find.
 
 ## Charter
 

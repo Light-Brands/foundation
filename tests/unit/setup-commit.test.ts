@@ -15,4 +15,11 @@ describe("setup's own changes have a commit home", () => {
       expect(text).toMatch(/before any other work/);
     });
   }
+  for (const f of ["CLAUDE.md", "prompts/first-session.md", "docs/standards/key.md"]) {
+    it(`${f} names one commit for a Preferences save, chore: business facts`, () => {
+      const text = readFileSync(f, "utf8");
+      expect(text).toContain("`chore: business facts`");
+      expect(text).not.toMatch(/chore: (save|update) (business|preferences|profile)/i);
+    });
+  }
 });

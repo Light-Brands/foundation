@@ -16,6 +16,8 @@ export default defineConfig({
       FOUNDATION_BUSINESS_NAME: "Harbor Studio",
       FOUNDATION_DATA_DIR: ".data/e2e",
       FOUNDATION_KEY_ROOT: ".data/e2e-key",
+      // The inbound webhook test signs with this. It is a test value, never a real secret.
+      E2E_HOOK_SECRET: "e2e-hook-secret",
     },
   },
 });

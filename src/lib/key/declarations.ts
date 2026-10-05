@@ -48,7 +48,7 @@ type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
-const insideKey = (rel: string): boolean => rel !== "" && !path.isAbsolute(rel) && !rel.includes("\\") && !rel.split("/").includes("..");
+export const insideKey = (rel: string): boolean => rel !== "" && !path.isAbsolute(rel) && !rel.includes("\\") && !rel.split("/").includes("..");
 
 // Jobs whose decisions belong to the owner alone: every Finance job, contracts, the team roster and hiring.
 export const OWNER_ONLY_JOBS: readonly string[] = ["money/*", "sell/contracts", "team/people", "team/hiring"];

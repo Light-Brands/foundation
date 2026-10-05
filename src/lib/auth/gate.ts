@@ -1,7 +1,7 @@
 import type { FoundationEnv } from "@/lib/env";
 import { pinMatches, signSession } from "@/lib/auth/pin-token";
 
-const PUBLIC = [/^\/gate$/, /^\/api\/gate$/, /^\/contact$/, /^\/f\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/_next\//, /^\/favicon\.ico$/];
+const PUBLIC = [/^\/gate$/, /^\/api\/gate$/, /^\/contact$/, /^\/f\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/api\/hooks\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/_next\//, /^\/favicon\.ico$/];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC.some((re) => re.test(pathname));

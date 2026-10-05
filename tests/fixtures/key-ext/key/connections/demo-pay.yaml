@@ -1,0 +1,5 @@
+connection: demo-pay
+name: Demo payments
+webhook:
+  verifier: verify.ts
+  secret_setting: DEMO_PAY_WEBHOOK_SECRET

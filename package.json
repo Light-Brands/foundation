@@ -17,7 +17,8 @@
     "setup": "node scripts/setup.mjs",
     "key:sync": "tsx scripts/key-sync.ts",
     "log:sync": "tsx scripts/log-sync.ts",
-    "log:base": "tsx scripts/log-base.ts"
+    "log:base": "tsx scripts/log-base.ts",
+    "hooks:prune": "tsx scripts/hooks-prune.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

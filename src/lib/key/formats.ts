@@ -4,6 +4,7 @@ import { parse } from "yaml";
 import { CATEGORIES } from "@/lib/layout/categories";
 import { parseFrontMatter, SLUG } from "./frontmatter";
 import { readDeclarations } from "./declarations";
+import { checkWebhook } from "@/lib/hooks/declaration";
 import { compareDefinition, rlsProblems } from "@/lib/key/schema";
 
 export const COMMIT_ID = /^[0-9a-f]{40}$/;
@@ -22,7 +23,7 @@ export { parseFrontMatter, SLUG };
 // A slug that would collide with the core migration names.
 const RESERVED_APP_SLUGS = ["core"];
 // Core tables live in the same database as every app. No entity may take one of their names.
-export const CORE_TABLES = ["business_profile", "contacts", "inbox_items", "pause", "form_hits", "check_runs", "outbox", "opt_outs", "connections", "accounts"];
+export const CORE_TABLES = ["business_profile", "contacts", "inbox_items", "pause", "form_hits", "form_counts", "webhook_events", "check_runs", "outbox", "opt_outs", "connections", "accounts"];
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -385,6 +386,14 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
     // checkKeyYaml and checkDefinition already say a file is not valid YAML, so say it once.
     if (unreadable.test(d) && problems.some((x) => x.startsWith(d.split(":")[0] + ":"))) continue;
     problems.push(d);
+  }
+  for (const f of await files(path.join(key, "connections"), ".yaml")) {
+    const name = path.basename(f, ".yaml");
+    if (path.dirname(f) !== path.join(key, "connections")) continue;
+    if (!SLUG.test(name)) { problems.push(`${rel(f)}: a connection file is named with a lowercase hyphenated slug`); continue; }
+    let data: unknown;
+    try { data = parse(await read(f)); } catch { problems.push(`${rel(f)}: could not be read as YAML`); continue; }
+    problems.push(...checkWebhook(rel(f), name, data).problems);
   }
   for (const f of await files(path.join(key, "runs"), ".md")) problems.push(...checkRunBrief(rel(f), await read(f)));
   for (const f of await files(path.join(key, "log"), ".md")) problems.push(...checkLogText(rel(f), await read(f)));

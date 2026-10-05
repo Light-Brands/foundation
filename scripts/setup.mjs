@@ -8,6 +8,8 @@ import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
+import { mkdirSync } from "node:fs";
+import { parse, stringify } from "yaml";
 
 const { values } = parseArgs({
   options: {
@@ -73,4 +75,28 @@ writeFileSync(
   { mode: 0o600 },
 );
 chmodSync(file, 0o600);
+
+// Seed the Key: name it after the business, and start its context block with the business name.
+const slugify = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const keyFile = "key/key.yaml";
+if (existsSync(keyFile)) {
+  const key = parse(readFileSync(keyFile, "utf8"));
+  if (key && key.client === "your-business") {
+    const today = new Date().toISOString().slice(0, 10);
+    key.client = slugify(name) || "your-business";
+    key.name = name;
+    key.provenance = { ...(key.provenance ?? {}), recorded: today };
+    writeFileSync(keyFile, stringify(key));
+    const blockFile = "key/knowledge/context-block.yaml";
+    const empty = {
+      business: "", short_name: "", what_we_do: "", who_we_serve: "", how_we_sound: "", website: "",
+      email: "", phone: "", city: "", timezone: "", owner: { name: "", first: "", role: "" },
+      stated_by: "", recorded: "",
+    };
+    const block = existsSync(blockFile) ? { ...empty, ...(parse(readFileSync(blockFile, "utf8")) ?? {}) } : empty;
+    block.business = name;
+    mkdirSync("key/knowledge", { recursive: true });
+    writeFileSync(blockFile, stringify(block));
+  }
+}
 console.log("Done. Run `npm run dev`, open http://localhost:3000 and enter your PIN.");

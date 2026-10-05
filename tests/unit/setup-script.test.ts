@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, existsSync, statSync, chmodSync } from "node:fs";
+import { mkdtempSync, readFileSync, existsSync, statSync, chmodSync, cpSync } from "node:fs";
+import { parse } from "yaml";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { loadEnvConfig } from "@next/env";
@@ -83,5 +84,23 @@ describe("npm run setup", () => {
     const env = readFileSync(path.join(dir, ".env.local"), "utf8");
     expect(env).toContain("FOUNDATION_PIN=135790");
     expect(env).toContain(`FOUNDATION_BUSINESS_NAME='Harbor "Studio" \\ Co'`);
+  });
+  it("names the Key after the business and starts its context block", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
+    cpSync(path.join(__dirname, "../../key"), path.join(dir, "key"), { recursive: true });
+    run(dir, ["--name", "Harbor Studio & Co.", "--pin", "246810"]);
+    const key = parse(readFileSync(path.join(dir, "key/key.yaml"), "utf8"));
+    expect(key.client).toBe("harbor-studio-co");
+    expect(key.name).toBe("Harbor Studio & Co.");
+    expect(key.provenance.recorded).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const block = parse(readFileSync(path.join(dir, "key/knowledge/context-block.yaml"), "utf8"));
+    expect(block.business).toBe("Harbor Studio & Co.");
+  });
+  it("leaves an already named Key alone", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
+    cpSync(path.join(__dirname, "../../key"), path.join(dir, "key"), { recursive: true });
+    run(dir, ["--name", "Harbor Studio", "--pin", "246810"]);
+    run(dir, ["--name", "Other Name", "--pin", "246810", "--force"]);
+    expect(parse(readFileSync(path.join(dir, "key/key.yaml"), "utf8")).client).toBe("harbor-studio");
   });
 });

@@ -12,17 +12,19 @@ vi.mock("@/lib/data/inbox", () => ({
 }));
 const routeCard = vi.fn(async () => ({ status: "routed" }));
 vi.mock("@/lib/data/cards", () => ({ routeCard: (...a: unknown[]) => (routeCard as (...x: unknown[]) => unknown)(...a) }));
-vi.mock("@/lib/data/card-kinds", () => ({ loadCardKinds: async () => new Map() }));
+vi.mock("@/lib/data/card-kinds", () => ({ loadCardKinds: async () => new Map([["lead-new", { kind: "lead-new", label: "New lead" }]]) }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 const markSentByHand = vi.fn(async (): Promise<string> => "sent");
 const cancelEmail = vi.fn(async () => true);
+const markCopied = vi.fn(async () => true);
 vi.mock("@/lib/data/connections", () => ({ emailSendingActive: async () => false }));
 vi.mock("@/lib/data/outbox", () => ({
   markSentByHand: (...a: unknown[]) => (markSentByHand as (...x: unknown[]) => unknown)(...a),
   cancelEmail: (...a: unknown[]) => (cancelEmail as (...x: unknown[]) => unknown)(...a),
+  markCopied: (...a: unknown[]) => (markCopied as (...x: unknown[]) => unknown)(...a),
 }));
 
-import { cancelEmailAction, decideCardAction, markDoneAction, markSentByHandAction, routeCardAction } from "@/app/(console)/command/inbox/actions";
+import { cancelEmailAction, decideCardAction, markCopiedAction, markDoneAction, markSentByHandAction, routeCardAction } from "@/app/(console)/command/inbox/actions";
 
 const ID = "6f1c2a4e-1b2c-4d5e-8f90-1234567890ab";
 const form = (v: Record<string, string>) => { const f = new FormData(); for (const [k, x] of Object.entries(v)) f.set(k, x); return f; };
@@ -82,6 +84,42 @@ describe("routeCardAction", () => {
     getDb.mockReset();
     expect((await routeCardAction(null, form({ id: ID, to: "Lead New" }))).ok).toBe(false);
     expect(getDb).not.toHaveBeenCalled();
+  });
+  it("moves a message and names the job it went to", async () => {
+    hasSession.mockResolvedValue(true);
+    getDb.mockReset().mockResolvedValue({});
+    routeCard.mockClear();
+    expect(await routeCardAction(null, form({ id: ID, to: "lead-new" }))).toEqual({ ok: true, message: "Moved to New lead." });
+    expect((routeCard.mock.calls[0] as unknown[])[2]).toEqual({ cardId: ID, toKind: "lead-new" });
+  });
+  it("falls back to plain words for a kind with no label, and explains each refusal", async () => {
+    hasSession.mockResolvedValue(true);
+    getDb.mockReset().mockResolvedValue({});
+    expect(await routeCardAction(null, form({ id: ID, to: "lead-other" }))).toEqual({ ok: true, message: "Moved to its job." });
+    routeCard.mockResolvedValueOnce({ status: "not_routable" });
+    expect(await routeCardAction(null, form({ id: ID, to: "lead-new" }))).toEqual({ ok: false, message: "Only a new message can be moved." });
+    routeCard.mockResolvedValueOnce({ status: "unknown_kind" });
+    expect(await routeCardAction(null, form({ id: ID, to: "lead-new" }))).toEqual({ ok: false, message: "That job is not installed." });
+  });
+});
+
+describe("markCopiedAction", () => {
+  it("refuses without a session, and a malformed id before opening the database", async () => {
+    hasSession.mockResolvedValue(false);
+    getDb.mockReset();
+    markCopied.mockClear();
+    expect((await markCopiedAction(ID)).ok).toBe(false);
+    hasSession.mockResolvedValue(true);
+    expect((await markCopiedAction("x' or 1=1")).ok).toBe(false);
+    expect(getDb).not.toHaveBeenCalled();
+    expect(markCopied).not.toHaveBeenCalled();
+  });
+  it("records the copy, and refuses one for an email that is not waiting", async () => {
+    hasSession.mockResolvedValue(true);
+    getDb.mockReset().mockResolvedValue({});
+    expect(await markCopiedAction(ID)).toEqual({ ok: true, message: "Copied. Send it from your email, then mark it sent." });
+    markCopied.mockResolvedValueOnce(false);
+    expect(await markCopiedAction(ID)).toEqual({ ok: false, message: "This email is not waiting to be sent." });
   });
 });
 

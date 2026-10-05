@@ -1,6 +1,7 @@
 import type { Db, Queryable } from "@/lib/db/types";
 import { FIXED_SECRET_MIN, readEnv } from "@/lib/env";
-import { emailHash, parseEmail, MissingSecretError } from "@/lib/email";
+import { emailHash, normalizedEmailSql, parseEmail, MissingSecretError } from "@/lib/email";
+import { isPaused } from "@/lib/data/pause";
 import { httpsOrigin, publicBaseUrl, unsubscribeUrl } from "@/lib/email-links";
 
 // Every drafted customer email, sent at most once. A draft becomes approved only through the card
@@ -8,7 +9,8 @@ import { httpsOrigin, publicBaseUrl, unsubscribeUrl } from "@/lib/email-links";
 // due row at a time by moving it to sending in one statement. A row left in sending is resolved by
 // asking the provider: confirmed sent becomes sent, anything else becomes failed for the owner, and
 // nothing is ever resent on its own. Every address is read by parseEmail and checked against the
-// opt-out list when it is drafted and again when it is sent.
+// opt-out list when it is drafted and again when it is sent. A row the owner copied to send by hand is never
+// claimed by a sender: it waits for "I sent it" or a cancel.
 
 export const OUTBOX_STATUSES = ["draft", "approved", "sending", "sent", "failed", "cancelled"] as const;
 export type OutboxStatus = (typeof OUTBOX_STATUSES)[number];
@@ -59,23 +61,39 @@ export class OptOutNotRecordedError extends Error {
   }
 }
 const UNCHECKED_DRAFT = "We could not check who asked us to stop, so nothing was drafted. Try again in a moment.";
+const NO_POSTAL_ADDRESS = "Add your postal address in Settings first.";
 
 /** marketing: the person stopped marketing email (the unsubscribe link). all: the person stopped every email. */
 export const OPT_OUT_SCOPES = ["marketing", "all"] as const;
 export type OptOutScope = (typeof OPT_OUT_SCOPES)[number];
 
 /**
+ * The SQL test for "an opt-out covers this address for this kind". It matches a row by today's hash, or by the
+ * address the row keeps (email is null only for a forgotten person), so an opt-out recorded under an earlier
+ * FOUNDATION_SECRET still refuses. $hash, $send and $match are parameter placeholders, kind is a SQL expression
+ * that gives 'marketing' or 'transactional'.
+ */
+function optOutCovers(hash: string, send: string, match: string, kind: string): string {
+  return `exists (select 1 from opt_outs o
+                   where (o.email_hash = ${hash}
+                          or (o.email is not null and (lower(o.email) = lower(${send}) or ${normalizedEmailSql("o.email")} = ${match})))
+                     and (o.scope = 'all' or ${kind} = 'marketing'))`;
+}
+
+/**
  * True when the address, in any spelling the one rule joins, has an opt-out that covers this kind of email,
  * or cannot be read at all. An all opt-out covers every kind. A marketing opt-out covers marketing only.
+ * It matches on today's hash or on the address an opt-out keeps, so one recorded under an earlier secret still counts.
  */
 export async function isOptedOut(db: Queryable, email: string, kind: OutboxKind, secret?: string | null): Promise<boolean> {
   const key = keyOf(secret);
-  if (!parseEmail(email).ok) return true;
-  const rows = await db.query(
-    "select 1 as hit from opt_outs where email_hash = $1 and (scope = 'all' or $2 = 'marketing') limit 1",
-    [emailHash(email, key), kind === "marketing" ? "marketing" : "transactional"],
+  const p = parseEmail(email);
+  if (!p.ok) return true;
+  const [row] = await db.query<{ hit: boolean }>(
+    `select ${optOutCovers("$1", "$2", "$3", "$4")} as hit`,
+    [emailHash(p.send, key), p.send, p.match, kind === "marketing" ? "marketing" : "transactional"],
   );
-  return rows.length > 0;
+  return row?.hit !== false;
 }
 
 /**
@@ -131,13 +149,15 @@ function checkDraft(input: DraftEmail): string | null {
 /**
  * Drafts one email, or finds the draft its send key already has. Takes a Db or a transaction handle, so a
  * handler can write its card and its drafts in one transaction. Refused while FOUNDATION_SECRET is unset,
- * because the opt-out list cannot be checked without it.
+ * because the opt-out list cannot be checked without it, and a marketing email is refused while the business
+ * has no postal address, because its footer must carry one.
  */
 export async function draftEmail(db: Queryable, input: DraftEmail, secret?: string | null): Promise<DraftResult> {
   const p = parseEmail(input.to);
   if (!p.ok) return { status: "invalid", error: p.error };
   const problem = checkDraft(input);
   if (problem) return { status: "invalid", error: problem };
+  if (input.kind === "marketing" && !(await readFooterFacts(db)).postalAddress) return { status: "invalid", error: NO_POSTAL_ADDRESS };
   let optedOut: boolean;
   try {
     optedOut = await isOptedOut(db, p.send, input.kind ?? "transactional", secret);
@@ -165,10 +185,10 @@ export type Claimed = { id: string; to_email: string; subject: string; body: str
 
 /**
  * Moves one approved, due row to sending in one statement, so two senders never take the same row.
- * Marketing rows are taken only by a caller that can add their unsubscribe link.
+ * Marketing rows are taken only by a caller that can add their unsubscribe link. A copied row is never taken.
  */
 export async function claimNext(db: Queryable, now: Date, opts: { marketing?: boolean } = {}): Promise<Claimed | null> {
-  const due = "status = 'approved' and (send_after is null or send_after <= $1) and (kind = 'transactional' or $2)";
+  const due = "status = 'approved' and copied_at is null and (send_after is null or send_after <= $1) and (kind = 'transactional' or $2)";
   const [row] = await db.query<Claimed>(
     `update outbox set status = 'sending', claimed_at = $1, attempts = attempts + 1, updated_at = $1
       where id = (select id from outbox where ${due} order by approved_at nulls last, created_at limit 1 for update skip locked)
@@ -221,26 +241,42 @@ export type HandSentResult = "sent" | "opted_out" | "automatic" | "not_waiting";
  * The owner sent an approved or failed email another way. It becomes sent, marked as sent by hand, and is
  * never retried. A row that is sending stays refused until it resolves. A row whose address opted out of its
  * kind is refused, checked again in the same statement that marks it. approved: false refuses an approved
- * row, for while the email connection sends approved rows on its own, so the two never both send it.
+ * row that was not copied, for while the email connection sends approved rows on its own, so the two never both send it.
  */
 export async function markSentByHand(db: Queryable, id: string, now: Date, opts: { secret?: string | null; approved?: boolean } = {}): Promise<HandSentResult> {
   if (!UUID.test(id)) return "not_waiting";
   const key = keyOf(opts.secret);
-  const [row] = await db.query<{ to_email: string; kind: OutboxKind; status: OutboxStatus }>(
-    "select to_email, kind, status from outbox where id = $1 and status in ('approved', 'failed')",
+  const [row] = await db.query<{ to_email: string; kind: OutboxKind; status: OutboxStatus; copied: boolean }>(
+    "select to_email, kind, status, copied_at is not null as copied from outbox where id = $1 and status in ('approved', 'failed')",
     [id],
   );
   if (!row) return "not_waiting";
-  if (row.status === "approved" && opts.approved === false) return "automatic";
+  // A copied row is never claimed by the sender, so the owner may mark it sent even while the connection is active.
+  if (row.status === "approved" && opts.approved === false && !row.copied) return "automatic";
   if (await isOptedOut(db, row.to_email, row.kind, key)) return "opted_out";
+  const p = parseEmail(row.to_email);
+  if (!p.ok) return "opted_out";
   const rows = await db.query(
     `update outbox set status = 'sent', sent_by_hand = true, sent_at = $2, updated_at = $2
-      where id = $1 and (status = 'failed' or (status = 'approved' and $3))
-        and not exists (select 1 from opt_outs where email_hash = $4 and (scope = 'all' or outbox.kind = 'marketing'))
+      where id = $1 and (status = 'failed' or (status = 'approved' and ($3 or copied_at is not null)))
+        and not ${optOutCovers("$4", "$5", "$6", "outbox.kind")}
       returning id`,
-    [id, now, opts.approved !== false, emailHash(row.to_email, key)],
+    [id, now, opts.approved !== false, emailHash(p.send, key), p.send, p.match],
   );
   return rows.length === 1 ? "sent" : "not_waiting";
+}
+
+/**
+ * The owner copied an approved or failed email to send it from their own mail. From then on no sender claims
+ * it: it waits for "I sent it" or a cancel. True when the copy was recorded.
+ */
+export async function markCopied(db: Queryable, id: string, now: Date): Promise<boolean> {
+  if (!UUID.test(id)) return false;
+  const rows = await db.query(
+    "update outbox set copied_at = coalesce(copied_at, $2), updated_at = $2 where id = $1 and status in ('approved', 'failed') returning id",
+    [id, now],
+  );
+  return rows.length === 1;
 }
 
 /** The owner stops one email: a draft, or an approved row no sender has claimed yet. Never one sending or sent. */
@@ -263,6 +299,15 @@ export function senderOptions(env: Record<string, string | undefined> = process.
   return { secret: readEnv(env).fixedSecret, baseUrl: publicBaseUrl(env) };
 }
 
+/**
+ * Sends approved, due rows, one at a time. The opt-out check is part of the claim itself: a row moves to
+ * sending only in the statement that finds no opt-out covering it, so nothing between the check and the claim
+ * can leave a row in sending. A row an opt-out covers is cancelled from approved. When the list cannot be read
+ * or that cancel fails, the row stays approved, unsent and never marked failed, and the pass stops, because the
+ * next row would meet the same trouble. The pause switch is read again before each row, so a pause set during a
+ * pass stops the rows still to go. After the provider call, a row that cannot be marked stays in sending for
+ * recoverStuck to ask the provider about, because putting it back could send it twice.
+ */
 export async function sendApproved(db: Db, send: Sender, now: Date, max = 20, opts: SendOptions = {}): Promise<{ sent: number; failed: number; refused: number }> {
   // Without the fixed secret the opt-out list cannot be read, so nothing is claimed at all.
   const key = keyOf(opts.secret);
@@ -270,27 +315,20 @@ export async function sendApproved(db: Db, send: Sender, now: Date, max = 20, op
   const facts = base ? await readFooterFacts(db) : null;
   const out = { sent: 0, failed: 0, refused: 0 };
   for (let i = 0; i < max; i++) {
-    const claimed = await claimNext(db, now, { marketing: base !== null });
-    if (!claimed) break;
-    const msg = composeEmail(claimed, { postalAddress: facts?.postalAddress ?? "", mailto: facts?.mailto ?? null, unsubscribeUrl: base ? unsubscribeUrl(base, claimed.id, key) : null });
-    let stopped: boolean;
+    if (await isPaused(db)) break;
+    let step: Awaited<ReturnType<typeof claimClear>>;
     try {
-      stopped = await isOptedOut(db, msg.to_email, msg.kind, key);
+      step = await claimClear(db, now, key, base !== null);
     } catch {
-      // Fail closed: a list that cannot be read never counts as not opted out. The row goes back to approved,
-      // unsent, for the next pass, and this pass stops, because the next row would meet the same list.
-      await db.query(
-        "update outbox set status = 'approved', claimed_at = null, attempts = greatest(attempts - 1, 0), updated_at = $2 where id = $1 and status = 'sending'",
-        [msg.id, now],
-      );
+      // Fail closed: nothing was claimed, so the row is still approved for the next pass.
       out.refused++;
       break;
     }
-    if (stopped) {
-      await db.query("update outbox set status = 'cancelled', last_error = 'opted_out', updated_at = $2 where id = $1 and status = 'sending'", [msg.id, now]);
-      out.refused++;
-      continue;
-    }
+    if (step === "none") break;
+    if (step === "refused") { out.refused++; continue; }
+    if (step === "busy") continue;
+    const claimed = step;
+    const msg = composeEmail(claimed, { postalAddress: facts?.postalAddress ?? "", mailto: facts?.mailto ?? null, unsubscribeUrl: base ? unsubscribeUrl(base, claimed.id, key) : null });
     let providerRef: string;
     try {
       providerRef = (await send(msg)).providerRef;
@@ -313,6 +351,42 @@ export async function sendApproved(db: Db, send: Sender, now: Date, max = 20, op
     out.sent += late.length;
   }
   return out;
+}
+
+/**
+ * One step of a pass: the next approved, due row moved to sending only when no opt-out covers it ("claimed"),
+ * cancelled from approved when one does ("refused"), "busy" when another sender or the owner moved it first,
+ * or "none" when nothing is due. Throws when the database cannot answer, with the row still approved.
+ */
+async function claimClear(db: Queryable, now: Date, key: string, marketing: boolean): Promise<Claimed | "refused" | "busy" | "none"> {
+  const due = "status = 'approved' and copied_at is null and (send_after is null or send_after <= $1) and (kind = 'transactional' or $2)";
+  const [next] = await db.query<{ id: string; to_email: string }>(
+    `select id, to_email from outbox where ${due} order by approved_at nulls last, created_at limit 1`,
+    [now, marketing],
+  );
+  if (!next) return "none";
+  const p = parseEmail(next.to_email);
+  if (!p.ok) {
+    // An address the one strict reading refuses is never sent to.
+    const r = await db.query("update outbox set status = 'cancelled', last_error = 'opted_out', updated_at = $2 where id = $1 and status = 'approved' returning id", [next.id, now]);
+    return r.length ? "refused" : "busy";
+  }
+  const params = [now, marketing, next.id, emailHash(p.send, key), p.send, p.match];
+  const covered = optOutCovers("$4", "$5", "$6", "outbox.kind");
+  const [row] = await db.query<Claimed>(
+    `update outbox set status = 'sending', claimed_at = $1, attempts = attempts + 1, updated_at = $1
+      where id = (select id from outbox where id = $3 and ${due} for update skip locked)
+        and ${due} and not ${covered}
+      returning id, to_email, subject, body, send_key, attempts, kind`,
+    params,
+  );
+  if (row) return row;
+  const cancelled = await db.query(
+    `update outbox set status = 'cancelled', last_error = 'opted_out', updated_at = $1
+      where id = $3 and ${due} and ${covered} returning id`,
+    params,
+  );
+  return cancelled.length ? "refused" : "busy";
 }
 
 /** What the provider says about a send it may or may not have taken: confirmed sent, or unknown. */

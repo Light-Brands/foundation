@@ -8,7 +8,7 @@ import { decideCard, markCardDone, type DecideResult, type DoneResult } from "@/
 import { routeCard } from "@/lib/data/cards";
 import { SLUG } from "@/lib/key/frontmatter";
 import { PREVIEW_MESSAGE } from "@/lib/data/profile";
-import { cancelEmail, markSentByHand, type HandSentResult } from "@/lib/data/outbox";
+import { cancelEmail, markCopied, markSentByHand, type HandSentResult } from "@/lib/data/outbox";
 import { emailSendingActive } from "@/lib/data/connections";
 import { MissingSecretError } from "@/lib/email";
 
@@ -105,6 +105,26 @@ export async function markSentByHandAction(_prev: CardActionResult | null, form:
   } catch (err) {
     if (err instanceof MissingSecretError) return { ok: false, message: err.message };
     console.error("markSentByHandAction failed", err);
+    return { ok: false, message: FAILED };
+  }
+}
+
+/**
+ * The owner pressed Copy email. Recorded before the text reaches the clipboard, so from then on no sender
+ * claims the email: it waits for "I sent it" or a cancel, even if the email connection turns active later. Owner only.
+ */
+export async function markCopiedAction(id: string): Promise<CardActionResult> {
+  const actor = (await hasSession()) ? PIN_OWNER : null;
+  if (!actor || !allows(actor, "owner")) return { ok: false, message: SESSION_ENDED_MESSAGE };
+  if (typeof id !== "string" || !UUID.test(id)) return { ok: false, message: EMAIL_UNREADABLE };
+  try {
+    const db = await getDb();
+    if (!db) return { ok: false, message: PREVIEW_MESSAGE };
+    const ok = await markCopied(db, id, new Date());
+    revalidatePath("/command/inbox");
+    return ok ? { ok: true, message: "Copied. Send it from your email, then mark it sent." } : { ok: false, message: HAND_SENT.not_waiting };
+  } catch (err) {
+    console.error("markCopiedAction failed", err);
     return { ok: false, message: FAILED };
   }
 }

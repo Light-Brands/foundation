@@ -190,11 +190,12 @@ describe("the decision and its drafted email", () => {
   });
   it("shows every draft on its card, oldest first", async () => {
     const { db, id } = await cardWithDraft();
+    await db.query("insert into business_profile (id, business, postal_address) values (1, 'Harbor Studio', '12 Harbor Way, Portland, OR 97201') on conflict (id) do update set postal_address = excluded.postal_address");
     await draftEmail(db, { to: "ada@example.com", subject: "A reminder", body: "See you soon.", sendKey: `leads/${id}/remind`, cardId: id, kind: "marketing", sendAfter: new Date("2026-10-06T16:00:00Z") });
     const [item] = (await listInbox(db)).filter((i) => i.id === id);
     expect(item.emails).toEqual([
-      { id: expect.any(String), to: "ada@example.com", subject: "Re: your question", body: "Yes, we work weekends.", status: "draft", kind: "transactional", send_after: null, note: "" },
-      { id: expect.any(String), to: "ada@example.com", subject: "A reminder", body: "See you soon.", status: "draft", kind: "marketing", send_after: expect.stringMatching(/^2026-10-06/), note: "" },
+      { id: expect.any(String), to: "ada@example.com", subject: "Re: your question", body: "Yes, we work weekends.", status: "draft", kind: "transactional", send_after: null, note: "", copied: false },
+      { id: expect.any(String), to: "ada@example.com", subject: "A reminder", body: "See you soon.", status: "draft", kind: "marketing", send_after: expect.stringMatching(/^2026-10-06/), note: "", copied: false },
     ]);
     const other = await setup();
     const plain = await other.card("lead-new");

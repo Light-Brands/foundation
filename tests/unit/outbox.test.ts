@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { coreDb } from "../support/db";
 import {
-  cancelEmail, claimNext, draftEmail, isOptedOut, markSent, markSentByHand, optOut, recoverStuck, sendApproved, STUCK_AFTER_MS, type Sender,
+  cancelEmail, claimNext, draftEmail, isOptedOut, markCopied, markSent, markSentByHand, optOut, recoverStuck, sendApproved, STUCK_AFTER_MS, type Sender,
 } from "@/lib/data/outbox";
+import { setPause } from "@/lib/data/pause";
 import type { Db } from "@/lib/db/types";
 import { emailHash } from "@/lib/email";
 
@@ -13,7 +14,10 @@ const MAIL = { to: "jo@harbor.example", subject: "Your booking", body: "See you 
 const approve = (db: Db, id: string) => db.query("update outbox set status = 'approved', approved_at = $2 where id = $1", [id, T0]);
 const sender = (): Sender & { mock: { calls: unknown[][] } } => vi.fn(async () => ({ providerRef: "msg_1" })) as never;
 
+// Marketing email needs the business's postal address before it can be drafted.
+const POSTAL = "insert into business_profile (id, business, postal_address) values (1, 'Harbor Studio', '12 Harbor Way, Portland, OR 97201') on conflict (id) do update set postal_address = excluded.postal_address";
 async function approved(db: Db, extra: Partial<Parameters<typeof draftEmail>[1]> = {}): Promise<string> {
+  if (extra.kind === "marketing") await db.query(POSTAL);
   const d = await draftEmail(db, { ...MAIL, ...extra });
   if (d.status !== "drafted") throw new Error("not drafted");
   await approve(db, d.id);
@@ -187,6 +191,7 @@ describe("opt-out scope", () => {
     await optOut(db, { email: "Jo+Promos@Harbor.Example", source: "link", scope: "marketing" }, T0);
     expect(await isOptedOut(db, " JO@harbor.example", "marketing")).toBe(true);
     expect(await isOptedOut(db, " JO@harbor.example", "transactional")).toBe(false);
+    await db.query(POSTAL);
     expect((await draftEmail(db, { ...MAIL, sendKey: "promo/2", kind: "marketing" })).status).toBe("opted_out");
     expect((await draftEmail(db, { ...MAIL, sendKey: "bookings/b2/confirm" })).status).toBe("drafted");
     const send = sender();
@@ -237,7 +242,8 @@ describe("opt-out scope", () => {
     const B = "secret-b-".padEnd(40, "b");
     const db = await coreDb();
     await optOut(db, { email: "Jo@Harbor.example", source: "link", scope: "marketing" }, T0, A);
-    expect(await isOptedOut(db, "jo@harbor.example", "marketing", B)).toBe(false);
+    // The address itself is kept, so the opt-out already refuses under B before it is recorded again.
+    expect(await isOptedOut(db, "jo@harbor.example", "marketing", B)).toBe(true);
     await optOut(db, { email: "jo@harbor.example", source: "owner", scope: "marketing" }, T0, B);
     expect(await db.query("select email_hash, scope from opt_outs")).toEqual([{ email_hash: emailHash("jo@harbor.example", B), scope: "marketing" }]);
     expect(await isOptedOut(db, "jo@harbor.example", "marketing", B)).toBe(true);
@@ -435,6 +441,119 @@ describe("recovering a stuck send", () => {
     await stuck(db, "k-err");
     const r = await recoverStuck(db, async () => { throw new Error("timeout"); }, later(STUCK_AFTER_MS + 1000));
     expect(r).toEqual({ sent: 0, failed: 1 });
+    await db.close();
+  });
+});
+
+describe("an opt-out kept under an earlier secret", () => {
+  const A = "secret-a-".padEnd(40, "a");
+  const B = "secret-b-".padEnd(40, "b");
+  it("is still refused under a new secret, by the address it keeps, in every check", async () => {
+    const db = await coreDb();
+    vi.stubEnv("FOUNDATION_SECRET", A);
+    const booking = await approved(db);
+    const byHand = await approved(db, { sendKey: "bookings/b9/confirm" });
+    await optOut(db, { email: "Jo+Promos@Harbor.Example", source: "owner", scope: "all" }, T0, A);
+    vi.stubEnv("FOUNDATION_SECRET", B);
+    expect(await isOptedOut(db, "jo@harbor.example", "transactional", B)).toBe(true);
+    expect(await isOptedOut(db, "JO+other@harbor.example", "marketing", B)).toBe(true);
+    expect(await draftEmail(db, { ...MAIL, sendKey: "bookings/b2/confirm" }, B)).toEqual({ status: "opted_out" });
+    expect(await markSentByHand(db, byHand, T0, { secret: B })).toBe("opted_out");
+    const send = sender();
+    expect(await sendApproved(db, send, T0, 20, { secret: B })).toEqual({ sent: 0, failed: 0, refused: 2 });
+    expect(send).not.toHaveBeenCalled();
+    expect(await statusOf(db, booking)).toBe("cancelled");
+    await db.close();
+  });
+});
+
+describe("a marketing email needs the postal address", () => {
+  it("is refused while the business has no postal address, and drafts once it has one", async () => {
+    const db = await coreDb();
+    expect(await draftEmail(db, { ...MAIL, kind: "marketing" })).toEqual({ status: "invalid", error: "Add your postal address in Settings first." });
+    await db.query("insert into business_profile (id, business, postal_address) values (1, 'Harbor Studio', '  ') on conflict (id) do update set postal_address = excluded.postal_address");
+    expect((await draftEmail(db, { ...MAIL, kind: "marketing" })).status).toBe("invalid");
+    expect((await draftEmail(db, MAIL)).status).toBe("drafted");
+    await db.query(POSTAL);
+    expect((await draftEmail(db, { ...MAIL, sendKey: "promo/1", kind: "marketing" })).status).toBe("drafted");
+    await db.close();
+  });
+});
+
+describe("a copied email", () => {
+  it("is never sent by the automatic sender, and waits for I sent it or a cancel", async () => {
+    const db = await coreDb();
+    const id = await approved(db);
+    expect(await markCopied(db, id, T0)).toBe(true);
+    const send = sender();
+    expect(await sendApproved(db, send, later(1000))).toEqual({ sent: 0, failed: 0, refused: 0 });
+    expect(await claimNext(db, later(1000))).toBeNull();
+    expect(send).not.toHaveBeenCalled();
+    expect(await statusOf(db, id)).toBe("approved");
+    // While the connection sends on its own, an approved row is refused by hand, except one already copied.
+    expect(await markSentByHand(db, id, later(2000), { approved: false })).toBe("sent");
+    const other = await approved(db, { sendKey: "k-copied-cancel" });
+    await markCopied(db, other, T0);
+    expect(await cancelEmail(db, other, T0)).toBe(true);
+    await db.close();
+  });
+  it("records a copy only for an approved or failed email", async () => {
+    const db = await coreDb();
+    const d = await draftEmail(db, MAIL);
+    if (d.status !== "drafted") throw new Error("not drafted");
+    expect(await markCopied(db, d.id, T0)).toBe(false);
+    expect(await markCopied(db, "not-a-uuid", T0)).toBe(false);
+    expect(await db.query("select copied_at from outbox")).toEqual([{ copied_at: null }]);
+    await db.close();
+  });
+});
+
+describe("a row is never left in sending by the opt-out step", () => {
+  const failing = (db: Db, pattern: RegExp): Db => ({
+    ...db,
+    query: (async (sql: string, params?: unknown[]) => {
+      if (pattern.test(sql)) throw new Error("connection reset");
+      return db.query(sql, params);
+    }) as Db["query"],
+    transaction: db.transaction.bind(db),
+    exec: db.exec.bind(db),
+    close: db.close.bind(db),
+  });
+  it("leaves an opted-out row approved when marking it cancelled fails", async () => {
+    const db = await coreDb();
+    const id = await approved(db);
+    await optOut(db, { email: MAIL.to, source: "owner", scope: "all" }, T0);
+    const send = sender();
+    expect(await sendApproved(failing(db, /status = 'cancelled'/), send, T0)).toEqual({ sent: 0, failed: 0, refused: 1 });
+    expect(send).not.toHaveBeenCalled();
+    expect(await db.query("select status, claimed_at, attempts from outbox where id = $1", [id])).toEqual([{ status: "approved", claimed_at: null, attempts: 0 }]);
+    expect(await sendApproved(db, send, later(1000))).toEqual({ sent: 0, failed: 0, refused: 1 });
+    expect(await statusOf(db, id)).toBe("cancelled");
+    await db.close();
+  });
+  it("leaves the row approved when the list cannot be read and no row can be put back", async () => {
+    const db = await coreDb();
+    const id = await approved(db);
+    const send = sender();
+    expect(await sendApproved(failing(db, /opt_outs|status = 'approved', claimed_at = null/), send, T0)).toEqual({ sent: 0, failed: 0, refused: 1 });
+    expect(send).not.toHaveBeenCalled();
+    expect(await statusOf(db, id)).toBe("approved");
+    await db.close();
+  });
+});
+
+describe("the pause switch during a pass", () => {
+  it("stops the rows still to go once a pause is set mid pass", async () => {
+    const db = await coreDb();
+    await approved(db);
+    await approved(db, { sendKey: "k-second" });
+    const send = vi.fn(async () => {
+      await setPause(db, { paused: true, reason: "", by: "owner" }, T0);
+      return { providerRef: "msg_1" };
+    });
+    expect(await sendApproved(db, send, T0)).toEqual({ sent: 1, failed: 0, refused: 0 });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect((await db.query<{ status: string }>("select status from outbox order by created_at")).map((r) => r.status)).toEqual(["sent", "approved"]);
     await db.close();
   });
 });

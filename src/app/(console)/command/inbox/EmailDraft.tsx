@@ -1,7 +1,7 @@
 "use client";
 import { useActionState } from "react";
 import { CopyButton } from "@/components/CopyButton";
-import { cancelEmailAction, markSentByHandAction, type CardActionResult } from "./actions";
+import { cancelEmailAction, markCopiedAction, markSentByHandAction, type CardActionResult } from "./actions";
 import type { CardEmail } from "@/lib/data/inbox";
 import type { OutboxStatus } from "@/lib/data/outbox";
 import type { HandSend } from "@/lib/data/hand-send";
@@ -33,11 +33,12 @@ export function EmailDraft({ email, sendAfter, handSend }: { email: CardEmail; s
       <p className="mt-1 text-sm text-zinc-100">{email.subject}</p>
       <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-300">{email.body}</p>
       <p className="mt-2 text-xs text-mist">{email.status === "approved" && copyText === null ? "Approved." : STATUS[email.status]}{email.note ? ` ${email.note}` : ""}</p>
+      {email.status === "approved" && email.copied && <p className="mt-1 text-xs text-mist">Copied. It waits for you to mark it sent, and is never sent on its own.</p>}
       {sendAfter && (email.status === "draft" || email.status === "approved") && <p className="mt-1 text-xs text-mist">Goes out after {sendAfter}.</p>}
       {note && <p className="mt-1 text-xs text-mist">{note}</p>}
       {(canSendByHand || canStop) && (
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          {canSendByHand && <CopyButton text={copyText} label="Copy email" />}
+          {canSendByHand && <CopyButton text={copyText} label="Copy email" before={email.status === "approved" ? () => markCopiedAction(email.id) : undefined} />}
           {canSendByHand && (
             <form action={mark}>
               <input type="hidden" name="id" value={email.id} />

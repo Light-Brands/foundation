@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { coreDb } from "../support/db";
-import { claimNext, draftEmail, markFailed, markSentByHand, optOut } from "@/lib/data/outbox";
+import { claimNext, draftEmail, markCopied, markFailed, markSentByHand, optOut } from "@/lib/data/outbox";
 import { emailSendingActive, upsertConnection } from "@/lib/data/connections";
 import { handSendFor, handSendContext, type HandSendContext } from "@/lib/data/hand-send";
 import { HAND_SEND_NOTES, handSendNote } from "@/lib/hand-send-notes";
@@ -17,10 +17,11 @@ beforeEach(() => { vi.stubEnv("FOUNDATION_SECRET", SECRET); });
 afterEach(() => { vi.unstubAllEnvs(); });
 
 async function row(db: Db, id: string): Promise<CardEmail> {
-  const [r] = await db.query<CardEmail>("select id, to_email as to, subject, body, status, kind, send_after::text as send_after, last_error as note from outbox where id = $1", [id]);
+  const [r] = await db.query<CardEmail>("select id, to_email as to, subject, body, status, kind, send_after::text as send_after, last_error as note, copied_at is not null as copied from outbox where id = $1", [id]);
   return r;
 }
 async function approved(db: Db, extra: Partial<Parameters<typeof draftEmail>[1]> = {}): Promise<string> {
+  if (extra.kind === "marketing") await db.query("insert into business_profile (id, business, postal_address) values (1, 'Harbor Studio', '12 Harbor Way, Portland, OR 97201') on conflict (id) do update set postal_address = excluded.postal_address");
   const d = await draftEmail(db, { ...MAIL, ...extra });
   if (d.status !== "drafted") throw new Error("not drafted");
   await db.query("update outbox set status = 'approved', approved_at = $2 where id = $1", [d.id, T0]);
@@ -142,5 +143,37 @@ describe("handSendContext and a short FOUNDATION_SECRET", () => {
   it("reads a FOUNDATION_SECRET under 32 characters as no secret", async () => {
     vi.stubEnv("FOUNDATION_SECRET", "s".repeat(31));
     expect((await handSendContext(null)).secret).toBeNull();
+  });
+});
+
+describe("core cleanup: the card note and a copied email", () => {
+  it("names the missing database as the reason, never FOUNDATION_SECRET", async () => {
+    const db = await coreDb();
+    const id = await approved(db);
+    const email = await row(db, id);
+    expect(await handSendFor(null, email, CTX)).toEqual({ copyText: null, reason: "no_database" });
+    expect(await handSendFor(null, email, { ...CTX, secret: null })).toEqual({ copyText: null, reason: "no_database" });
+    expect(handSendNote("no_database")).toMatch(/database/);
+    expect(handSendNote("no_database")).not.toMatch(/FOUNDATION_SECRET/);
+    await db.close();
+  });
+  it("an opt-out lookup error stays on its own row with a plain note", async () => {
+    const db = await coreDb();
+    const id = await approved(db);
+    const down: Db = { ...db, query: (async (sql: string, params?: unknown[]) => { if (/opt_outs/.test(sql)) throw new Error("connection reset"); return db.query(sql, params); }) as Db["query"], transaction: db.transaction.bind(db), exec: db.exec.bind(db), close: db.close.bind(db) };
+    expect(await handSendFor(down, await row(db, id), CTX)).toEqual({ copyText: null, reason: "unchecked" });
+    expect(handSendNote("unchecked")).toMatch(/could not check/);
+    expect((await handSendFor(db, await row(db, id), CTX)).copyText).not.toBeNull();
+    await db.close();
+  });
+  it("a copied approved row keeps Copy email and I sent it while the connection is active", async () => {
+    const db = await coreDb();
+    const id = await approved(db);
+    await markCopied(db, id, T0);
+    const ctx = { ...CTX, senderActive: true };
+    const got = await handSendFor(db, await row(db, id), ctx);
+    expect(got.reason).toBeNull();
+    expect(got.copyText).not.toBeNull();
+    await db.close();
   });
 });

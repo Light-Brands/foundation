@@ -17,6 +17,8 @@ beforeEach(() => { vi.stubEnv("FOUNDATION_SECRET", SECRET); });
 afterEach(() => { vi.unstubAllEnvs(); });
 
 async function approvedPromo(db: Db, extra: Partial<typeof PROMO> = {}): Promise<string> {
+  // A marketing email is drafted only once the business has a postal address.
+  await db.query("insert into business_profile (id, business, postal_address) values (1, 'Harbor Studio', '12 Harbor Way, Portland, OR 97201') on conflict (id) do update set postal_address = excluded.postal_address");
   const d = await draftEmail(db, { ...PROMO, ...extra });
   if (d.status !== "drafted") throw new Error("not drafted");
   await db.query("update outbox set status = 'approved', approved_at = $2 where id = $1", [d.id, T0]);

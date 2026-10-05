@@ -45,7 +45,8 @@ export type InboxItem = {
   emails: CardEmail[];
 };
 
-export type CardEmail = { id: string; to: string; subject: string; body: string; status: OutboxStatus; kind: OutboxKind; send_after: string | null; note: string };
+/** copied: the owner copied it to send by hand, so no sender claims it. */
+export type CardEmail = { id: string; to: string; subject: string; body: string; status: OutboxStatus; kind: OutboxKind; send_after: string | null; note: string; copied: boolean };
 
 export async function listInbox(db: Db | null, limit = 50, opts: { status?: CardStatus } = {}): Promise<InboxItem[]> {
   if (!db) return [];
@@ -55,6 +56,7 @@ export async function listInbox(db: Db | null, limit = 50, opts: { status?: Card
             c.name as contact_name, c.email as contact_email,
             coalesce((select json_agg(json_build_object('id', o.id, 'to', o.to_email, 'subject', o.subject, 'body', o.body,
                                                         'status', o.status, 'kind', o.kind, 'send_after', o.send_after::text,
+                                                        'copied', o.copied_at is not null,
                                                         'note', case when o.status = 'failed' then o.last_error else '' end)
                                       order by o.created_at, o.id)
                         from outbox o where o.card_id = i.id), '[]'::json) as emails

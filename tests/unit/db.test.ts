@@ -19,7 +19,7 @@ describe("selectDriver", () => {
 describe("migrate", () => {
   it("applies every migration once and records it", async () => {
     const db = await openPglite();
-    expect(await migrate(db, MIGRATIONS, "core")).toEqual(["core/0001_core.sql"]);
+    expect(await migrate(db, MIGRATIONS, "core")).toEqual(["core/0001_core.sql", "core/0002_core_profile_shape.sql"]);
     expect(await migrate(db, MIGRATIONS, "core")).toEqual([]);
     const tables = await db.query<{ table_name: string }>(
       "select table_name from information_schema.tables where table_schema = 'public' order by table_name",
@@ -76,5 +76,28 @@ describe("migrateAll", () => {
     expect(await migrateAll(db, root)).toEqual([]);
     await db.close();
     fs.rmSync(root, { recursive: true, force: true });
+  });
+});
+
+describe("profile shape migration", () => {
+  it("renames the old columns and adds the context-block ones", async () => {
+    const db = await openPglite();
+    await migrateAll(db, path.join(__dirname, "../.."));
+    await expect(db.query("insert into business_profile (business_name) values ('x')")).rejects.toThrow();
+    await db.query("select business, what_we_do, city, owner_name from business_profile");
+    await db.close();
+  });
+
+  it("carries a Phase 0 row forward", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mig-"));
+    fs.copyFileSync(path.join(MIGRATIONS, "0001_core.sql"), path.join(dir, "0001_core.sql"));
+    const db = await openPglite();
+    await migrate(db, dir, "core");
+    await db.query("insert into business_profile (business_name, tagline) values ('Harbor', 'Calm')");
+    await migrate(db, MIGRATIONS, "core");
+    const [row] = await db.query<{ business: string; what_we_do: string }>("select business, what_we_do from business_profile");
+    expect(row).toEqual({ business: "Harbor", what_we_do: "Calm" });
+    await db.close();
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 });

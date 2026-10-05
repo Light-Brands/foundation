@@ -18,8 +18,8 @@ export default async function Home() {
     <div className="space-y-10">
       <section>
         <p className="kicker">Home</p>
-        <h1 className="mt-1 text-4xl text-zinc-50">{profile.business_name}</h1>
-        <p className="mt-2 text-mist">{profile.tagline || "Your command center is live. Here is where your business stands."}</p>
+        <h1 className="mt-1 text-4xl text-zinc-50">{profile.business}</h1>
+        <p className="mt-2 text-mist">{profile.what_we_do || "Your command center is live. Here is where your business stands."}</p>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">

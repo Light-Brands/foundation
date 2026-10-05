@@ -29,7 +29,7 @@ async function open(): Promise<Db | null> {
   try {
     await migrateAll(db, process.cwd());
     const [{ n }] = await db.query<{ n: number }>("select count(*)::int as n from business_profile");
-    if (n === 0) await db.query("insert into business_profile (business_name) values ($1)", [env.businessName]);
+    if (n === 0) await db.query("insert into business_profile (business) values ($1)", [env.businessName]);
     return db;
   } catch (err) {
     await db.close().catch(() => {});

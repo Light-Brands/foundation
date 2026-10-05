@@ -1,21 +1,23 @@
 import type { Db } from "@/lib/db/types";
-import type { Profile } from "@/lib/validate";
+import { PROFILE_FIELDS, type Profile } from "@/lib/validate";
 
 export const PREVIEW_MESSAGE =
   "Your live site is not saving yet. Run your command center on your own computer to save now, or connect Supabase from Setup when it arrives.";
 
 export async function getProfile(db: Db | null, fallbackName: string): Promise<Profile> {
-  const empty: Profile = { business_name: fallbackName, tagline: "", email: "", phone: "", website: "" };
+  const empty = Object.fromEntries(PROFILE_FIELDS.map((k) => [k, k === "business" ? fallbackName : ""])) as Profile;
   if (!db) return empty;
-  const [row] = await db.query<Profile>("select business_name, tagline, email, phone, website from business_profile where id = 1");
+  const [row] = await db.query<Profile>(`select ${PROFILE_FIELDS.join(", ")} from business_profile where id = 1`);
   return row ?? empty;
 }
 
 export async function saveProfile(db: Db, p: Profile): Promise<void> {
+  const cols = PROFILE_FIELDS.join(", ");
+  const params = PROFILE_FIELDS.map((_, i) => `$${i + 1}`).join(", ");
+  const sets = PROFILE_FIELDS.map((k, i) => `${k} = $${i + 1}`).join(", ");
   await db.query(
-    `insert into business_profile (id, business_name, tagline, email, phone, website, updated_at)
-     values (1, $1, $2, $3, $4, $5, now())
-     on conflict (id) do update set business_name = $1, tagline = $2, email = $3, phone = $4, website = $5, updated_at = now()`,
-    [p.business_name, p.tagline, p.email, p.phone, p.website],
+    `insert into business_profile (id, ${cols}, updated_at) values (1, ${params}, now())
+     on conflict (id) do update set ${sets}, updated_at = now()`,
+    PROFILE_FIELDS.map((k) => p[k]),
   );
 }

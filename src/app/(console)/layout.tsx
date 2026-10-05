@@ -13,7 +13,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
   const profile = await getProfile(db, readEnv().businessName);
   const nav = buildNav({ "command.inbox": await countNewInbox(db) });
   return (
-    <Shell businessName={profile.business_name} nav={nav} banner={storageMode() === "preview" ? <PreviewBanner /> : undefined}>
+    <Shell businessName={profile.business} nav={nav} banner={storageMode() === "preview" ? <PreviewBanner /> : undefined}>
       {children}
     </Shell>
   );

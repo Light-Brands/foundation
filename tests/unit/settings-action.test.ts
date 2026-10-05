@@ -18,10 +18,10 @@ function form(values: Record<string, string>) {
 describe("saveProfileAction session check", () => {
   beforeEach(() => getDb.mockReset());
   it("refuses without a session, writes nothing, and keeps what was typed", async () => {
-    const result = await saveProfileAction(null, form({ business_name: "  Harbor  ", tagline: "Calm work" }));
+    const result = await saveProfileAction(null, form({ business: "  Harbor  ", what_we_do: "Calm work" }));
     expect(result.ok).toBe(false);
     expect(result.message).toContain("Your session ended");
-    expect(result.values?.business_name).toBe("Harbor");
+    expect(result.values?.business).toBe("Harbor");
     expect(getDb).not.toHaveBeenCalled();
   });
 });

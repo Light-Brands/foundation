@@ -1,0 +1,10 @@
+alter table business_profile rename column business_name to business;
+alter table business_profile rename column tagline to what_we_do;
+alter table business_profile add column if not exists short_name text not null default '';
+alter table business_profile add column if not exists who_we_serve text not null default '';
+alter table business_profile add column if not exists how_we_sound text not null default '';
+alter table business_profile add column if not exists city text not null default '';
+alter table business_profile add column if not exists timezone text not null default '';
+alter table business_profile add column if not exists owner_name text not null default '';
+alter table business_profile add column if not exists owner_first text not null default '';
+alter table business_profile add column if not exists owner_role text not null default '';

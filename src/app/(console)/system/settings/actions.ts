@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
 import { saveProfile, PREVIEW_MESSAGE } from "@/lib/data/profile";
-import { validateProfile, type Profile } from "@/lib/validate";
+import { validateProfile, PROFILE_FIELDS, type Profile } from "@/lib/validate";
 import { hasSession } from "@/lib/auth/session";
 
 export type ActionResult = { ok: boolean; message: string; errors?: Record<string, string>; values?: Profile };
@@ -10,7 +10,7 @@ export type ActionResult = { ok: boolean; message: string; errors?: Record<strin
 function submittedValues(form: FormData): Profile {
   const raw = Object.fromEntries(form);
   const str = (k: keyof Profile) => (typeof raw[k] === "string" ? (raw[k] as string).trim() : "");
-  return { business_name: str("business_name"), tagline: str("tagline"), email: str("email"), phone: str("phone"), website: str("website") };
+  return Object.fromEntries(PROFILE_FIELDS.map((k) => [k, str(k)])) as Profile;
 }
 
 export async function saveProfileAction(_prev: ActionResult | null, form: FormData): Promise<ActionResult> {

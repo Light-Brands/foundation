@@ -141,7 +141,7 @@ describe("the words a refusal gets", () => {
 });
 
 describe("the decision and its drafted email", () => {
-  beforeEach(() => { vi.stubEnv("FOUNDATION_SECRET", "decision-test-secret"); });
+  beforeEach(() => { vi.stubEnv("FOUNDATION_SECRET", "decision-test-secret-of-at-least-32-chars"); });
   afterEach(() => { vi.unstubAllEnvs(); });
   async function cardWithDraft() {
     const s = await setup();

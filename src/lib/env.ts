@@ -5,7 +5,10 @@ export type FoundationEnv = {
   pin: string | null;
   pinProblem: "missing" | "invalid" | null;
   secret: string;
-  /** FOUNDATION_SECRET alone, never the build secret, or null. Keys the opt-out list, so it is fixed for the life of the Foundation. */
+  /**
+   * FOUNDATION_SECRET alone, never the build secret, or null. At least 32 characters, else null, the same way
+   * cronSecret is read. Keys the opt-out list, so it is fixed for the life of the Foundation.
+   */
   fixedSecret: string | null;
   onVercel: boolean;
   businessName: string;
@@ -15,16 +18,18 @@ export type FoundationEnv = {
 };
 
 const PIN_FORMAT = /^\d{6,12}$/;
+export const FIXED_SECRET_MIN = 32;
 
 export function readEnv(e: Record<string, string | undefined> = process.env, buildSecret: string = BUILD_SECRET): FoundationEnv {
   const raw = e.FOUNDATION_PIN?.trim() ?? "";
   const cron = e.CRON_SECRET?.trim() ?? "";
+  const fixed = e.FOUNDATION_SECRET?.trim() ?? "";
   const pinProblem = raw === "" ? "missing" : PIN_FORMAT.test(raw) ? null : "invalid";
   return {
     pin: pinProblem ? null : raw,
     pinProblem,
     secret: e.FOUNDATION_SECRET?.trim() || buildSecret,
-    fixedSecret: e.FOUNDATION_SECRET?.trim() || null,
+    fixedSecret: fixed.length >= FIXED_SECRET_MIN ? fixed : null,
     onVercel: e.VERCEL === "1",
     businessName: e.FOUNDATION_BUSINESS_NAME?.trim() || "Your business",
     dataDir: e.FOUNDATION_DATA_DIR?.trim() || ".data/pglite",

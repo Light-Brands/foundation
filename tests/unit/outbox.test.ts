@@ -18,7 +18,7 @@ async function approved(db: Db, extra: Partial<Parameters<typeof draftEmail>[1]>
   await approve(db, d.id);
   return d.id;
 }
-beforeEach(() => { vi.stubEnv("FOUNDATION_SECRET", "outbox-test-secret"); });
+beforeEach(() => { vi.stubEnv("FOUNDATION_SECRET", "outbox-test-secret-of-at-least-32-chars"); });
 afterEach(() => { vi.unstubAllEnvs(); });
 
 const statusOf = async (db: Db, id: string) => (await db.query<{ status: string }>("select status from outbox where id = $1", [id]))[0].status;

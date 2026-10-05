@@ -266,7 +266,7 @@ describe("runChecks", () => {
 
 describe("lapses and drafted email", () => {
   it("a lapsed card that closes cancels its unsent draft", async () => {
-    vi.stubEnv("FOUNDATION_SECRET", "lapse-test-secret");
+    vi.stubEnv("FOUNDATION_SECRET", "lapse-test-secret-of-at-least-32-chars");
     const deps = await setup([]);
     const card = await writeCard(deps.db, deps.kinds, { kind: "lead-reply", title: "Reply ready" }, MON);
     if (card.status !== "written") throw new Error("not written");

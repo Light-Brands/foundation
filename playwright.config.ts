@@ -12,7 +12,7 @@ export default defineConfig({
     gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },
     env: {
       FOUNDATION_PIN: "246810",
-      FOUNDATION_SECRET: "e2e-only-secret",
+      FOUNDATION_SECRET: "e2e-only-secret-of-at-least-32-characters",
       FOUNDATION_BUSINESS_NAME: "Harbor Studio",
       FOUNDATION_DATA_DIR: ".data/e2e",
       FOUNDATION_KEY_ROOT: ".data/e2e-key",

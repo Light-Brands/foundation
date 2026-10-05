@@ -25,9 +25,15 @@ describe("readEnv", () => {
     expect(readEnv({ VERCEL_PROJECT_PRODUCTION_URL: "a.vercel.app" }, "buildsecret").secret).toBe("buildsecret");
   });
   it("keeps the fixed secret for opt-outs only from FOUNDATION_SECRET, never the build secret", () => {
-    expect(readEnv({ FOUNDATION_SECRET: " fixed " }, "buildsecret").fixedSecret).toBe("fixed");
+    const fixed = "f".repeat(32);
+    expect(readEnv({ FOUNDATION_SECRET: ` ${fixed} ` }, "buildsecret").fixedSecret).toBe(fixed);
     expect(readEnv({ FOUNDATION_SECRET: "" }, "buildsecret").fixedSecret).toBeNull();
     expect(readEnv({}, "buildsecret").fixedSecret).toBeNull();
+  });
+  it("treats a FOUNDATION_SECRET shorter than 32 characters as unset for opt-outs", () => {
+    expect(readEnv({ FOUNDATION_SECRET: "f".repeat(31) }, "buildsecret").fixedSecret).toBeNull();
+    expect(readEnv({ FOUNDATION_SECRET: ` ${"f".repeat(31)} ` }, "buildsecret").fixedSecret).toBeNull();
+    expect(readEnv({ FOUNDATION_SECRET: "f".repeat(32) }, "buildsecret").fixedSecret).toBe("f".repeat(32));
   });
   it("falls through to build secret if FOUNDATION_SECRET is empty", () => {
     expect(readEnv({ FOUNDATION_SECRET: "" }, "buildsecret").secret).toBe("buildsecret");

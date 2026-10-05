@@ -5,7 +5,7 @@ import { handleUnsubscribe, publicBaseUrl, readUnsubscribeToken, unsubscribeToke
 import { isPublicPath } from "@/lib/auth/gate";
 import type { Db } from "@/lib/db/types";
 
-const SECRET = "unsubscribe-test-secret";
+const SECRET = "unsubscribe-test-secret-of-at-least-32-chars";
 const T0 = new Date("2026-10-05T16:00:00Z");
 const BASE = "https://harbor.example";
 const ID = "6f1c2a4e-1b2c-4d5e-8f90-1234567890ab";

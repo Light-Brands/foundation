@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   agentRules: false,
   serverExternalPackages: ["@electric-sql/pglite"],
   outputFileTracingIncludes: {
-    "/**": ["./prompts/**/*", "./core/db/migrations/**/*", "./key/**/*"],
+    "/**": ["./prompts/**/*", "./core/db/migrations/**/*", "./key/**/*", "./ninja/**/*"],
   },
 };
 

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { findSubcategory } from "@/lib/layout/registry";
 import { showsHours } from "@/lib/links";
 import { Doors } from "@/components/Doors";
+import { hasInstallEntry } from "@/lib/ninja";
 
 export default async function ReadyPage({ params }: { params: Promise<{ category: string; sub: string }> }) {
   const { category, sub } = await params;
@@ -17,7 +18,7 @@ export default async function ReadyPage({ params }: { params: Promise<{ category
           <p className="mt-1 font-mono text-xs text-mist">Typically gives back {found.sub.hours.toLowerCase()}</p>
         )}
       </div>
-      <Doors categoryId={found.category.id} subId={found.sub.id} subLabel={found.sub.label} />
+      <Doors categoryId={found.category.id} subId={found.sub.id} subLabel={found.sub.label} hasEntry={hasInstallEntry(found.category.id, found.sub.id)} />
     </div>
   );
 }

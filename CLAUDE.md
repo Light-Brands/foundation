@@ -59,4 +59,4 @@ The rules every builder follows, each with its reason, live in `docs/standards/`
 
 ## What is coming
 
-Supabase and owner accounts, the module system, connections, and the Dojo lessons arrive as updates from Light Brands. Each update opens as a change for the owner to accept.
+Dictionary updates from Light Brands bring department installs and connections: each job's ready to set up page offers its install once the dictionary has an entry for it in `ninja/modules/`, and until then it maps what the job will do. Supabase and owner accounts arrive as updates too. Each update opens as a change for the owner to accept.

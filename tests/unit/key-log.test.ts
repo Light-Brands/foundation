@@ -166,6 +166,7 @@ describe("log:sync", () => {
     const dir = repo("second", undefined, { base: false });
     const out = sync(dir);
     expect(out).toContain("The build log starts after setup records its base");
+    expect(out).toContain("Run npm run log:base to start it after the current commit.");
     expect(out).toContain("added 0 entries");
     expect(readdirSync(path.join(dir, "key/log")).filter((f) => f.endsWith(".md"))).toEqual([]);
   }, 60000);

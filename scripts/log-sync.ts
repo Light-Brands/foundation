@@ -31,7 +31,7 @@ try {
   base = "";
 }
 if (!COMMIT_ID.test(base)) {
-  console.log("The build log starts after setup records its base in key/key.yaml, so there is nothing to add yet.");
+  console.log("The build log starts after setup records its base in key/key.yaml, so there is nothing to add yet. Run npm run log:base to start it after the current commit.");
   console.log("log:sync added 0 entries");
   process.exit(0);
 }

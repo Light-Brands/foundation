@@ -37,6 +37,7 @@ h1, h2, h3, h4 { font-family: var(--font-display); }
 @layer components {
   .surface { @apply rounded-2xl border border-white/10 bg-ink-100/70 backdrop-blur-sm; }
   .kicker { @apply font-mono text-[11px] uppercase tracking-[0.18em] text-mist; }
+  .chip { @apply inline-flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-0.5 text-xs text-mist; }
   .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-violet px-4 py-2 text-sm font-medium text-white transition-all duration-200 ease-breath hover:bg-violet-soft; }
   .btn-quiet { @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-zinc-200 transition-all duration-200 ease-breath hover:border-white/20; }
 }

@@ -5,7 +5,7 @@ import { getProfile, saveProfile } from "@/lib/data/profile";
 import { openPglite } from "@/lib/db/pglite";
 import { migrate } from "@/lib/db/migrate";
 
-const MIGRATIONS = path.join(__dirname, "../../db/migrations");
+const MIGRATIONS = path.join(__dirname, "../../core/db/migrations");
 
 describe("validateProfile", () => {
   it("needs a business name and trims everything", () => {
@@ -25,7 +25,7 @@ describe("profile storage", () => {
   });
   it("saves and reads the one profile row", async () => {
     const db = await openPglite();
-    await migrate(db, MIGRATIONS);
+    await migrate(db, MIGRATIONS, "core");
     await saveProfile(db, { business_name: "Harbor", tagline: "t", email: "a@b.co", phone: "", website: "" });
     await saveProfile(db, { business_name: "Harbor Studio", tagline: "t", email: "a@b.co", phone: "", website: "" });
     expect((await getProfile(db, "x")).business_name).toBe("Harbor Studio");

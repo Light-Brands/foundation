@@ -3,7 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { readEnv } from "@/lib/env";
 import { selectDriver, type DriverKind } from "./driver";
 import { openPglite } from "./pglite";
-import { migrate } from "./migrate";
+import { migrateAll } from "./migrate";
 import type { Db } from "./types";
 
 const g = globalThis as unknown as { __foundationDb?: Promise<Db | null> };
@@ -27,7 +27,7 @@ async function open(): Promise<Db | null> {
   await mkdir(dir, { recursive: true });
   const db = await openPglite(dir);
   try {
-    await migrate(db, path.join(process.cwd(), "db/migrations"));
+    await migrateAll(db, process.cwd());
     const [{ n }] = await db.query<{ n: number }>("select count(*)::int as n from business_profile");
     if (n === 0) await db.query("insert into business_profile (business_name) values ($1)", [env.businessName]);
     return db;

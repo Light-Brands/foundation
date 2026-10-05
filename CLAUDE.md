@@ -9,7 +9,7 @@ Everything belongs to one of eleven categories, in this order: Command, Attract,
 - Built screens are listed in `CORE_SCREENS` in `src/lib/layout/registry.ts`.
 - Every other sub-category is a "ready to set up" page with three doors (`src/components/Doors.tsx`).
 - Data goes through `getDb()` from `src/lib/db`. Locally it is PGlite (real Postgres in `.data/`); on Vercel without a database it returns null and the app runs in preview.
-- Schema changes are new files in `db/migrations/`, numbered in order. Never edit an applied migration.
+- Schema changes are new files in `core/db/migrations/` (Key apps keep theirs in `key/apps/<app>/migrations/`), numbered in order. Never edit an applied migration.
 - Member-facing steps each have a prompt in `prompts/`.
 
 ## Rules

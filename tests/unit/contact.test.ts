@@ -5,7 +5,7 @@ import { submitContact, listInbox, countNewInbox } from "@/lib/data/inbox";
 import { openPglite } from "@/lib/db/pglite";
 import { migrate } from "@/lib/db/migrate";
 
-const MIGRATIONS = path.join(__dirname, "../../db/migrations");
+const MIGRATIONS = path.join(__dirname, "../../core/db/migrations");
 
 describe("validateContact", () => {
   it("accepts a complete message", () => {
@@ -31,7 +31,7 @@ describe("validateContact", () => {
 describe("the inbox", () => {
   it("files a contact submission under Command, Inbox and dedupes the contact by email", async () => {
     const db = await openPglite();
-    await migrate(db, MIGRATIONS);
+    await migrate(db, MIGRATIONS, "core");
     await submitContact(db, { name: "Ada", email: "Ada@Example.com", message: "First" });
     await submitContact(db, { name: "Ada L.", email: "ada@example.com", message: "Second" });
     const items = await listInbox(db);
@@ -49,7 +49,7 @@ describe("the inbox", () => {
   });
   it("is atomic: a failed inbox insert leaves no contact behind", async () => {
     const db = await openPglite();
-    await migrate(db, MIGRATIONS);
+    await migrate(db, MIGRATIONS, "core");
     await db.query("alter table inbox_items add constraint reject_boom check (title <> 'Boom sent a message')");
     await expect(submitContact(db, { name: "Boom", email: "boom@example.com", message: "x" })).rejects.toThrow();
     const [{ n }] = await db.query<{ n: number }>("select count(*)::int as n from contacts");

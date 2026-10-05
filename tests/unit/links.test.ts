@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { lessonHref, customHref, lessonPrompt, connectPrompt, showsHours } from "@/lib/links";
+import { lessonHref, customHref, installPrompt, connectPrompt, showsHours, DOJO_URL } from "@/lib/links";
 
 describe("Dojo links", () => {
   it("point at the Dojo with the module named", () => {
@@ -14,18 +14,20 @@ describe("Dojo links", () => {
     expect(lessonWithAmp).toContain("module=cat.sub");
     expect(lessonWithSpace).toContain("module=cat.sub");
   });
-  it("write a lesson prompt Claude can run inside the Foundation", () => {
-    const p = lessonPrompt("Delivery", "Book appointments");
-    expect(p).toContain("CLAUDE.md");
-    expect(p).toContain('the Delivery job "Book appointments"');
-    expect(p).not.toMatch(/[–—]/);
+  it("write an install prompt for the Ninja framework runner", () => {
+    const p = installPrompt("deliver", "booking", "Book appointments");
+    expect(p).toContain("Book appointments (modules/deliver/booking)");
+    expect(p).toContain("ninja/runner/run.md");
+    expect(p).toContain(DOJO_URL);
+    expect(p).not.toMatch(/[–—;]/);
   });
   it("write a connect prompt for existing tools", () => {
-    const p = connectPrompt("Delivery", "Book appointments");
-    expect(p).toContain("CLAUDE.md");
-    expect(p).toContain('the Delivery job "Book appointments"');
-    expect(p).not.toMatch(/[–—]/);
-    expect(p).not.toBe(lessonPrompt("Delivery", "Book appointments"));
+    const p = connectPrompt("deliver", "booking", "Book appointments");
+    expect(p).toContain("Book appointments (modules/deliver/booking)");
+    expect(p).toContain("ninja/runner/run.md");
+    expect(p).toContain(DOJO_URL);
+    expect(p).not.toMatch(/[–—;]/);
+    expect(p).not.toBe(installPrompt("deliver", "booking", "Book appointments"));
   });
 });
 

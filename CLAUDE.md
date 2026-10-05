@@ -46,6 +46,10 @@ The rules every builder follows, each with its reason, live in `docs/standards/`
 - `docs/standards/log.md`: the build log and the system document.
 - `docs/standards/privacy.md`: what stays in the repository, what travels with a connected workspace and what is never written down.
 
+## The Ninja framework
+
+`ninja/` is the Ninja framework dictionary. It ships from Light Brands and is never edited here. To install, change, upgrade, check, remove, learn or weave anything, read `ninja/runner/run.md` and follow it. The crew lives in `.claude/agents/crew-*.md`. Your own work lives in `key/`.
+
 ## Commands
 
 - `npm run setup -- --name "<business>" --pin-prompt`: create `.env.local`

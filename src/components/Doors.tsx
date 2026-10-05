@@ -1,11 +1,11 @@
-import { lessonHref, customHref, lessonPrompt, connectPrompt } from "@/lib/links";
+import { lessonHref, customHref, installPrompt, connectPrompt } from "@/lib/links";
 import { CopyButton } from "@/components/CopyButton";
 
-export function Doors({ categoryId, categoryLabel, subId, subLabel }: {
-  categoryId: string; categoryLabel: string; subId: string; subLabel: string;
+export function Doors({ categoryId, subId, subLabel }: {
+  categoryId: string; subId: string; subLabel: string;
 }) {
-  const connectPr = connectPrompt(categoryLabel, subLabel);
-  const lessonPr = lessonPrompt(categoryLabel, subLabel);
+  const connectPr = connectPrompt(categoryId, subId, subLabel);
+  const lessonPr = installPrompt(categoryId, subId, subLabel);
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <div className="surface p-5">
@@ -14,8 +14,8 @@ export function Doors({ categoryId, categoryLabel, subId, subLabel }: {
         <div className="mt-4"><CopyButton text={connectPr} /></div>
       </div>
       <div className="surface p-5">
-        <p className="kicker">2 · Build it with a lesson</p>
-        <p className="mt-2 text-sm text-zinc-300">Paste the prompt into Claude Code inside this project. Claude builds it with you, step by step.</p>
+        <p className="kicker">2 · Install it with the Ninja framework</p>
+        <p className="mt-2 text-sm text-zinc-300">Paste this into Claude Code inside this project. A build crew asks what you want, plans it with you, builds it, tests it and proves it works.</p>
         <div className="mt-4 flex flex-wrap gap-2">
           <CopyButton text={lessonPr} />
           <a className="btn-quiet" href={lessonHref(categoryId, subId)} target="_blank" rel="noreferrer">Open the Dojo</a>

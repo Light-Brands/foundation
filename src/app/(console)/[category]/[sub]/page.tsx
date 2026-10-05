@@ -17,7 +17,7 @@ export default async function ReadyPage({ params }: { params: Promise<{ category
           <p className="mt-1 font-mono text-xs text-mist">Typically gives back {found.sub.hours.toLowerCase()}</p>
         )}
       </div>
-      <Doors categoryId={found.category.id} categoryLabel={found.category.label} subId={found.sub.id} subLabel={found.sub.label} />
+      <Doors categoryId={found.category.id} subId={found.sub.id} subLabel={found.sub.label} />
     </div>
   );
 }

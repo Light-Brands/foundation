@@ -79,6 +79,7 @@ export function checkKeyYaml(file: string, text: string): string[] {
     else if (!isObj(r) || r.charter !== `agents/${role}/charter.md`) bad(`roster[${i}].charter must be agents/${role}/charter.md`);
     if (!isObj(r) || !str(r.persona).trim()) bad(`roster[${i}].persona must be a non-empty name`);
   });
+  const roles = new Set(list(d.roster).filter(isObj).map((r) => str(r.role)).filter(Boolean));
   if ("workflows" in d) p.push(`${file}: ${OLD_WORKFLOWS}`);
   if (isObj(d.provenance) && "base" in d.provenance && !COMMIT_ID.test(str(d.provenance.base))) bad("provenance.base must be a full 40 character commit id");
   p.push(...checkInstalled(file, d));
@@ -89,6 +90,7 @@ export function checkKeyYaml(file: string, text: string): string[] {
       if (k !== "skills" && (!isObj(e) || !CATEGORY_IDS.includes(str(e.category)))) bad(`${k}[${i}].category must be a known category id`);
       const pathKey = k === "apps" ? "definition" : "path";
       if (!isObj(e) || !str(e[pathKey]).trim()) bad(`${k}[${i}].${pathKey} must name the file, relative to key/`);
+      if (k === "skills" && isObj(e) && "agent" in e && !roles.has(str(e.agent))) bad(`skills[${i}].agent "${str(e.agent)}" is not in the roster`);
     });
   }
   return p;

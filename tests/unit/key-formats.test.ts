@@ -154,6 +154,18 @@ describe("valid files", () => {
   });
 });
 
+describe("a skill's agent", () => {
+  it("passes when it names a role in the roster", () => {
+    expect(checkKeyYaml("key.yaml", keyYaml.replace("path: skills/send-quote/SKILL.md }", "path: skills/send-quote/SKILL.md, agent: care }"))).toEqual([]);
+  });
+  it("fails when the roster has no such role, as between installing a skill and the routine that adds its role", () => {
+    const dangling = keyYaml.replace("path: skills/send-quote/SKILL.md }", "path: skills/send-quote/SKILL.md, agent: chief-of-staff }");
+    expect(checkKeyYaml("key.yaml", dangling)).toEqual(['key.yaml: skills[0].agent "chief-of-staff" is not in the roster']);
+    const empty = dangling.replace(/roster:\n  - \{[^\n]*\}\n/, "roster: []\n");
+    expect(checkKeyYaml("key.yaml", empty)).toEqual(['key.yaml: skills[0].agent "chief-of-staff" is not in the roster']);
+  });
+});
+
 describe("provenance.base", () => {
   const withBase = (base: string) => `${keyYaml}provenance:\n  stated_by: ""\n  recorded: ""\n  guide: foundation\n  base: "${base}"\n`;
   it("accepts a full 40 character commit id, and a Key with no base", () => {

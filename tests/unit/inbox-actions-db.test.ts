@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { coreDb, KEY_EXT } from "../support/db";
 import { writeCard } from "@/lib/data/cards";
 
@@ -24,6 +24,7 @@ describe("the inbox actions over a real database", () => {
     if (r.status !== "written") throw new Error("not written");
     id = r.id;
   });
+  afterEach(async () => { await current.close(); });
   it("approves a card, stores the decision and refuses a second one", async () => {
     expect(await decideCardAction(null, form({ id, decision: "approve" }))).toEqual({ ok: true, message: "Approved." });
     expect(await current.query("select status, decision, decided_by from inbox_items")).toEqual([{ status: "decided", decision: "approve", decided_by: "pin:owner" }]);

@@ -174,14 +174,18 @@ describe("writing inside a transaction", () => {
     const db = await coreDb();
     const kinds = await loadCardKinds(KEY_EXT);
     const tx: Queryable = { query: (sql, params) => db.query(sql, params) };
+    class Sentinel extends Error {}
+    let inside = -1;
     await db.query("begin");
     try {
       await writeCard(tx, kinds, { kind: "lead-new", title: "Inside", contact: { name: "Ada", email: "ada@example.com" } }, NOW);
-      expect(await count(db, "inbox_items")).toBe(1);
-      throw new Error("the drafts failed");
-    } catch {
+      inside = await count(db, "inbox_items");
+      throw new Sentinel("the drafts failed");
+    } catch (err) {
       await db.query("rollback");
+      if (!(err instanceof Sentinel)) throw err;
     }
+    expect(inside).toBe(1);
     expect(await count(db, "inbox_items")).toBe(0);
     expect(await count(db, "contacts")).toBe(0);
     await db.close();

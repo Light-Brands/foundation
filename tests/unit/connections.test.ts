@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { coreDb } from "../support/db";
-import { connectionStatuses, listConnections, looksLikeSecret, upsertConnection, validateConnection } from "@/lib/data/connections";
+import { connectionStatuses, keySettingState, listConnections, looksLikeSecret, upsertConnection, validateConnection } from "@/lib/data/connections";
 import { CHECK_CORE_TABLES, checkChecks } from "@/lib/key/declarations";
 
 const NOW = new Date("2026-10-05T16:00:00Z");
@@ -76,5 +76,16 @@ describe("checks and connections", () => {
     const src = { file: "r.md", slug: "health-check", type: "routine" as const, app: "backups", uses: [] as string[] };
     const check = { key: "failing", name: "Failing connections", period: "day", card_kind: "x-kind", reads: ["connections"], sql: "select count(*) > 0 as raise, 'x' as title, '' as body from connections where status = 'failing'" };
     expect(checkChecks(src, [check], { kindNames: new Set(["x-kind"]), tablesByApp: { backups: [] } }).problems).toEqual([]);
+  });
+});
+
+describe("keySettingState", () => {
+  it("says only whether the named setting is set, never its value", () => {
+    const value = fake("re", "_", "AbCdEf123456");
+    expect(keySettingState("RESEND_API_KEY", { RESEND_API_KEY: value })).toBe("set");
+    expect(keySettingState("RESEND_API_KEY", { RESEND_API_KEY: "  " })).toBe("unset");
+    expect(keySettingState("RESEND_API_KEY", {})).toBe("unset");
+    expect(keySettingState("", { "": value })).toBe(null);
+    expect(keySettingState("NEXT_PUBLIC_RESEND_KEY", { NEXT_PUBLIC_RESEND_KEY: value })).toBe(null);
   });
 });

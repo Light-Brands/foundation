@@ -10,6 +10,7 @@ export const CORE_SCREENS: Record<string, string> = {
   "system.modules": "/system/modules",
   "system.setup": "/system/setup",
   "system.settings": "/system/settings",
+  "system.connections": "/system/connections",
 };
 
 export function hrefFor(category: string, sub: string): string {

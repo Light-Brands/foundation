@@ -1,0 +1,35 @@
+import { describe, it, expect, vi } from "vitest";
+
+const getDb = vi.fn();
+vi.mock("@/lib/db", () => ({ getDb: (...a: unknown[]) => getDb(...a) }));
+const hasSession = vi.fn(async () => false);
+vi.mock("@/lib/auth/session", () => ({ hasSession: () => hasSession() }));
+const upsertConnection = vi.fn(async () => {});
+vi.mock("@/lib/data/connections", async (orig) => ({ ...(await orig<typeof import("@/lib/data/connections")>()), upsertConnection: (...a: unknown[]) => (upsertConnection as (...x: unknown[]) => unknown)(...a) }));
+vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
+
+import { saveConnectionAction } from "@/app/(console)/system/connections/actions";
+
+const form = (v: Record<string, string>) => { const f = new FormData(); for (const [k, x] of Object.entries(v)) f.set(k, x); return f; };
+
+describe("saveConnectionAction", () => {
+  it("saveConnectionAction refuses without a session", async () => {
+    hasSession.mockResolvedValue(false);
+    expect((await saveConnectionAction(null, form({ service: "email-sending", door: "own" }))).ok).toBe(false);
+    expect(getDb).not.toHaveBeenCalled();
+    expect(upsertConnection).not.toHaveBeenCalled();
+  });
+  it("refuses a key typed where its setting name goes, before opening the database", async () => {
+    hasSession.mockResolvedValue(true);
+    const r = await saveConnectionAction(null, form({ service: "email-sending", door: "own", status: "connected", key_setting: ["sk", "_live_", "x".repeat(24)].join("") }));
+    expect(r.ok).toBe(false);
+    expect(r.errors?.key_setting).toMatch(/looks like a key/);
+    expect(getDb).not.toHaveBeenCalled();
+  });
+  it("saves a valid row", async () => {
+    hasSession.mockResolvedValue(true);
+    getDb.mockResolvedValue({});
+    expect(await saveConnectionAction(null, form({ service: "email-sending", door: "own", status: "connected", key_setting: "RESEND_API_KEY", scopes: "send" }))).toEqual({ ok: true, message: "Saved." });
+    expect(upsertConnection).toHaveBeenCalledTimes(1);
+  });
+});

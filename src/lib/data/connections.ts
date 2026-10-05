@@ -73,3 +73,12 @@ export async function listConnections(db: Db | null): Promise<ConnectionRow[]> {
 export async function connectionStatuses(db: Db | null): Promise<Record<string, ConnectionStatus>> {
   return Object.fromEntries((await listConnections(db)).map((r) => [r.service, r.status]));
 }
+
+/**
+ * Whether the setting a connection names holds a value: "set" or "unset", and null when there is no
+ * usable name. The value itself is never returned, so a screen can show only set or unset.
+ */
+export function keySettingState(name: string, env: Record<string, string | undefined>): "set" | "unset" | null {
+  if (!SETTING.test(name) || name.startsWith("NEXT_PUBLIC_")) return null;
+  return env[name]?.trim() ? "set" : "unset";
+}

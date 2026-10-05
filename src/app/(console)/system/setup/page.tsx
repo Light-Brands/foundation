@@ -1,5 +1,6 @@
 import { stackStatus } from "@/lib/setup/steps";
-import { storageMode } from "@/lib/db";
+import { getDb, storageMode } from "@/lib/db";
+import { connectionStatuses } from "@/lib/data/connections";
 import { StatusLight } from "@/components/StatusLight";
 import { PromptBox } from "@/components/PromptBox";
 import { customHref } from "@/lib/links";
@@ -7,7 +8,7 @@ import { customHref } from "@/lib/links";
 const LIGHT_LABEL = { done: "Live", next: "Your next step", later: "Coming up" } as const;
 
 export default async function SetupPage() {
-  const steps = stackStatus(process.env, { storage: storageMode() });
+  const steps = stackStatus(process.env, { storage: storageMode(), connections: await connectionStatuses(await getDb()) });
   return (
     <div className="space-y-8">
       <div>

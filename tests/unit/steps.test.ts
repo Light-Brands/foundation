@@ -36,3 +36,16 @@ describe("stackStatus", () => {
     }
   });
 });
+
+describe("Set up reads connection status from the table", () => {
+  it("marks the hosted database and email sending done when their connections are connected", () => {
+    const steps = stackStatus({}, { storage: "pglite", connections: { "hosted-database": "connected", "email-sending": "connected" } });
+    expect(steps.find((s) => s.id === "supabase")!.status).toBe("done");
+    expect(steps.find((s) => s.id === "email")!.status).toBe("done");
+  });
+  it("leaves them open while a connection is only planned or failing", () => {
+    const steps = stackStatus({}, { storage: "pglite", connections: { "hosted-database": "planned", "email-sending": "failing" } });
+    expect(steps.find((s) => s.id === "supabase")!.status).not.toBe("done");
+    expect(steps.find((s) => s.id === "email")!.status).not.toBe("done");
+  });
+});

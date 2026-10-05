@@ -74,3 +74,11 @@ describe("the nav", () => {
     expect(activeKey("/elsewhere", nav)).toBeNull();
   });
 });
+
+describe("Connect your tools", () => {
+  it("is a built screen at /system/connections", () => {
+    expect(hrefFor("system", "connections")).toBe("/system/connections");
+    const item = buildNav().find((g) => g.id === "system")!.items.find((i) => i.key === "system.connections")!;
+    expect(item.state).toBe("built");
+  });
+});

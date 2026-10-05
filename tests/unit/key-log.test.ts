@@ -34,6 +34,20 @@ describe("log entries", () => {
     expect(doc).toContain(`\`${logTitleFor("2026-10")}\``);
     expect(doc).toContain("always in UTC");
   });
+  it("round-trips an Entry line placed right after Commit, and omits it when absent", () => {
+    const withEntry = { ...entry, entry: "modules/sell/leads" };
+    const md = formatEntry(withEntry);
+    expect(md).toContain("- Commit: 3f2a91c\n- Entry: modules/sell/leads\n- Checked:");
+    expect(parseLog(md)).toEqual([withEntry]);
+    expect(formatEntry(entry)).not.toContain("- Entry:");
+    expect(parseLog(formatEntry(entry))[0].entry).toBeUndefined();
+  });
+  it("flags a malformed entry id and accepts a good one", () => {
+    expect(checkLogText("x", formatEntry({ ...entry, entry: "routines/monday-brief" }))).toEqual([]);
+    for (const bad of ["Routines/Monday", "routines//x", "/routines/x", "routines/x/", "routines/my brief", ""]) {
+      expect(checkLogText("x", formatEntry({ ...entry, entry: bad })).join("\n")).toContain("x: log entry id must be lowercase segments joined by /, such as routines/monday-brief");
+    }
+  });
   it("a formatted entry passes the privacy check, an email fails it", () => {
     expect(checkLogText("x", formatEntry(entry))).toEqual([]);
     expect(checkLogText("x", formatEntry({ ...entry, what: "mail a@b.com" })).length).toBeGreaterThan(0);

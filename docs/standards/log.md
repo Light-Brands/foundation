@@ -13,9 +13,12 @@ One file per month, named `key/log/<YYYY-MM>.md`. The file starts with one title
 - What changed: reminders go out 24 hours and 1 hour before each session
 - Files: key/apps/booking/definition.yaml, key/routines/booking-reminders.md
 - Commit: 3f2a91c
+- Entry: routines/booking-reminders
 - Checked: the reminder test passed on a real booking
 - By: claude | member | light-brands
 ```
+
+`Entry` is optional. It is the dictionary entry the work belongs to, an entry id of lowercase segments joined by `/`, such as `routines/monday-brief` or `modules/sell/leads`. The Ninja framework runner writes it, and it sits right after the `Commit` line. Why: an upgrade can find the commit that installed the entry. A malformed entry id fails the format test.
 
 Write the real value for `Kind` and for `By`, never the list. The heading is the date, the time, a middle dot and a short title. The date and time are always in UTC, in an entry you write by hand as in one `log:sync` writes, and the month file is the UTC month. Why: one clock for every entry keeps the log in order, and it matches the commit times `log:sync` reads.
 

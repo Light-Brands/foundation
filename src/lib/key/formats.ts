@@ -268,6 +268,9 @@ export function checkDefinition(file: string, text: string, routineSlugs: string
 export function checkLogText(file: string, md: string): string[] {
   const p: string[] = [];
   if (/\b[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\b/.test(md)) p.push(`${file}: log text holds an email address; the build log never holds customer details`);
+  for (const m of md.matchAll(/^- Entry: ?(.*)$/gm)) {
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)*$/.test(m[1].trim())) p.push(`${file}: log entry id must be lowercase segments joined by /, such as routines/monday-brief`);
+  }
   const cleaned = md
     .replace(/^- Commit: [0-9a-f]{7,40}\s*$/gm, "- Commit:")
     .replace(/\b(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b/gi, " ")

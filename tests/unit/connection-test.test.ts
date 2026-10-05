@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { cpSync, mkdtempSync, renameSync, rmSync, symlinkSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, renameSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { coreDb, KEY_EXT } from "../support/db";
@@ -15,7 +15,7 @@ const LATE_SUNDAY = new Date("2026-10-06T03:00:00Z"); // still Sunday the 5th in
 const TZ = "America/Los_Angeles";
 const API_KEY = "fixture-pay-api-key-value-0001";
 const ENV = { DEMO_PAY_API_KEY: API_KEY };
-type Plan = { answer?: unknown; throwWith?: string; hang?: boolean; seen?: string[] };
+type Plan = { answer?: unknown; throwWith?: string; hang?: boolean; seen?: string[]; signals?: AbortSignal[] };
 const g = globalThis as { __fixtureConnectionTest?: Plan };
 
 beforeEach(() => { g.__fixtureConnectionTest = {}; });
@@ -72,6 +72,18 @@ describe("the connection test seat", () => {
     expect((await row(db)).status).toBe("failing");
     await db.close();
   });
+  it("hands the test an AbortSignal, aborts it when the time is up, and leaves it alone when the test answers", async () => {
+    const db = await withRow("connected");
+    expect(await run(db)).toMatchObject({ ok: true });
+    const answered = g.__fixtureConnectionTest!.signals![0];
+    expect(answered.aborted).toBe(false);
+    g.__fixtureConnectionTest = { hang: true };
+    await run(db, { timeoutMs: 30 });
+    const hung = g.__fixtureConnectionTest!.signals![0];
+    expect(hung).toBeInstanceOf(AbortSignal);
+    expect(hung.aborted).toBe(true);
+    await db.close();
+  });
   it("writes nothing when there is no test, no row, or no key in its setting", async () => {
     const db = await withRow("connected");
     await upsertConnection(db, { service: "email-sending", door: "own", status: "connected", scopes: [], key_setting: "", tested_on: null, owner: "Owner" }, LATE_SUNDAY);
@@ -108,6 +120,11 @@ describe("the connection test seat", () => {
     const root3 = copyFixture();
     rmSync(path.join(root3, "key/connections/demo-pay/test.ts"));
     expect(await run(db, { root: root3 })).toMatchObject({ status: "no_test" });
+    const root4 = copyFixture();
+    mkdirSync(path.join(root4, "key/elsewhere"));
+    renameSync(path.join(root4, "key/connections/demo-pay"), path.join(root4, "key/elsewhere/demo-pay"));
+    symlinkSync(path.join(root4, "key/elsewhere/demo-pay"), path.join(root4, "key/connections/demo-pay"));
+    expect(await run(db, { root: root4 })).toMatchObject({ status: "no_test" });
     expect(g.__fixtureConnectionTest?.seen).toBeUndefined();
     expect((await row(db)).status).toBe("planned");
     await db.close();

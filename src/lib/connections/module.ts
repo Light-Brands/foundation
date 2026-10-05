@@ -6,7 +6,7 @@ import { SLUG } from "@/lib/key/frontmatter";
 
 // The one loader for code a connection keeps in key/connections/<connection>/: the email sender (send.ts) and
 // the connection test (test.ts). Loaded the way loadVerifier loads a webhook verifier: only when the real paths
-// of the folder and the file stay inside key/, so a symlink can never pull code in from elsewhere.
+// of the folder and the file stay inside key/connections/ (the folder inside its own home, never elsewhere in key/), so a symlink can never pull code in from elsewhere.
 
 export type LoadedModule = { mod: Record<string, unknown> } | { problem: "missing" | "outside" } | { problem: "broken"; error: string };
 
@@ -16,16 +16,18 @@ const firstLine = (err: unknown): string => (err instanceof Error ? err.message 
 export async function loadConnectionModule(root: string, connection: string, file: string): Promise<LoadedModule> {
   if (!SLUG.test(connection)) return { problem: "missing" };
   let key: string;
+  let home: string;
   let dir: string;
   let real: string;
   try {
     key = await realpath(path.join(root, "key"));
+    home = await realpath(connectionsDir(root));
     dir = await realpath(path.join(connectionsDir(root), connection));
     real = await realpath(path.join(dir, file));
   } catch {
     return { problem: "missing" };
   }
-  if (!dir.startsWith(key + path.sep) || !real.startsWith(dir + path.sep)) return { problem: "outside" };
+  if (!home.startsWith(key + path.sep) || !dir.startsWith(home + path.sep) || !real.startsWith(dir + path.sep)) return { problem: "outside" };
   try {
     return { mod: (await import(/* webpackIgnore: true */ /* turbopackIgnore: true */ pathToFileURL(real).href)) as Record<string, unknown> };
   } catch (err) {

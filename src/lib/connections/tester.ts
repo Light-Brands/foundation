@@ -11,7 +11,7 @@ import { CORE_SETTING } from "@/lib/outbox/sender";
 import { loadConnectionModule } from "./module";
 
 // The seat core keeps for a connection's own test: key/connections/<service>/test.ts exports
-//   test(ctx: { secret, now }): Promise<{ ok: boolean, note: string }>
+//   test(ctx: { secret, now, signal }): Promise<{ ok: boolean, note: string }>
 // It is loaded the same way as the email sender (loadConnectionModule), handed the value of the setting the
 // connection's row names, and its answer is written through the registry's own validator: status connected or
 // failing, tested_on today in the business's time zone, and a one-line note that never holds the key.
@@ -19,7 +19,7 @@ import { loadConnectionModule } from "./module";
 export const TEST_FILE = "test.ts";
 /** A test gives up after this long and counts as a failure. A real test makes one cheap read-only call. */
 export const TEST_TIMEOUT_MS = 30_000;
-export type TestContext = { secret: string; now: Date };
+export type TestContext = { secret: string; now: Date; signal: AbortSignal };
 export type TestOutcome =
   | { status: "tested"; ok: boolean; note: string }
   | { status: "invalid" | "no_connection" | "no_test" | "no_setting"; message: string };
@@ -75,10 +75,11 @@ export async function runConnectionTest(
   let ok = false;
   let note: string;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const abort = new AbortController();
   try {
     const answer: unknown = await Promise.race([
-      Promise.resolve((test as (ctx: TestContext) => unknown)({ secret, now })),
-      new Promise((resolve) => { timer = setTimeout(() => resolve(TIMED_OUT), input.timeoutMs ?? TEST_TIMEOUT_MS); }),
+      Promise.resolve((test as (ctx: TestContext) => unknown)({ secret, now, signal: abort.signal })),
+      new Promise((resolve) => { timer = setTimeout(() => { abort.abort(); resolve(TIMED_OUT); }, input.timeoutMs ?? TEST_TIMEOUT_MS); }),
     ]);
     if (answer === TIMED_OUT) note = "The test took too long, so it was stopped.";
     else if (typeof answer === "object" && answer !== null && typeof (answer as { ok?: unknown }).ok === "boolean") {

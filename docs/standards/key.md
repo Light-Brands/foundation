@@ -329,15 +329,16 @@ export function bounces(ctx: SenderContext & { events: { eventId: string; receiv
 Any connection may keep its own test at `key/connections/<service>/test.ts`. Connect your tools shows Test now on a connection that has one, and only the owner can run it.
 
 ```ts
-type TestContext = { secret: string; now: Date };
+type TestContext = { secret: string; now: Date; signal: AbortSignal };
 export function test(ctx: TestContext): Promise<{ ok: boolean; note: string }>;
 ```
 
 `runConnectionTest` in `src/lib/connections/tester.ts` loads `test.ts` with the same loader as the email sender (`loadConnectionModule` in `src/lib/connections/module.ts`), hands it the value of the setting the connection's row names in `key_setting` as `ctx.secret`, and writes the answer through the registry's own validator: `connected` when `ok` is true, `failing` otherwise, `tested_on` today in the business's time zone, and the note. The fixture test `tests/fixtures/key-ext/key/connections/demo-pay/test.ts` follows every rule below.
 
+- **Pass `ctx.signal` to every outside request the test makes.** The runner aborts the signal when the 30 seconds are up, so a request that hangs is cancelled and not left running. Why: the runner can stop waiting for a test but cannot stop its code, and a call left running holds the key's session open after the owner was told the test failed.
 - **Make one cheap, read-only call to the provider, and answer `{ ok, note }` with a one-line note for the owner.** A test that throws, answers anything else or takes longer than 30 seconds is recorded as failing with a plain note. A note longer than 200 characters is cut, and one that looks like a key is replaced. Why: the test runs while the owner waits, and its note is shown on Connect your tools.
 - **Never put `ctx.secret` in the note or an error message.** The runner also removes the value from the note before it is stored. Why: the note is stored on the connection and shown on screen.
-- **Keep `test.ts` in its connection's folder, in TypeScript that Node's type stripping supports, importing only `node:` built-ins.** The runner loads it only when the real paths of the folder and the file stay inside `key/`, never hands it a Foundation setting (`FOUNDATION_`, `SUPABASE_`, `NEXT_PUBLIC_` and the like), and records nothing when the file is missing or outside, the row is missing, or the setting holds no value. Why: code run with a service's key must come only from the Key's own folder.
+- **Keep `test.ts` in its connection's folder, in TypeScript that Node's type stripping supports, importing only `node:` built-ins.** The runner loads it only when the real paths of the folder and the file stay inside `key/connections/` (a connection folder that is a link to elsewhere in `key/` is refused too), never hands it a Foundation setting (`FOUNDATION_`, `SUPABASE_`, `NEXT_PUBLIC_` and the like), and records nothing when the file is missing or outside, the row is missing, or the setting holds no value. Why: code run with a service's key must come only from the Key's own folder.
 
 ## Checks
 

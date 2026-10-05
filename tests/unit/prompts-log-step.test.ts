@@ -9,6 +9,13 @@ function markdownFiles(dir: string): string[] {
   });
 }
 
+function lastStep(text: string): string {
+  const lines = text.split("\n");
+  let start = -1;
+  lines.forEach((l, i) => { if (/^\d+\.\s/.test(l)) start = i; });
+  return start < 0 ? "" : lines.slice(start).join("\n");
+}
+
 describe("every prompt keeps the build log", () => {
   const files = markdownFiles("prompts").filter((f) => !f.endsWith("README.md"));
   it("finds the prompts", () => {
@@ -16,9 +23,9 @@ describe("every prompt keeps the build log", () => {
   });
   for (const f of files) {
     it(`${f} ends with the log step`, () => {
-      const text = readFileSync(f, "utf8");
-      expect(text).toContain("key/log/");
-      expect(text).toContain("npm run key:sync");
+      const step = lastStep(readFileSync(f, "utf8"));
+      expect(step).toContain("key/log/");
+      expect(step).toContain("npm run key:sync");
     });
   }
 });

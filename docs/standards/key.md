@@ -323,6 +323,21 @@ export function bounces(ctx: SenderContext & { events: { eventId: string; receiv
 - **Never put `ctx.secret` in an error message.** The drain also removes it from every line it logs and every note it stores. Why: an error message is shown to the owner on the row and written to the log.
 - **Write `send.ts` in TypeScript that Node's type stripping supports, and import only `node:` built-ins.** Why: the running server imports the file as it is, with no build step.
 
+## Connection tests
+
+Any connection may keep its own test at `key/connections/<service>/test.ts`. Connect your tools shows Test now on a connection that has one, and only the owner can run it.
+
+```ts
+type TestContext = { secret: string; now: Date };
+export function test(ctx: TestContext): Promise<{ ok: boolean; note: string }>;
+```
+
+`runConnectionTest` in `src/lib/connections/tester.ts` loads `test.ts` with the same loader as the email sender (`loadConnectionModule` in `src/lib/connections/module.ts`), hands it the value of the setting the connection's row names in `key_setting` as `ctx.secret`, and writes the answer through the registry's own validator: `connected` when `ok` is true, `failing` otherwise, `tested_on` today in the business's time zone, and the note. The fixture test `tests/fixtures/key-ext/key/connections/demo-pay/test.ts` follows every rule below.
+
+- **Make one cheap, read-only call to the provider, and answer `{ ok, note }` with a one-line note for the owner.** A test that throws, answers anything else or takes longer than 30 seconds is recorded as failing with a plain note. A note longer than 200 characters is cut, and one that looks like a key is replaced. Why: the test runs while the owner waits, and its note is shown on Connect your tools.
+- **Never put `ctx.secret` in the note or an error message.** The runner also removes the value from the note before it is stored. Why: the note is stored on the connection and shown on screen.
+- **Keep `test.ts` in its connection's folder, in TypeScript that Node's type stripping supports, importing only `node:` built-ins.** The runner loads it only when the real paths of the folder and the file stay inside `key/`, never hands it a Foundation setting (`FOUNDATION_`, `SUPABASE_`, `NEXT_PUBLIC_` and the like), and records nothing when the file is missing or outside, the row is missing, or the setting holds no value. Why: code run with a service's key must come only from the Key's own folder.
+
 ## Checks
 
 An app's `definition.yaml` or a routine's front matter declares its checks, under `checks`. A check is SQL the Foundation runs read-only, at most once per period, raising at most one card. A routine that declares checks names the app it acts for with a top-level `app: <slug>`. A check that reads another app's table names that app in a top-level `uses_apps` in the same file. The install writes `uses_apps` from the entry's `uses`, and the Key checker refuses an app there that is not installed. An app written `{app: <slug>, optional: true}` may be absent: while it is, a check that reads its tables is skipped each period with a record in `check_runs` and no card, and once it is installed the check runs like any other.

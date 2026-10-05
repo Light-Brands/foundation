@@ -1,10 +1,10 @@
-import { readFile, realpath } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { parse } from "yaml";
 import { connectionsDir } from "@/lib/hooks/declaration";
 import { EMAIL_SENDING } from "@/lib/data/connections";
 import type { OutgoingEmail } from "@/lib/data/outbox";
+import { loadConnectionModule } from "@/lib/connections/module";
 
 // The seat core keeps for the email sender. The connection declares it in key/connections/email-sending.yaml:
 //   sender: { secret_setting: RESEND_API_KEY }
@@ -26,8 +26,8 @@ export type EmailSender = {
 };
 
 const SETTING = /^[A-Z][A-Z0-9_]{2,63}$/;
-// Settings the Foundation itself relies on, never handed to a Key's code as its provider key.
-const CORE_SETTING = /^(NEXT_PUBLIC_|FOUNDATION_|VERCEL|CRON_SECRET$|SUPABASE_|DATABASE_URL$)/;
+/** Settings the Foundation itself relies on, never handed to a Key's code as its provider key. */
+export const CORE_SETTING = /^(NEXT_PUBLIC_|FOUNDATION_|VERCEL|CRON_SECRET$|SUPABASE_|DATABASE_URL$)/;
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
 /** Checks one connection file's sender block. Only email-sending may declare one. No block returns no declaration. */
@@ -54,32 +54,18 @@ export async function readSender(root: string): Promise<{ decl: SenderDecl | nul
   return checked;
 }
 
-const firstLine = (err: unknown): string => (err instanceof Error ? err.message : String(err)).split("\n")[0].slice(0, 200);
-
 /**
  * Loads send.ts, only when key/connections/email-sending/ is really inside the Key and send.ts is really inside
- * that folder. Never throws: a missing, escaping or broken module gives the one plain line the caller logs.
+ * that folder (loadConnectionModule). Never throws: a missing, escaping or broken module gives the one plain line the caller logs.
  */
 export async function loadSender(root: string): Promise<{ sender: EmailSender } | { problem: string }> {
-  let key: string;
-  let dir: string;
-  let file: string;
-  try {
-    key = await realpath(path.join(root, "key"));
-    dir = await realpath(path.join(connectionsDir(root), EMAIL_SENDING));
-    file = await realpath(path.join(dir, SENDER_FILE));
-  } catch {
-    return { problem: `Email sending is connected, but key/connections/${EMAIL_SENDING}/${SENDER_FILE} is missing.` };
+  const loaded = await loadConnectionModule(root, EMAIL_SENDING, SENDER_FILE);
+  if ("problem" in loaded) {
+    if (loaded.problem === "missing") return { problem: `Email sending is connected, but key/connections/${EMAIL_SENDING}/${SENDER_FILE} is missing.` };
+    if (loaded.problem === "outside") return { problem: `Email sending is connected, but its sender is outside key/connections/${EMAIL_SENDING}/, so it was not loaded.` };
+    return { problem: `Email sender for ${EMAIL_SENDING} could not be loaded: ${"error" in loaded ? loaded.error : "unknown reason"}` };
   }
-  if (!dir.startsWith(key + path.sep) || !file.startsWith(dir + path.sep)) {
-    return { problem: `Email sending is connected, but its sender is outside key/connections/${EMAIL_SENDING}/, so it was not loaded.` };
-  }
-  let mod: Partial<EmailSender>;
-  try {
-    mod = (await import(/* webpackIgnore: true */ /* turbopackIgnore: true */ pathToFileURL(file).href)) as Partial<EmailSender>;
-  } catch (err) {
-    return { problem: `Email sender for ${EMAIL_SENDING} could not be loaded: ${firstLine(err)}` };
-  }
+  const mod = loaded.mod as Partial<EmailSender>;
   if (typeof mod.send !== "function") return { problem: `Email sender for ${EMAIL_SENDING} exports no send function.` };
   return {
     sender: {

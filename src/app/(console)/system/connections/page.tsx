@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { getDb } from "@/lib/db";
 import { keySettingState, listConnections } from "@/lib/data/connections";
+import { hasTester } from "@/lib/connections/tester";
+import { keyRoot } from "@/lib/key/write";
+import { TestButton } from "./TestButton";
 
 const DOOR = { own: "Your own account", custom: "Built by Light Brands" } as const;
 const STATUS = { planned: "Planned", connected: "Connected", failing: "Needs a look", disconnected: "Disconnected" } as const;
@@ -8,6 +11,9 @@ const KEY_STATE = { set: "set", unset: "not set yet" } as const;
 
 export default async function ConnectionsPage() {
   const rows = await listConnections(await getDb());
+  // A connection whose Key keeps a test.ts offers Test now.
+  const testable = new Set<string>();
+  for (const r of rows) if (await hasTester(keyRoot(), r.service)) testable.add(r.service);
   return (
     <div className="space-y-6">
       <div>
@@ -37,6 +43,7 @@ export default async function ConnectionsPage() {
                 </p>
                 {r.note && <p className="mt-1 text-sm text-mist">{r.note}</p>}
                 {r.scopes.length > 0 && <p className="mt-1 font-mono text-xs text-mist">{r.scopes.join(", ")}</p>}
+                {testable.has(r.service) && <TestButton service={r.service} />}
               </li>
             );
           })}

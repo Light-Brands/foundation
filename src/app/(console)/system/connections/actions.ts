@@ -4,7 +4,11 @@ import { getDb } from "@/lib/db";
 import { hasSession } from "@/lib/auth/session";
 import { PIN_OWNER, SESSION_ENDED_MESSAGE, allows } from "@/lib/auth/roles";
 import { upsertConnection, validateConnection } from "@/lib/data/connections";
-import { PREVIEW_MESSAGE } from "@/lib/data/profile";
+import { PREVIEW_MESSAGE, getProfile } from "@/lib/data/profile";
+import { runConnectionTest } from "@/lib/connections/tester";
+import { keyRoot } from "@/lib/key/write";
+import { SLUG } from "@/lib/key/frontmatter";
+import { readEnv } from "@/lib/env";
 
 export type ConnectionResult = { ok: boolean; message: string; errors?: Record<string, string> };
 
@@ -24,5 +28,28 @@ export async function saveConnectionAction(_prev: ConnectionResult | null, form:
   } catch (err) {
     console.error("saveConnectionAction failed", err);
     return { ok: false, message: "We could not save just now. Try again in a moment." };
+  }
+}
+
+/**
+ * Runs a connection's own test (key/connections/<service>/test.ts) and records what it found: connected or
+ * failing, tested today, and its note. Owner only, because it hands the test the service's key.
+ */
+export async function testConnectionAction(_prev: ConnectionResult | null, form: FormData): Promise<ConnectionResult> {
+  const actor = (await hasSession()) ? PIN_OWNER : null;
+  if (!actor || !allows(actor, "owner")) return { ok: false, message: SESSION_ENDED_MESSAGE };
+  const service = String(form.get("service") ?? "");
+  if (!SLUG.test(service)) return { ok: false, message: "That connection could not be read. Reload the page and try again." };
+  try {
+    const db = await getDb();
+    if (!db) return { ok: false, message: PREVIEW_MESSAGE };
+    const { timezone } = await getProfile(db, readEnv().businessName);
+    const r = await runConnectionTest(db, { service, root: keyRoot(), env: process.env, now: new Date(), timezone });
+    revalidatePath("/", "layout");
+    if (r.status !== "tested") return { ok: false, message: r.message };
+    return r.ok ? { ok: true, message: `It works. ${r.note}` } : { ok: false, message: `It needs a look. ${r.note}` };
+  } catch (err) {
+    console.error("testConnectionAction failed", err instanceof Error ? err.message.split("\n")[0] : "unknown");
+    return { ok: false, message: "We could not run the test just now. Try again in a moment." };
   }
 }

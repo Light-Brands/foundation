@@ -6,6 +6,11 @@ const i = process.argv.indexOf("--root");
 const root = path.resolve(i >= 0 ? process.argv[i + 1] : process.cwd());
 const keyYaml = readFileSync(path.join(root, "key/key.yaml"), "utf8");
 const systemPath = path.join(root, "key/knowledge/system.md");
-const next = replaceInventory(readFileSync(systemPath, "utf8"), buildInventory(keyYaml));
-writeFileSync(systemPath, next);
-console.log("key:sync updated key/knowledge/system.md");
+const current = readFileSync(systemPath, "utf8");
+const next = replaceInventory(current, buildInventory(keyYaml));
+if (next === current) {
+  console.log("No change to key/knowledge/system.md");
+} else {
+  writeFileSync(systemPath, next);
+  console.log("key:sync updated key/knowledge/system.md");
+}

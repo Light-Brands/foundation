@@ -11,7 +11,7 @@ export default async function SetupPage() {
   return (
     <div className="space-y-8">
       <div>
-        <p className="kicker">System · Setup</p>
+        <p className="kicker">Settings · Set up</p>
         <h1 className="mt-1 text-3xl text-zinc-50">Your stack, step by step</h1>
         <p className="mt-2 max-w-2xl text-mist">Each step adds something real to your command center. Do it yourself with a prompt for Claude, or have Light Brands set it up.</p>
       </div>

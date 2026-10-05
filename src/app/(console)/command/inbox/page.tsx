@@ -1,14 +1,19 @@
 import Link from "next/link";
 import { getDb, storageMode } from "@/lib/db";
 import { listInbox } from "@/lib/data/inbox";
+import { getProfile } from "@/lib/data/profile";
+import { readEnv } from "@/lib/env";
+import { formatCardTime } from "@/lib/time";
 import { PromptBox } from "@/components/PromptBox";
 
 export default async function InboxPage() {
-  const items = await listInbox(await getDb());
+  const db = await getDb();
+  const items = await listInbox(db);
+  const { timezone } = await getProfile(db, readEnv().businessName);
   return (
     <div className="space-y-6">
       <div>
-        <p className="kicker">Command · Inbox</p>
+        <p className="kicker">Command center · Handle what needs you</p>
         <h1 className="mt-1 text-3xl text-zinc-50">Inbox</h1>
         <p className="mt-2 text-mist">Every message and every decision from every part of your business lands here.</p>
       </div>
@@ -30,7 +35,7 @@ export default async function InboxPage() {
             <li key={i.id} className="surface p-4">
               <div className="flex items-baseline justify-between gap-4">
                 <p className="text-zinc-100">{i.title}</p>
-                <p className="font-mono text-xs text-mist">{new Date(i.created_at).toLocaleString("en-US")}</p>
+                <p className="font-mono text-xs text-mist">{formatCardTime(i.created_at, timezone)}</p>
               </div>
               {i.contact_email && <p className="text-sm text-mist">{i.contact_email}</p>}
               <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-300">{i.body}</p>

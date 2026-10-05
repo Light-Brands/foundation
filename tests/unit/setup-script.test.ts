@@ -7,8 +7,36 @@ import path from "node:path";
 import { loadEnvConfig } from "@next/env";
 
 const SCRIPT = path.join(__dirname, "../../scripts/setup.mjs");
+// The Key as it ships, before setup names it. The live key/ is named once setup runs, so tests copy this instead.
+const SEED_KEY = path.join(__dirname, "../fixtures/key-seed");
 const run = (cwd: string, args: string[]) =>
   execFileSync("node", [SCRIPT, ...args], { cwd, encoding: "utf8", stdio: "pipe" });
+
+// Setup changes client, name, provenance.recorded and provenance.base. The repository ships the Key
+// untouched, so the fixture must match it whole, or tests run against a seed members never get.
+describe("the seed fixture", () => {
+  const ROOT = path.join(__dirname, "../..");
+  const shipped = parse(readFileSync(path.join(ROOT, "key/key.yaml"), "utf8"));
+  it("is the shipped seed: key/key.yaml is still unnamed in this repository", () => {
+    expect(shipped.client).toBe("your-business");
+    expect(shipped.provenance?.base).toBeUndefined();
+  });
+  it("matches the shipped key/key.yaml and context block whole", () => {
+    expect(parse(readFileSync(path.join(SEED_KEY, "key.yaml"), "utf8"))).toEqual(shipped);
+    expect(parse(readFileSync(path.join(SEED_KEY, "knowledge/context-block.yaml"), "utf8")))
+      .toEqual(parse(readFileSync(path.join(ROOT, "key/knowledge/context-block.yaml"), "utf8")));
+  });
+  it("matches the shipped seed in every field setup leaves alone", () => {
+    const untouched = (k: Record<string, unknown>) => {
+      const out: Record<string, unknown> = structuredClone(k);
+      const prov = (out.provenance ?? {}) as Record<string, unknown>;
+      for (const f of ["client", "name"]) delete out[f];
+      for (const f of ["recorded", "base"]) delete prov[f];
+      return out;
+    };
+    expect(untouched(parse(readFileSync(path.join(SEED_KEY, "key.yaml"), "utf8")))).toEqual(untouched(shipped));
+  });
+});
 
 describe("npm run setup", () => {
   it("writes .env.local from flags", () => {
@@ -85,9 +113,12 @@ describe("npm run setup", () => {
     expect(env).toContain("FOUNDATION_PIN=135790");
     expect(env).toContain(`FOUNDATION_BUSINESS_NAME='Harbor "Studio" \\ Co'`);
   });
+  it("tests against the unnamed seed Key, never the live key/ folder setup has named", () => {
+    expect(parse(readFileSync(path.join(SEED_KEY, "key.yaml"), "utf8")).client).toBe("your-business");
+  });
   it("names the Key after the business and starts its context block", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
-    cpSync(path.join(__dirname, "../../key"), path.join(dir, "key"), { recursive: true });
+    cpSync(SEED_KEY, path.join(dir, "key"), { recursive: true });
     run(dir, ["--name", "Harbor Studio & Co.", "--pin", "246810"]);
     const key = parse(readFileSync(path.join(dir, "key/key.yaml"), "utf8"));
     expect(key.client).toBe("harbor-studio-co");
@@ -96,16 +127,36 @@ describe("npm run setup", () => {
     const block = parse(readFileSync(path.join(dir, "key/knowledge/context-block.yaml"), "utf8"));
     expect(block.business).toBe("Harbor Studio & Co.");
   });
+  it("records the commit setup ran on as provenance.base, keeping the other provenance fields", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
+    const git = (...a: string[]) => execFileSync("git", a, { cwd: dir, encoding: "utf8", stdio: "pipe" });
+    git("init", "-q"); git("config", "user.email", "t@example.org"); git("config", "user.name", "t");
+    cpSync(SEED_KEY, path.join(dir, "key"), { recursive: true });
+    git("add", "."); git("commit", "-qm", "template");
+    const head = git("rev-parse", "HEAD").trim();
+    run(dir, ["--name", "Harbor Studio", "--pin", "246810"]);
+    const key = parse(readFileSync(path.join(dir, "key/key.yaml"), "utf8"));
+    expect(key.provenance.base).toBe(head);
+    expect(key.provenance.base).toMatch(/^[0-9a-f]{40}$/);
+    expect(key.provenance.guide).toBe("foundation");
+    expect(key.provenance.stated_by).toBe("");
+  });
+  it("records no base outside a git repository", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
+    cpSync(SEED_KEY, path.join(dir, "key"), { recursive: true });
+    run(dir, ["--name", "Harbor Studio", "--pin", "246810"]);
+    expect(parse(readFileSync(path.join(dir, "key/key.yaml"), "utf8")).provenance).not.toHaveProperty("base");
+  });
   it("leaves an already named Key alone", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
-    cpSync(path.join(__dirname, "../../key"), path.join(dir, "key"), { recursive: true });
+    cpSync(SEED_KEY, path.join(dir, "key"), { recursive: true });
     run(dir, ["--name", "Harbor Studio", "--pin", "246810"]);
     run(dir, ["--name", "Other Name", "--pin", "246810", "--force"]);
     expect(parse(readFileSync(path.join(dir, "key/key.yaml"), "utf8")).client).toBe("harbor-studio");
   });
   it("runs npm run key:sync at the end so the inventory exists", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
-    cpSync(path.join(__dirname, "../../key"), path.join(dir, "key"), { recursive: true });
+    cpSync(SEED_KEY, path.join(dir, "key"), { recursive: true });
     writeFileSync(
       path.join(dir, "package.json"),
       JSON.stringify({ name: "stub", scripts: { "key:sync": "node -e \"require('fs').writeFileSync('synced.txt', 'yes')\"" } }),
@@ -115,7 +166,7 @@ describe("npm run setup", () => {
   }, 60000);
   it("still finishes setup when key:sync cannot run", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
-    cpSync(path.join(__dirname, "../../key"), path.join(dir, "key"), { recursive: true });
+    cpSync(SEED_KEY, path.join(dir, "key"), { recursive: true });
     const out = run(dir, ["--name", "Harbor Studio", "--pin", "246810"]);
     expect(out).toContain("npm run key:sync");
     expect(existsSync(path.join(dir, ".env.local"))).toBe(true);

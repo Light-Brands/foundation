@@ -35,8 +35,11 @@ test("the first win: in with the PIN, profile saved, a real message in the Inbox
   await expect(page.getByText("Nothing is built yet.")).toBeVisible();
 
   await page.goto("/deliver/booking");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Booking");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Book appointments");
   await expect(page.getByText("Have Light Brands build it")).toBeVisible();
+  // The shipped dictionary has no install entry for this job yet, so the doors say what comes next.
+  await expect(page.getByText("This job's install arrives in a coming dictionary update.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Connections arrive with coming dictionary updates.", { exact: false })).toBeVisible();
 
   await page.goto("/deliver/not-a-thing");
   await expect(page.getByText("That page is not part of your command center.")).toBeVisible();

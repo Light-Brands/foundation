@@ -6,8 +6,9 @@ home: repo
 roster: []
 skills: []
 apps: []
-workflows: []
+routines: []
 runs: []
+installed: []
 provenance:
   stated_by: ""
   recorded: ""

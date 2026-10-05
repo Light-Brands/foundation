@@ -29,5 +29,15 @@ describe("every prompt keeps the build log", () => {
       expect(step).toContain("log-only commit");
       expect(step).toContain("npm run key:sync");
     });
+    it(`${f} runs key:sync before the work commit, so system.md rides in it, then makes the log-only commit`, () => {
+      const step = lastStep(readFileSync(f, "utf8"));
+      const sync = step.indexOf("npm run key:sync");
+      const work = step.indexOf("make the work commit");
+      const log = step.indexOf("log-only commit");
+      expect(sync).toBeGreaterThanOrEqual(0);
+      expect(work).toBeGreaterThan(sync);
+      expect(log).toBeGreaterThan(work);
+      expect(step.slice(work, log)).toContain("key/knowledge/system.md");
+    });
   }
 });

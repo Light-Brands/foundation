@@ -29,7 +29,7 @@ describe("validateContact", () => {
 });
 
 describe("the inbox", () => {
-  it("files a contact submission under Command, Inbox and dedupes the contact by email", async () => {
+  it("files a contact submission in the Inbox (Command center, Handle what needs you) and dedupes the contact by email", async () => {
     const db = await openPglite();
     await migrate(db, MIGRATIONS, "core");
     await submitContact(db, { name: "Ada", email: "Ada@Example.com", message: "First" });

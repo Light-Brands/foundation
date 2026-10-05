@@ -35,7 +35,7 @@ export default async function ModulesPage() {
   return (
     <div className="space-y-8">
       <div>
-        <p className="kicker">System · Modules</p>
+        <p className="kicker">Settings · Add capabilities</p>
         <h1 className="mt-1 text-3xl text-zinc-50">What you have built</h1>
         <p className="mt-2 max-w-2xl text-mist">The plain-words record of your system, kept current by Claude from your build log.</p>
       </div>

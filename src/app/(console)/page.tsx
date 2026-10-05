@@ -6,6 +6,7 @@ import { buildNav } from "@/lib/layout/registry";
 import { stackStatus } from "@/lib/setup/steps";
 import { readEnv } from "@/lib/env";
 import { ICONS } from "@/components/shell/icons";
+import { formatCardTime } from "@/lib/time";
 
 export default async function Home() {
   const db = await getDb();
@@ -17,14 +18,14 @@ export default async function Home() {
   return (
     <div className="space-y-10">
       <section>
-        <p className="kicker">Home</p>
+        <p className="kicker">See your day</p>
         <h1 className="mt-1 text-4xl text-zinc-50">{profile.business}</h1>
         <p className="mt-2 text-mist">{profile.what_we_do || "Your command center is live. Here is where your business stands."}</p>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">
         <Link href="/system/setup" className="surface block p-5 transition hover:border-white/20">
-          <p className="kicker">Setup</p>
+          <p className="kicker">Set up</p>
           <p className="mt-2 text-2xl text-zinc-50">{done} of {steps.length} steps live</p>
           <p className="mt-1 text-sm text-mist">Next: {steps.find((s) => s.status === "next")?.label ?? "You are all set"}</p>
         </Link>
@@ -38,7 +39,14 @@ export default async function Home() {
           <Link href="/command/inbox" className="surface block p-5 transition hover:border-white/20">
             <p className="kicker">Inbox</p>
             {latest.length ? (
-              <ul className="mt-2 space-y-1 text-sm text-zinc-200">{latest.map((i) => <li key={i.id}>{i.title}</li>)}</ul>
+              <ul className="mt-2 space-y-1 text-sm text-zinc-200">
+                {latest.map((i) => (
+                  <li key={i.id} className="flex items-baseline justify-between gap-4">
+                    <span>{i.title}</span>
+                    <span className="font-mono text-xs text-mist">{formatCardTime(i.created_at, profile.timezone)}</span>
+                  </li>
+                ))}
+              </ul>
             ) : (
               <p className="mt-2 text-sm text-mist">Nothing yet. Share your contact page and the first message lands here.</p>
             )}

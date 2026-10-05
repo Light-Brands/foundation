@@ -6,6 +6,7 @@ export type LogEntry = {
   what: string;
   files: string[];
   commit: string;
+  entry?: string;
   checked: string;
   by: "claude" | "member" | "light-brands";
 };
@@ -23,6 +24,7 @@ export function formatEntry(e: LogEntry): string {
     `- What changed: ${e.what}`,
     `- Files: ${e.files.join(", ")}`,
     `- Commit: ${e.commit}`,
+    ...(e.entry !== undefined ? [`- Entry: ${e.entry}`] : []),
     `- Checked: ${e.checked}`,
     `- By: ${e.by}`,
     "",
@@ -37,6 +39,7 @@ export function parseLog(md: string): LogEntry[] {
     const field = (label: string) => new RegExp(`^- ${label}: ?(.*)$`, "m").exec(block)?.[1].trim() ?? "";
     const kind = field("Kind");
     const by = field("By");
+    const entryId = /^- Entry: ?(.*)$/m.exec(block);
     out.push({
       at: head[1],
       title: head[2].trim(),
@@ -45,6 +48,7 @@ export function parseLog(md: string): LogEntry[] {
       what: field("What changed"),
       files: field("Files").split(",").map((f) => f.trim()).filter(Boolean),
       commit: field("Commit"),
+      ...(entryId ? { entry: entryId[1].trim() } : {}),
       checked: field("Checked"),
       by: (BYS.includes(by) ? by : "member") as LogEntry["by"],
     });
@@ -61,6 +65,15 @@ function sameCommit(a: string, b: string): boolean {
 
 export function missingCommits(logged: string[], commits: CommitInfo[]): CommitInfo[] {
   return commits.filter((c) => !logged.some((l) => sameCommit(l, c.sha)));
+}
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+// The first line of a month file, such as "# Build log, October 2026".
+export function logTitleFor(date: string): string {
+  const m = /^(\d{4})-(\d{2})/.exec(date);
+  if (!m || !MONTHS[Number(m[2]) - 1]) throw new Error(`not a date: ${date}`);
+  return `# Build log, ${MONTHS[Number(m[2]) - 1]} ${m[1]}`;
 }
 
 export function logFileFor(date: string): string {

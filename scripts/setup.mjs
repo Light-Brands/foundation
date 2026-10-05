@@ -4,7 +4,7 @@
 //   node scripts/setup.mjs --name "Harbor Studio" --pin 246810
 //   node scripts/setup.mjs --name "Harbor Studio" --pin-prompt   (you type the PIN yourself)
 //   node scripts/setup.mjs --pin-prompt --force                  (keeps the business name already saved)
-import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
@@ -77,6 +77,16 @@ writeFileSync(
 );
 chmodSync(file, 0o600);
 
+// The commit setup runs on, when this folder is the top of its own git repository.
+// The build log starts after it, so Light Brands' template history never lands in the member's log.
+function headCommit() {
+  const git = (...args) => spawnSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  const top = git("rev-parse", "--show-toplevel");
+  if (top.status !== 0 || realpathSync(top.stdout.trim()) !== realpathSync(process.cwd())) return null;
+  const head = git("rev-parse", "HEAD").stdout?.trim() ?? "";
+  return /^[0-9a-f]{40}$/.test(head) ? head : null;
+}
+
 // Seed the Key: name it after the business, and start its context block with the business name.
 const slugify = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 const keyFile = "key/key.yaml";
@@ -87,6 +97,8 @@ if (existsSync(keyFile)) {
     key.client = slugify(name) || "your-business";
     key.name = name;
     key.provenance = { ...(key.provenance ?? {}), recorded: today };
+    const base = headCommit();
+    if (base) key.provenance.base = base;
     writeFileSync(keyFile, stringify(key));
     const blockFile = "key/knowledge/context-block.yaml";
     const empty = {

@@ -6,5 +6,5 @@ entities:
     fields:
       - { key: notes, name: Notes, type: text }
 automations:
-  - { workflow: does-not-exist }
+  - { routine: does-not-exist }
 migrations: migrations/

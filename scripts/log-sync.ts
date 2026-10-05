@@ -1,21 +1,44 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { formatEntry, logFileFor, missingCommits, parseLog, type CommitInfo } from "../src/lib/key/log";
-import { checkLogText } from "../src/lib/key/formats";
+import { formatEntry, logFileFor, logTitleFor, missingCommits, parseLog, type CommitInfo } from "../src/lib/key/log";
+import { checkLogText, COMMIT_ID } from "../src/lib/key/formats";
+import { parse } from "yaml";
 
 const i = process.argv.indexOf("--root");
 const root = path.resolve(i >= 0 ? process.argv[i + 1] : process.cwd());
 const logDir = path.join(root, "key/log");
 
-let raw = "";
-try {
-  raw = execFileSync("git", ["log", "-200", "--format=%h%x09%aI%x09%s", "--name-only"], { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
-} catch {
-  raw = "";
-}
-if (!raw.trim()) {
+const git = (args: string[]): string | null => {
+  try {
+    return execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
+  } catch {
+    return null;
+  }
+};
+if (!git(["rev-parse", "--verify", "HEAD"])?.trim()) {
   console.log("No git history yet. Nothing to add.");
+  process.exit(0);
+}
+
+// The log starts at the commit setup ran on (provenance.base in key/key.yaml), so the
+// template history from Light Brands never lands in the member's log.
+let base = "";
+try {
+  const key = parse(readFileSync(path.join(root, "key/key.yaml"), "utf8"));
+  base = String(key?.provenance?.base ?? "");
+} catch {
+  base = "";
+}
+if (!COMMIT_ID.test(base)) {
+  console.log("The build log starts after setup records its base in key/key.yaml, so there is nothing to add yet. Run npm run log:base to start it after the current commit.");
+  console.log("log:sync added 0 entries");
+  process.exit(0);
+}
+const raw = git(["log", `${base}..HEAD`, "--format=%h%x09%aI%x09%s", "--name-only"]);
+if (raw === null) {
+  console.log("The base commit in key/key.yaml is not in this repository's history, so there is nothing to add.");
+  console.log("log:sync added 0 entries");
   process.exit(0);
 }
 mkdirSync(logDir, { recursive: true });
@@ -36,14 +59,17 @@ const PLATFORM = ["k", "y", "l", "o", "n"].join("");
 const clean = (s: string) => s.replace(/[–—]/g, ",");
 let added = 0;
 // oldest first so each month file stays in time order
-const todo = missingCommits(logged, commits.filter((c) => !c.files.every((f) => f.startsWith("key/log/")))).reverse();
+// Bookkeeping commits are never build steps: a log-only commit, or a run's "chore: close <brief>",
+// which touches only key/runs/. A commit whose files all sit in those folders gets no entry.
+const BOOKKEEPING = ["key/log/", "key/runs/"];
+const todo = missingCommits(logged, commits.filter((c) => !c.files.every((f) => BOOKKEEPING.some((d) => f.startsWith(d))))).reverse();
 for (const c of todo) {
   const utc = new Date(c.date).toISOString();
   const entry = {
     at: `${utc.slice(0, 10)} ${utc.slice(11, 16)}`,
     title: clean(c.subject),
     kind: "change" as const,
-    category: "System",
+    category: "Settings",
     what: clean(c.subject),
     files: c.files,
     commit: c.sha,
@@ -61,7 +87,8 @@ for (const c of todo) {
   const text = formatEntry(final);
   const file = path.join(root, logFileFor(utc));
   mkdirSync(path.dirname(file), { recursive: true });
-  const lead = existsSync(file) && readFileSync(file, "utf8").length > 0 ? "\n" : "";
+  const started = existsSync(file) && readFileSync(file, "utf8").trim().length > 0;
+  const lead = started ? "\n" : `${logTitleFor(utc)}\n\n`;
   appendFileSync(file, lead + text);
   added++;
 }

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -44,5 +45,37 @@ describe("the coding standards", () => {
       const rules = read(f).split("\n").filter((l) => /^- \*\*[^*]*\.\*\*/.test(l));
       for (const r of rules) expect(r, `${f}: a rule without Why: ${r.slice(0, 50)}`).toContain("Why:");
     }
+  });
+});
+
+describe("a Ninja framework run commits once", () => {
+  for (const f of ["CLAUDE.md", "docs/standards/commits.md", "docs/standards/log.md"]) {
+    it(`${f} gives a run one work commit on its run branch, one log-only commit, and main only on the owner's yes`, () => {
+      const text = readFileSync(path.join(ROOT, f), "utf8");
+      expect(text).toContain("run/<date>-<verb>-<entry with / as ->");
+      expect(text).toMatch(/one work commit/);
+      expect(text).toMatch(/one log-only commit/);
+      expect(text).toMatch(/merging (it )?into `?main`? on the owner's yes/);
+      expect(text).toMatch(/by hand outside the runner/);
+      expect(text).not.toMatch(/After every build step|Add an entry after every build step|The order for every build step/);
+    });
+  }
+  it("commits.md asks one fix per review finding only for work by hand", () => {
+    const text = readFileSync(path.join(ROOT, "docs/standards/commits.md"), "utf8");
+    expect(text).not.toMatch(/^- \*\*Make one fix per review finding\.\*\*/m);
+  });
+});
+
+describe("folders the dictionary and remove own", () => {
+  const text = (f: string) => readFileSync(path.join(ROOT, f), "utf8");
+  for (const f of ["CLAUDE.md", "docs/standards/layout.md"]) {
+    it(`${f} reserves .claude/agents/crew-*.md for the dictionary's build crew`, () => {
+      expect(text(f)).toMatch(/`\.claude\/agents\/crew-\*\.md`[^.]*reserved for the dictionary's build crew[^.]*replaced on every dictionary update/);
+      expect(text(f)).toMatch(/a member's own agents use any other name/i);
+    });
+  }
+  it("data.md sends exports from remove to .data/exports/, which git ignores", () => {
+    expect(text("docs/standards/data.md")).toMatch(/remove[^.]*`\.data\/exports\/`/);
+    expect(execFileSync("git", ["check-ignore", ".data/exports/contacts.csv"], { cwd: ROOT, encoding: "utf8" }).trim()).toBe(".data/exports/contacts.csv");
   });
 });

@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { coreDb } from "../support/db";
 import { claimNext, draftEmail, markFailed, markSentByHand, optOut } from "@/lib/data/outbox";
 import { emailSendingActive, upsertConnection } from "@/lib/data/connections";
-import { HAND_SEND_NOTES, handSendFor, type HandSendContext } from "@/lib/data/hand-send";
+import { handSendFor, handSendContext, type HandSendContext } from "@/lib/data/hand-send";
+import { HAND_SEND_NOTES, handSendNote } from "@/lib/hand-send-notes";
 import type { CardEmail } from "@/lib/data/inbox";
 import type { Db } from "@/lib/db/types";
 
@@ -38,8 +39,8 @@ describe("sending by hand and the opt-out list", () => {
     const id = await approved(db);
     expect((await handSendFor(db, await row(db, id), CTX)).copyText).toBe("Subject: Your booking\n\nSee you Tuesday.");
     await optOut(db, { email: "Jo+x@Harbor.Example", source: "owner", scope: "all" }, T0);
-    expect(await handSendFor(db, await row(db, id), CTX)).toEqual({ copyText: null, note: "This person asked us to stop." });
-    expect(HAND_SEND_NOTES.optedOut).toBe("This person asked us to stop.");
+    expect(await handSendFor(db, await row(db, id), CTX)).toEqual({ copyText: null, reason: "opted_out" });
+    expect(handSendNote("opted_out")).toBe("This person asked us to stop.");
     expect(await markSentByHand(db, id, T0)).toBe("opted_out");
     expect(await db.query("select status, sent_by_hand from outbox")).toEqual([{ status: "approved", sent_by_hand: false }]);
     await db.close();
@@ -63,7 +64,7 @@ describe("sending by hand and the opt-out list", () => {
   it("offers no copy without FOUNDATION_SECRET, because the list cannot be checked", async () => {
     const db = await coreDb();
     const id = await approved(db);
-    expect(await handSendFor(db, await row(db, id), { ...CTX, secret: null })).toEqual({ copyText: null, note: HAND_SEND_NOTES.noSecret });
+    expect(await handSendFor(db, await row(db, id), { ...CTX, secret: null })).toEqual({ copyText: null, reason: "no_secret" });
     await db.close();
   });
 });
@@ -89,7 +90,7 @@ describe("sending by hand and the email connection", () => {
     const ctx = { ...CTX, senderActive: await emailSendingActive(db) };
     const f = await failed(db, "k-failed");
     const a = await approved(db);
-    expect(await handSendFor(db, await row(db, a), ctx)).toEqual({ copyText: null, note: HAND_SEND_NOTES.automatic });
+    expect(await handSendFor(db, await row(db, a), ctx)).toEqual({ copyText: null, reason: "automatic" });
     expect((await handSendFor(db, await row(db, f), ctx)).copyText).not.toBeNull();
     expect(await markSentByHand(db, a, T0, { approved: false })).toBe("automatic");
     expect(await markSentByHand(db, f, T0, { approved: false })).toBe("sent");
@@ -108,7 +109,31 @@ describe("sending by hand and the email connection", () => {
     const db = await coreDb();
     const d = await draftEmail(db, MAIL);
     if (d.status !== "drafted") throw new Error("not drafted");
-    expect(await handSendFor(db, await row(db, d.id), CTX)).toEqual({ copyText: null, note: null });
+    expect(await handSendFor(db, await row(db, d.id), CTX)).toEqual({ copyText: null, reason: null });
     await db.close();
+  });
+});
+
+describe("the card note gives its real reason", () => {
+  it("a marketing email with no live address says to set the address, and an invalid one says to fix it", async () => {
+    const db = await coreDb();
+    const id = await approved(db, { kind: "marketing" });
+    expect(await handSendFor(db, await row(db, id), { ...CTX, baseUrl: null })).toEqual({ copyText: null, reason: "no_address" });
+    expect(await handSendFor(db, await row(db, id), { ...CTX, baseUrl: null, addressInvalid: true })).toEqual({ copyText: null, reason: "address_invalid" });
+    await db.close();
+  });
+  it("words each reason for itself", () => {
+    expect(handSendNote("no_address")).toMatch(/set FOUNDATION_URL/);
+    expect(handSendNote("address_invalid")).toMatch(/FOUNDATION_URL is set but is not a plain https address/);
+    expect(handSendNote("no_secret")).toMatch(/at least 32 characters/);
+    expect(handSendNote(null)).toBeNull();
+    expect(new Set(Object.values(HAND_SEND_NOTES)).size).toBe(Object.keys(HAND_SEND_NOTES).length);
+  });
+  it("handSendContext reads an http FOUNDATION_URL as invalid and a missing one as missing", async () => {
+    vi.stubEnv("FOUNDATION_URL", "http://command.harbor.example");
+    expect((await handSendContext(null)).addressInvalid).toBe(true);
+    vi.stubEnv("FOUNDATION_URL", "");
+    vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "");
+    expect((await handSendContext(null)).addressInvalid).toBe(false);
   });
 });

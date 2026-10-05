@@ -5,6 +5,7 @@ import { cancelEmailAction, markSentByHandAction, type CardActionResult } from "
 import type { CardEmail } from "@/lib/data/inbox";
 import type { OutboxStatus } from "@/lib/data/outbox";
 import type { HandSend } from "@/lib/data/hand-send";
+import { handSendNote } from "@/lib/hand-send-notes";
 
 const BUTTON = "min-h-11";
 const STATUS: Record<OutboxStatus, string> = {
@@ -18,7 +19,8 @@ const STATUS: Record<OutboxStatus, string> = {
 
 // A drafted email on its card. The body is customer-facing text written by a job, shown as plain text only.
 export function EmailDraft({ email, sendAfter, handSend }: { email: CardEmail; sendAfter: string | null; handSend: HandSend }) {
-  const { copyText, note } = handSend;
+  const { copyText } = handSend;
+  const note = handSendNote(handSend.reason);
   const [marked, mark, marking] = useActionState<CardActionResult | null, FormData>(markSentByHandAction, null);
   const [stopped, stop, stopping] = useActionState<CardActionResult | null, FormData>(cancelEmailAction, null);
   const pending = marking || stopping;

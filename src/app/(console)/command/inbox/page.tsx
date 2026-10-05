@@ -52,7 +52,7 @@ export default async function InboxPage() {
               {i.contact_email && <p className="text-sm text-mist">{i.contact_email}</p>}
               <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-300">{i.body}</p>
               {i.emails.map((e) => (
-                <EmailDraft key={e.id} email={e} sendAfter={e.send_after ? formatCardTime(e.send_after, timezone) : null} handSend={handSend.get(e.id) ?? { copyText: null, note: null }} />
+                <EmailDraft key={e.id} email={e} sendAfter={e.send_after ? formatCardTime(e.send_after, timezone) : null} handSend={handSend.get(e.id) ?? { copyText: null, reason: null }} />
               ))}
               {i.status !== "new" && (
                 <p className="mt-2 text-xs text-mist">

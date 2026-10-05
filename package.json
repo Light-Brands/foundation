@@ -18,6 +18,8 @@
     "key:sync": "tsx scripts/key-sync.ts",
     "log:sync": "tsx scripts/log-sync.ts",
     "log:base": "tsx scripts/log-base.ts",
+    "predraft": "node scripts/gen-build-secret.mjs",
+    "draft": "tsx --conditions=react-server scripts/draft.ts",
     "hooks:prune": "tsx scripts/hooks-prune.ts"
   },
   "dependencies": {

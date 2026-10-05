@@ -15,11 +15,13 @@ export type OutboxStatus = (typeof OUTBOX_STATUSES)[number];
 export const OUTBOX_KINDS = ["transactional", "marketing"] as const;
 export type OutboxKind = (typeof OUTBOX_KINDS)[number];
 export const OUTBOX_LIMITS = { subject: 200, body: 50_000, sendKey: 200 } as const;
+/** A row sending longer than this is resolved by recoverStuck. Every Sender must time out well under it, at a minute or two. */
 export const STUCK_AFTER_MS = 15 * 60_000;
 const UNCONFIRMED = "We could not confirm whether this email was sent. Check your sent mail before sending it again.";
 const SOURCE_MAX = 200;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const LINE_BREAK = /[\r\n]/;
+// Every C0 and C1 control character, DEL, and the Unicode line and paragraph separators.
+const CONTROL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/;
 const NUL = "\u0000";
 
 export type DraftEmail = {
@@ -103,8 +105,8 @@ export async function optOut(db: Queryable, input: { email: string; source: stri
 }
 
 function checkDraft(input: DraftEmail): string | null {
-  if (typeof input.subject !== "string" || !input.subject.trim() || input.subject.length > OUTBOX_LIMITS.subject || LINE_BREAK.test(input.subject)) {
-    return "A subject is one line of 1 to 200 characters.";
+  if (typeof input.subject !== "string" || !input.subject.trim() || input.subject.length > OUTBOX_LIMITS.subject || CONTROL.test(input.subject)) {
+    return "A subject is one line of 1 to 200 characters, with no control characters.";
   }
   if (typeof input.body !== "string" || !input.body.trim() || input.body.length > OUTBOX_LIMITS.body) return "A message is 1 to 50,000 characters.";
   if (typeof input.sendKey !== "string" || input.sendKey.length < 1 || input.sendKey.length > OUTBOX_LIMITS.sendKey) return "A send key is 1 to 200 characters.";
@@ -241,6 +243,7 @@ export async function cancelEmail(db: Queryable, id: string, now: Date): Promise
   return rows.length === 1;
 }
 
+/** Hands one email to the provider. It must give up well under STUCK_AFTER_MS, so recovery rarely meets a live send. */
 export type Sender = (msg: OutgoingEmail) => Promise<{ providerRef: string }>;
 /** secret: the fixed secret, else FOUNDATION_SECRET. baseUrl: the live site's https address, which marketing email needs. */
 export type SendOptions = { secret?: string | null; baseUrl?: string | null };
@@ -282,8 +285,18 @@ export async function sendApproved(db: Db, send: Sender, now: Date, max = 20, op
       out.failed++;
       continue;
     }
-    await markSent(db, msg.id, providerRef, now);
-    out.sent++;
+    if (await markSent(db, msg.id, providerRef, now)) {
+      out.sent++;
+      continue;
+    }
+    // The provider took it after recovery had already marked the row unconfirmed. Record the send, and count it
+    // only when that update really happened. A provider call must time out well under STUCK_AFTER_MS, so this
+    // is rare, never the normal path.
+    const late = await db.query(
+      "update outbox set status = 'sent', provider_ref = $2, sent_at = $3, updated_at = $3 where id = $1 and status = 'failed' and last_error = $4 returning id",
+      [msg.id, providerRef, now, UNCONFIRMED],
+    );
+    out.sent += late.length;
   }
   return out;
 }

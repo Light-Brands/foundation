@@ -61,6 +61,9 @@ describe("drafting", () => {
     expect((await draftEmail(db, { ...MAIL, cardId: "not-a-uuid" })).status).toBe("invalid");
     expect((await draftEmail(db, { ...MAIL, contactId: "1; drop table outbox" })).status).toBe("invalid");
     expect((await draftEmail(db, { ...MAIL, sendAfter: new Date("nope") })).status).toBe("invalid");
+    for (const c of ["\t", "\u0001", "\u001b", "\u007f", "\u0080", "\u0085", "\u009b", "\u009f", "\u2028", "\u2029"]) {
+      expect((await draftEmail(db, { ...MAIL, subject: `Hi${c}there` })).status, JSON.stringify(c)).toBe("invalid");
+    }
     await db.close();
   });
   it("keeps the local part as the job wrote it and lowercases the domain", async () => {
@@ -280,6 +283,40 @@ describe("every opt-out path fails closed", () => {
     expect(await db.query("select status, last_error from outbox where id = $1", [id])).toEqual([
       { status: "failed", last_error: "We could not check whether this person asked us to stop, so this email was not sent." },
     ]);
+    await db.close();
+  });
+});
+
+describe("a provider success that arrives late", () => {
+  const unknown = async () => "unknown" as const;
+  it("records a send that recovery had already marked unconfirmed", async () => {
+    const db = await coreDb();
+    const id = await approved(db);
+    const send: Sender = async () => {
+      expect(await recoverStuck(db, unknown, later(STUCK_AFTER_MS + 1000))).toEqual({ sent: 0, failed: 1 });
+      return { providerRef: "msg_late" };
+    };
+    expect(await sendApproved(db, send, T0)).toEqual({ sent: 1, failed: 0, refused: 0 });
+    expect(await db.query("select status, provider_ref, sent_by_hand from outbox where id = $1", [id])).toEqual([{ status: "sent", provider_ref: "msg_late", sent_by_hand: false }]);
+    await db.close();
+  });
+  it("counts nothing when the row was already sent by hand, or failed for another reason", async () => {
+    const db = await coreDb();
+    const a = await approved(db);
+    const byHand: Sender = async () => {
+      await recoverStuck(db, unknown, later(STUCK_AFTER_MS + 1000));
+      expect(await markSentByHand(db, a, T0)).toBe("sent");
+      return { providerRef: "msg_late" };
+    };
+    expect(await sendApproved(db, byHand, T0)).toEqual({ sent: 0, failed: 0, refused: 0 });
+    expect(await db.query("select provider_ref, sent_by_hand from outbox where id = $1", [a])).toEqual([{ provider_ref: null, sent_by_hand: true }]);
+    const b = await approved(db, { sendKey: "k-b" });
+    const otherFailure: Sender = async () => {
+      await db.query("update outbox set status = 'failed', last_error = 'bounced' where id = $1", [b]);
+      return { providerRef: "msg_late" };
+    };
+    expect(await sendApproved(db, otherFailure, T0)).toEqual({ sent: 0, failed: 0, refused: 0 });
+    expect(await statusOf(db, b)).toBe("failed");
     await db.close();
   });
 });

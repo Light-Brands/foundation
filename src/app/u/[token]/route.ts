@@ -40,7 +40,8 @@ async function respond(req: Request, params: Promise<{ token: string }>, method:
     );
     return page(outcome, token);
   } catch (err) {
-    console.error("unsubscribe failed", err);
+    // Only the name and the message: a database error's detail can carry the address.
+    console.error("unsubscribe failed", err instanceof Error ? `${err.name}: ${err.message}` : "unknown error");
     return page({ status: "preview" }, token);
   }
 }

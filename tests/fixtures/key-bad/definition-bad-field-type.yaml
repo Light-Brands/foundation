@@ -1,0 +1,5 @@
+app: clients
+category: keep
+fields:
+  - { name: notes, type: json }
+migrations: migrations/

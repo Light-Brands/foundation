@@ -1,0 +1,4 @@
+app: core
+category: keep
+fields: []
+migrations: migrations/

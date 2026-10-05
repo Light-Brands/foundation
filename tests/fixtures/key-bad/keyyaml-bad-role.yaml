@@ -1,0 +1,9 @@
+key: 1
+client: acme
+stage: seed
+home: repo
+roster:
+  - { role: Client_Care, charter: agents/Client_Care/charter.md }
+skills: []
+apps: []
+workflows: []

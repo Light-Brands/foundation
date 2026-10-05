@@ -11,6 +11,9 @@ export type ContextBlock = {
   phone: string;
   city: string;
   timezone: string;
+  work_days: string;
+  work_start: string;
+  work_end: string;
   owner: { name: string; first: string; role: string };
   stated_by: string;
   recorded: string;
@@ -28,6 +31,9 @@ export function contextBlockFromProfile(p: Profile, statedBy: string, recorded: 
     phone: p.phone,
     city: p.city,
     timezone: p.timezone,
+    work_days: p.work_days,
+    work_start: p.work_start,
+    work_end: p.work_end,
     owner: { name: p.owner_name, first: p.owner_first, role: p.owner_role },
     stated_by: statedBy,
     recorded,

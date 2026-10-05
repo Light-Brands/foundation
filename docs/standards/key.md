@@ -98,6 +98,9 @@ email: hello@harborstudio.example
 phone: 503 555 0100
 city: Portland
 timezone: America/Los_Angeles
+work_days: tue,wed,thu,fri,sat
+work_start: "09:00"
+work_end: "17:00"
 owner:
   name: Jo Harbor
   first: Jo
@@ -105,6 +108,8 @@ owner:
 stated_by: Jo Harbor
 recorded: 2026-10-05
 ```
+
+`work_days` lists the days the business is open in week order, and `work_start` and `work_end` are its hours on a 24 hour clock in its own time zone. All three are empty when the owner has not set them, and every routine then treats the business as always open.
 
 - **Change a business fact in Settings, then Preferences, and press Save.** Never edit the file by hand. Commit the files the save changed, `key/key.yaml` and `key/knowledge/context-block.yaml`, by name as one commit named `chore: business facts`. The first session's setup commit, `chore: set up <business>`, holds any save made before it. Why: the Preferences save is the only writer, and the next Save rewrites the file from the database row. One commit name for every save makes the history of business facts easy to find.
 

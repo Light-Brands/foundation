@@ -13,6 +13,9 @@ const FIELDS: Field[] = [
   { name: "website", label: "Website" },
   { name: "city", label: "City" },
   { name: "timezone", label: "Time zone" },
+  { name: "work_days", label: "Working days, such as mon, tue, wed, thu, fri" },
+  { name: "work_start", label: "Opening time", type: "time" },
+  { name: "work_end", label: "Closing time", type: "time" },
   { name: "owner_name", label: "Your name" },
 ];
 const MORE: Field[] = [

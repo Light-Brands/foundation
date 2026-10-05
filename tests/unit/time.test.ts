@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { businessTimeZone, formatCardTime } from "@/lib/time";
+import { businessTimeZone, formatCardTime, businessDate, businessWeekday, businessWeekStart, businessClock, isOpenAt, workingHours } from "@/lib/time";
 
 // 06:30 UTC on a Monday is still Sunday evening in Los Angeles: the card must show the business's day.
 const AT = "2026-10-05 06:30:00.123456+00";
@@ -29,5 +29,41 @@ describe("card times", () => {
     expect(formatCardTime("2026-10-05 06:30:00+00", "UTC")).toBe("Oct 5, 2026, 6:30 AM UTC");
     expect(formatCardTime("2026-10-05 06:30:00-07", "UTC")).toBe("Oct 5, 2026, 1:30 PM UTC");
     expect(formatCardTime("not a time", "UTC")).toBe("not a time");
+  });
+});
+
+describe("the business's clock", () => {
+  // 2026-10-05T06:30:00Z is 23:30 on Sunday, October 4 in Portland.
+  const lateSunday = new Date("2026-10-05T06:30:00Z");
+  it("dates and weeks follow the business's zone", () => {
+    expect(businessDate("America/Los_Angeles", lateSunday)).toBe("2026-10-04");
+    expect(businessWeekday("America/Los_Angeles", lateSunday)).toBe("sun");
+    expect(businessWeekStart("America/Los_Angeles", lateSunday)).toBe("2026-09-28");
+    expect(businessWeekStart("UTC", lateSunday)).toBe("2026-10-05");
+    expect(businessClock("America/Los_Angeles", lateSunday)).toBe("23:30");
+  });
+  it("falls back to UTC for an empty or unknown zone", () => {
+    expect(businessDate("", lateSunday)).toBe("2026-10-05");
+    expect(businessDate("Mars/Base", lateSunday)).toBe("2026-10-05");
+  });
+  it("reads midnight as 00:00", () => {
+    expect(businessClock("UTC", new Date("2026-10-05T00:00:00Z"))).toBe("00:00");
+  });
+});
+
+describe("isOpenAt", () => {
+  const hours = workingHours({ work_days: "mon,tue,wed,thu,fri", work_start: "09:00", work_end: "17:00" });
+  const tz = "America/Los_Angeles";
+  it("is open on a working day inside the hours, with the end excluded", () => {
+    expect(isOpenAt(hours, tz, new Date("2026-10-05T16:00:00Z"))).toBe(true); // Monday 09:00
+    expect(isOpenAt(hours, tz, new Date("2026-10-05T23:59:00Z"))).toBe(true); // Monday 16:59
+    expect(isOpenAt(hours, tz, new Date("2026-10-06T00:00:00Z"))).toBe(false); // Monday 17:00
+  });
+  it("is closed on a day off", () => {
+    expect(isOpenAt(hours, tz, new Date("2026-10-04T18:00:00Z"))).toBe(false); // Sunday 11:00
+  });
+  it("is always open when no hours are set", () => {
+    expect(workingHours({ work_days: "", work_start: "", work_end: "" })).toBeNull();
+    expect(isOpenAt(null, tz, new Date("2026-10-04T18:00:00Z"))).toBe(true);
   });
 });

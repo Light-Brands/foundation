@@ -52,3 +52,44 @@ describe("profile storage", () => {
     await db.close();
   });
 });
+
+describe("working hours", () => {
+  const base = { business: "Harbor" };
+  it("stores days in week order from any spacing and case", () => {
+    const r = validateProfile({ ...base, work_days: "Fri, mon  TUE", work_start: "09:00", work_end: "17:30" });
+    expect(r.ok && [r.value.work_days, r.value.work_start, r.value.work_end]).toEqual(["mon,tue,fri", "09:00", "17:30"]);
+  });
+  it("accepts all three empty", () => {
+    const r = validateProfile(base);
+    expect(r.ok && r.value.work_days).toBe("");
+  });
+  it("refuses unknown or repeated days", () => {
+    for (const d of ["monday", "mon,mon", "mon;tue"]) {
+      const r = validateProfile({ ...base, work_days: d, work_start: "09:00", work_end: "17:00" });
+      expect(!r.ok && r.errors.work_days, d).toBe("List your working days, such as mon, tue, wed, thu, fri.");
+    }
+  });
+  it("refuses times that are not HH:MM on a 24 hour clock", () => {
+    const r = validateProfile({ ...base, work_days: "mon", work_start: "9am", work_end: "24:00" });
+    expect(!r.ok && [r.errors.work_start, r.errors.work_end]).toEqual(["Use a 24 hour time like 09:00.", "Use a 24 hour time like 17:00."]);
+  });
+  it("refuses a closing time that is not after the opening time", () => {
+    const r = validateProfile({ ...base, work_days: "mon", work_start: "17:00", work_end: "09:00" });
+    expect(!r.ok && r.errors.work_end).toBe("Make closing time later than opening time.");
+  });
+  it("refuses a partial set and points at each missing field", () => {
+    const r = validateProfile({ ...base, work_days: "mon" });
+    expect(!r.ok && [r.errors.work_start, r.errors.work_end]).toEqual([
+      "Add this too, or clear all three working hours fields.",
+      "Add this too, or clear all three working hours fields.",
+    ]);
+  });
+  it("saves and reads the three fields", async () => {
+    const db = await openPglite();
+    await migrate(db, MIGRATIONS, "core");
+    await saveProfile(db, { ...EMPTY, business: "Harbor", work_days: "mon,tue", work_start: "09:00", work_end: "17:00" });
+    const got = await getProfile(db, "x");
+    expect([got.work_days, got.work_start, got.work_end]).toEqual(["mon,tue", "09:00", "17:00"]);
+    await db.close();
+  });
+});

@@ -47,6 +47,12 @@ describe("saveProfileAction context block", () => {
     saveProfile.mockClear();
     hasSession.mockResolvedValue(true);
   });
+  it("copies the working hours into the context block", async () => {
+    storageMode.mockReturnValue("pglite");
+    await saveProfileAction(null, form({ business: "Harbor", work_days: "Mon Tue", work_start: "09:00", work_end: "17:00" }));
+    const block = (writeContextBlock.mock.calls[0] as unknown[])[1] as { work_days: string; work_start: string; work_end: string };
+    expect([block.work_days, block.work_start, block.work_end]).toEqual(["mon,tue", "09:00", "17:00"]);
+  });
   it("writes the context block after a successful save in pglite mode", async () => {
     storageMode.mockReturnValue("pglite");
     const r = await saveProfileAction(null, form({ business: "Harbor", owner_name: "Ann Lee" }));

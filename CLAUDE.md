@@ -8,7 +8,7 @@ Everything belongs to one of eleven categories (a founder reads them as departme
 
 - Built screens are listed in `CORE_SCREENS` in `src/lib/layout/registry.ts`.
 - Every other sub-category is a "ready to set up" page with three doors (`src/components/Doors.tsx`).
-- Data goes through `getDb()` from `src/lib/db`. Locally it is PGlite (real Postgres in `.data/`); on Vercel without a database it returns null and the app runs in preview. Only one program opens the local database at a time: a script that opens it while `npm run dev` is running stops with "The command center is open. Close it, then run this again."
+- Data goes through `getDb()` from `src/lib/db`. Locally it is PGlite (real Postgres in `.data/`); on Vercel without a database it returns null and the app runs in preview. Only one program opens the local database at a time: a second program that opens it, such as a script while `npm run dev` is running, stops with "Another program has the local database open (the command center or a command such as npm run brief). Close it, then run this again. If nothing is open, delete .data/pglite.lock."
 - Schema changes are new files in `core/db/migrations/` (Key apps keep theirs in `key/apps/<app>/migrations/`), numbered in order. Never edit an applied migration.
 - Member-facing steps each have a prompt in `prompts/`.
 

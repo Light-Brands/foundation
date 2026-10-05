@@ -249,6 +249,14 @@ describe("checkRoutine every", () => {
   });
 });
 
+describe("checkRoutine cron", () => {
+  const cr = (c: string) => routine.replace("trigger: every", "trigger: cron").replace("every: 1 day", `cron: "${c}"`);
+  it.each(["0 7 * * 2", "*/15 9-17 * * 1-5", "0 9,17 1 1 0", "0-30/10 * * * 7"])("accepts %s", (v) => expect(checkRoutine("w.md", cr(v))).toEqual([]));
+  it.each(["0 25 * * 2", "0 7 * *", "every tuesday", "0 7 * * 8", "60 * * * *", "* * 0 * *", "* * * 13 *", "*/0 * * * *", "5-1 * * * *"])("rejects %s", (v) => {
+    expect(checkRoutine("w.md", cr(v)).join("\n")).toContain("w.md: cron must be five fields: minute hour day month weekday, such as 0 7 * * 2");
+  });
+});
+
 describe("checkDefinition reads entities[].fields", () => {
   const def = (fields: string, extra = "") => `app: clients
 category: keep

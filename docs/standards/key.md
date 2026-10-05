@@ -171,7 +171,7 @@ The booking appears on the calendar and the client has the confirmation.
 
 | trigger | fields it needs |
 |---|---|
-| `cron` | `cron`, a schedule such as `0 9 * * *` |
+| `cron` | `cron`, a schedule of exactly five space-separated fields (minute 0-59, hour 0-23, day of month 1-31, month 1-12, weekday 0-7), each a number, `*`, a range `a-b`, a list `a,b` or a step `*/n` or `a-b/n`, such as `0 9 * * *` or `*/15 9-17 * * 1-5` |
 | `every` | `every`, a number and a unit, such as `1 day` or `30 minutes` (`second`, `minute`, `hour`, `day` or `week`, with an optional `s`) |
 | `at` | `at`, a date and time |
 | `record_change` | `entity` and `events` |

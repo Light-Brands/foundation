@@ -187,6 +187,27 @@ export function checkSkill(file: string, md: string): string[] {
   return p;
 }
 
+const CRON_RANGES: [number, number][] = [[0, 59], [0, 23], [1, 31], [1, 12], [0, 7]];
+export const CRON_MESSAGE = "cron must be five fields: minute hour day month weekday, such as 0 7 * * 2";
+
+export function isValidCron(cron: string): boolean {
+  const fields = cron.trim().split(/\s+/);
+  if (fields.length !== 5) return false;
+  return fields.every((field, i) => {
+    const [lo, hi] = CRON_RANGES[i];
+    const num = (v: string) => /^\d+$/.test(v) && Number(v) >= lo && Number(v) <= hi;
+    return field.split(",").every((part) => {
+      const [base, step, extra] = part.split("/");
+      if (extra !== undefined) return false;
+      if (step !== undefined && !(/^\d+$/.test(step) && Number(step) >= 1)) return false;
+      if (base === "*") return true;
+      const range = base.split("-");
+      if (range.length === 1) return step === undefined ? num(base) : false;
+      return range.length === 2 && num(range[0]) && num(range[1]) && Number(range[0]) <= Number(range[1]);
+    });
+  });
+}
+
 export function checkRoutine(file: string, md: string): string[] {
   const p: string[] = [];
   const fm = parseFrontMatter(md);
@@ -202,6 +223,7 @@ export function checkRoutine(file: string, md: string): string[] {
     if (t === "every" && d.every != null && d.every !== "" && !EVERY.test(str(d.every).trim())) bad("routine every must be a number and a unit, such as 1 day or 30 minutes (seconds, minutes, hours, days or weeks)");
     const need: Record<string, string[]> = { cron: ["cron"], every: ["every"], at: ["at"], record_change: ["entity", "events"] };
     for (const k of need[t]) if (d[k] == null || d[k] === "") bad(`routine trigger ${t} needs ${k}`);
+    if (t === "cron" && d.cron != null && d.cron !== "" && !isValidCron(str(d.cron))) bad(CRON_MESSAGE);
   }
   for (const m of inOrder(h2(fm.body), ROUTINE_SECTIONS)) bad(`routine ${m}`);
   return p;

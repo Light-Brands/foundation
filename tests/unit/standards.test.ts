@@ -46,3 +46,21 @@ describe("the coding standards", () => {
     }
   });
 });
+
+describe("a Ninja framework run commits once", () => {
+  for (const f of ["CLAUDE.md", "docs/standards/commits.md", "docs/standards/log.md"]) {
+    it(`${f} gives a run one work commit on its run branch, one log-only commit, and main only on the owner's yes`, () => {
+      const text = readFileSync(path.join(ROOT, f), "utf8");
+      expect(text).toContain("run/<date>-<verb>-<entry with / as ->");
+      expect(text).toMatch(/one work commit/);
+      expect(text).toMatch(/one log-only commit/);
+      expect(text).toMatch(/merging (it )?into `?main`? on the owner's yes/);
+      expect(text).toMatch(/by hand outside the runner/);
+      expect(text).not.toMatch(/After every build step|Add an entry after every build step|The order for every build step/);
+    });
+  }
+  it("commits.md asks one fix per review finding only for work by hand", () => {
+    const text = readFileSync(path.join(ROOT, "docs/standards/commits.md"), "utf8");
+    expect(text).not.toMatch(/^- \*\*Make one fix per review finding\.\*\*/m);
+  });
+});

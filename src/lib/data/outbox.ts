@@ -80,8 +80,9 @@ export async function isOptedOut(db: Queryable, email: string, kind: OutboxKind,
 }
 
 /**
- * Records an opt-out once, with its scope. A second opt-out for the same person only widens a marketing one to
- * all, never narrows it. Never raises a database error on a clash with any unique index, and then reads back:
+ * Records an opt-out once, with its scope. It matches an earlier row on email_hash or on lower(email), so an
+ * opt-out kept under an earlier FOUNDATION_SECRET is re-keyed to today's hash. A second opt-out for the same
+ * person only widens a marketing one to all, never narrows it. Never raises a database error on a clash with any unique index, and then reads back:
  * unless a row for this address now covers the scope, it throws OptOutNotRecordedError. Throws for an address parseEmail
  * refuses, for a scope that is not marketing or all, and while FOUNDATION_SECRET is unset.
  */
@@ -91,13 +92,23 @@ export async function optOut(db: Queryable, input: { email: string; source: stri
   if (!p.ok) throw new TypeError(p.error);
   if (!(OPT_OUT_SCOPES as readonly string[]).includes(input.scope)) throw new TypeError("An opt-out is for marketing email or for all email.");
   const hash = emailHash(p.send, key);
-  // No conflict target, so a clash on any unique index writes nothing instead of throwing.
-  const inserted = await db.query(
-    "insert into opt_outs (email, email_hash, at, source, scope) values ($1, $2, $3, $4, $5) on conflict do nothing returning id",
-    [p.send, hash, now, input.source.slice(0, 80), input.scope],
+  // One row per person, found by today's hash or by the address itself, so an opt-out kept under an earlier
+  // secret is re-keyed to today's hash. The hash row wins when both exist. A scope only widens.
+  const refresh = () => db.query(
+    `update opt_outs set email_hash = $1, scope = case when $3 = 'all' then 'all' else scope end
+     where id = (select id from opt_outs where email_hash = $1 or (email is not null and lower(email) = lower($2))
+                 order by (email_hash = $1) desc limit 1)
+       and not exists (select 1 from opt_outs o where o.email_hash = $1 and o.id <> opt_outs.id)
+     returning id`,
+    [hash, p.send, input.scope],
   );
-  if (inserted.length === 0 && input.scope === "all") {
-    await db.query("update opt_outs set scope = 'all' where email_hash = $1 and scope <> 'all'", [hash]);
+  if ((await refresh()).length === 0) {
+    // No conflict target, so a clash on any unique index writes nothing instead of throwing.
+    const inserted = await db.query(
+      "insert into opt_outs (email, email_hash, at, source, scope) values ($1, $2, $3, $4, $5) on conflict do nothing returning id",
+      [p.send, hash, now, input.source.slice(0, 80), input.scope],
+    );
+    if (inserted.length === 0) await refresh();
   }
   // Fail closed: success only when a row for this hash now covers the scope asked for.
   const covered = await db.query("select 1 as hit from opt_outs where email_hash = $1 and (scope = 'all' or $2 = 'marketing') limit 1", [hash, input.scope]);

@@ -75,8 +75,17 @@ describe("unsubscribing", () => {
   it("never answers done when the opt-out could not be written", async () => {
     const db = await coreDb();
     const id = await approvedPromo(db);
+    // Every write to opt_outs is lost, so the read back finds nothing.
+    const writesLost: Db = { ...db, query: (async (sql: string, params?: unknown[]) => (/^\s*(insert into|update) opt_outs/.test(sql) ? [] : db.query(sql, params))) as Db["query"], transaction: db.transaction.bind(db), exec: db.exec.bind(db), close: db.close.bind(db) };
+    await expect(handleUnsubscribe({ db: writesLost, secret: SECRET }, post(unsubscribeToken(id, SECRET)), T0)).rejects.toThrow();
+    await db.close();
+  });
+  it("re-keys an opt-out kept under an earlier secret and answers done", async () => {
+    const db = await coreDb();
+    const id = await approvedPromo(db);
     await db.query("insert into opt_outs (email, email_hash, source, scope) values ('Jo+News@harbor.example', 'hash-under-an-earlier-secret', 'old', 'all')");
-    await expect(handleUnsubscribe({ db, secret: SECRET }, post(unsubscribeToken(id, SECRET)), T0)).rejects.toThrow();
+    expect(await handleUnsubscribe({ db, secret: SECRET }, post(unsubscribeToken(id, SECRET)), T0)).toEqual({ status: "done" });
+    expect(await db.query("select scope, email_hash <> 'hash-under-an-earlier-secret' as rekeyed from opt_outs")).toEqual([{ scope: "all", rekeyed: true }]);
     await db.close();
   });
   it("refuses with a secret shorter than 32 characters", async () => {

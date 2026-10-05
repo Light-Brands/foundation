@@ -4,6 +4,7 @@ import {
   OptOutNotRecordedError, cancelEmail, claimNext, draftEmail, isOptedOut, markSent, markSentByHand, optOut, recoverStuck, sendApproved, STUCK_AFTER_MS, type Sender,
 } from "@/lib/data/outbox";
 import type { Db } from "@/lib/db/types";
+import { emailHash } from "@/lib/email";
 
 const T0 = new Date("2026-10-05T16:00:00Z");
 const later = (ms: number) => new Date(T0.getTime() + ms);
@@ -224,10 +225,33 @@ describe("opt-out scope", () => {
     expect(await db.query("select count(*)::int as n from opt_outs")).toEqual([{ n: 0 }]);
     await db.close();
   });
-  it("never raises a database error on a second unique index", async () => {
+  it("never raises a database error on a second unique index, and records under the new secret", async () => {
     const db = await coreDb();
     await optOut(db, { email: "jo@harbor.example", source: "link", scope: "marketing" }, T0, "an-earlier-secret-of-at-least-32-chars");
-    await expect(optOut(db, { email: "jo@harbor.example", source: "owner", scope: "all" }, T0)).rejects.toThrow(OptOutNotRecordedError);
+    await expect(optOut(db, { email: "jo@harbor.example", source: "owner", scope: "all" }, T0)).resolves.toBeUndefined();
+    expect(await db.query("select scope from opt_outs")).toEqual([{ scope: "all" }]);
+    await db.close();
+  });
+  it("an opt-out under secret A, then again under secret B, keeps one row with hash B that refuses under B", async () => {
+    const A = "secret-a-".padEnd(40, "a");
+    const B = "secret-b-".padEnd(40, "b");
+    const db = await coreDb();
+    await optOut(db, { email: "Jo@Harbor.example", source: "link", scope: "marketing" }, T0, A);
+    expect(await isOptedOut(db, "jo@harbor.example", "marketing", B)).toBe(false);
+    await optOut(db, { email: "jo@harbor.example", source: "owner", scope: "marketing" }, T0, B);
+    expect(await db.query("select email_hash, scope from opt_outs")).toEqual([{ email_hash: emailHash("jo@harbor.example", B), scope: "marketing" }]);
+    expect(await isOptedOut(db, "jo@harbor.example", "marketing", B)).toBe(true);
+    expect(await isOptedOut(db, "jo@harbor.example", "transactional", B)).toBe(false);
+    await db.close();
+  });
+  it("a new opt-out never narrows the scope it finds under an earlier secret", async () => {
+    const A = "secret-a-".padEnd(40, "a");
+    const B = "secret-b-".padEnd(40, "b");
+    const db = await coreDb();
+    await optOut(db, { email: "jo@harbor.example", source: "owner", scope: "all" }, T0, A);
+    await optOut(db, { email: "jo@harbor.example", source: "link", scope: "marketing" }, T0, B);
+    expect(await db.query("select email_hash, scope from opt_outs")).toEqual([{ email_hash: emailHash("jo@harbor.example", B), scope: "all" }]);
+    expect(await isOptedOut(db, "jo@harbor.example", "transactional", B)).toBe(true);
     await db.close();
   });
 });
@@ -257,9 +281,9 @@ describe("every opt-out path fails closed", () => {
   });
   it("an opt-out that could not be written for this hash is a failure, never a quiet success", async () => {
     const db = await coreDb();
-    // The same address kept under an earlier secret holds the address index, so nothing is written for today's hash.
-    await optOut(db, { email: MAIL.to, source: "link", scope: "all" }, T0, "an-earlier-secret-of-at-least-32-chars");
-    await expect(optOut(db, { email: MAIL.to, source: "owner", scope: "all" }, T0)).rejects.toThrow(/could not record/);
+    // Every write to opt_outs is lost, so the read back finds nothing and the opt-out fails.
+    const writesLost: Db = { ...db, query: (async (sql: string, params?: unknown[]) => (/^\s*(insert into|update) opt_outs/.test(sql) ? [] : db.query(sql, params))) as Db["query"], transaction: db.transaction.bind(db), exec: db.exec.bind(db), close: db.close.bind(db) };
+    await expect(optOut(writesLost, { email: MAIL.to, source: "owner", scope: "all" }, T0)).rejects.toThrow(/could not record/);
     await db.close();
   });
   it("a marketing opt-out already covered by an all one is a success", async () => {

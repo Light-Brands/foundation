@@ -73,18 +73,3 @@ export function cleanPhone(raw: unknown): { ok: true; value: string } | { ok: fa
 }
 
 export type ContactInput = { name: string; email: string; phone: string; message: string };
-
-export function validateContact(input: Record<string, unknown>):
-  | { ok: true; value: ContactInput }
-  | { ok: false; errors: Partial<Record<keyof ContactInput | "website", string>> } {
-  const str = (k: string) => (typeof input[k] === "string" ? (input[k] as string).trim() : "");
-  const phone = cleanPhone(input.phone);
-  const value = { name: str("name"), email: str("email"), phone: phone.ok ? phone.value : "", message: str("message") };
-  const errors: Partial<Record<keyof ContactInput | "website", string>> = {};
-  if (str("website")) errors.website = "Something went wrong. Please try again.";
-  if (!value.name || value.name.length > 120) errors.name = "Add your name (up to 120 characters).";
-  if (!EMAIL.test(value.email) || value.email.length > 254) errors.email = "Add an email we can reply to.";
-  if (!phone.ok) errors.phone = phone.error;
-  if (!value.message || value.message.length > 4000) errors.message = "Add a message (up to 4,000 characters).";
-  return Object.keys(errors).length ? { ok: false, errors } : { ok: true, value };
-}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { coreDb, extDb, KEY_EXT, ROOT } from "../support/db";
 import { loadCardKinds } from "@/lib/data/card-kinds";
@@ -82,8 +82,23 @@ describe("routing", () => {
     await db.close();
   });
   it("no public action can route a card", () => {
-    for (const f of ["src/app/contact/actions.ts"]) {
-      expect(readFileSync(path.join(ROOT, f), "utf8"), f).not.toMatch(/routeCard|insertOncePerCard/);
+    // Every file a visitor can reach without a session: all of src/app outside (console), the public
+    // form helper, and any "use server" module outside (console). Walked from disk, so a new public
+    // page or action is covered the day it lands.
+    const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const p = path.join(dir, e.name);
+      return e.isDirectory() ? walk(p) : /\.(ts|tsx)$/.test(e.name) ? [p] : [];
+    });
+    const rel = (p: string) => path.relative(ROOT, p).split(path.sep).join("/");
+    const outsideConsole = (f: string) => !f.split("/").includes("(console)");
+    const app = walk(path.join(ROOT, "src/app")).map(rel).filter(outsideConsole);
+    const forms = walk(path.join(ROOT, "src/lib/forms")).map(rel);
+    const actions = walk(path.join(ROOT, "src")).map(rel).filter(outsideConsole)
+      .filter((f) => /^\s*["']use server["']/m.test(readFileSync(path.join(ROOT, f), "utf8")));
+    const files = [...new Set([...app, ...forms, ...actions])];
+    for (const f of ["src/app/f/actions.ts", "src/lib/forms/public.ts", "src/app/contact/page.tsx"]) expect(files, f).toContain(f);
+    for (const f of files) {
+      expect(readFileSync(path.join(ROOT, f), "utf8"), f).not.toMatch(/routeCard|insertOncePerCard|decideCard|markCardDone|completeCard/);
     }
   });
 });

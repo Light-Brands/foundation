@@ -57,3 +57,10 @@ describe("handleGatePost", () => {
     expect(r.token).toBeUndefined();
   });
 });
+
+describe("the public form route", () => {
+  it("lets every declared form address through, and nothing else under /f", () => {
+    for (const p of ["/f/get-in-touch", "/f/apply"]) expect(isPublicPath(p), p).toBe(true);
+    for (const p of ["/f", "/f/", "/f/Get-In-Touch", "/f/a/b", "/f/a_b", "/forms/a"]) expect(isPublicPath(p), p).toBe(false);
+  });
+});

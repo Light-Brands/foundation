@@ -3,7 +3,8 @@ import { sourceFields } from "@/lib/forms/source";
 import { getDb } from "@/lib/db";
 import { getProfile } from "@/lib/data/profile";
 import { readEnv } from "@/lib/env";
-import { ContactForm } from "./ContactForm";
+import { CONTACT_FORM } from "@/lib/forms/public";
+import { PublicForm } from "@/components/PublicForm";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
         <h1 className="mt-1 text-3xl text-zinc-50">{profile.business}</h1>
         {profile.what_we_do && <p className="mt-2 text-mist">{profile.what_we_do}</p>}
       </div>
-      <ContactForm source={source} />
+      <PublicForm form={CONTACT_FORM} source={source} />
     </main>
   );
 }

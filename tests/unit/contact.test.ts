@@ -1,32 +1,11 @@
 import { describe, it, expect } from "vitest";
 import path from "node:path";
-import { validateContact, cleanPhone } from "@/lib/validate";
+import { cleanPhone } from "@/lib/validate";
 import { submitContact, listInbox, countNewInbox } from "@/lib/data/inbox";
 import { openPglite } from "@/lib/db/pglite";
 import { migrate } from "@/lib/db/migrate";
 
 const MIGRATIONS = path.join(__dirname, "../../core/db/migrations");
-
-describe("validateContact", () => {
-  it("accepts a complete message", () => {
-    const r = validateContact({ name: " Ada ", email: "ada@example.com", message: " Hello ", website: "" });
-    expect(r).toEqual({ ok: true, value: { name: "Ada", email: "ada@example.com", phone: "", message: "Hello" } });
-  });
-  it("rejects missing fields, a bad email and oversized input", () => {
-    const r = validateContact({ name: "", email: "x", message: "y".repeat(5000) });
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(Object.keys(r.errors).sort()).toEqual(["email", "message", "name"]);
-  });
-  it("treats a filled honeypot as a bot", () => {
-    const r = validateContact({ name: "Ada", email: "ada@example.com", message: "Hi", website: "http://spam" });
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errors.website).toBeDefined();
-  });
-  it("keeps HTML as plain text", () => {
-    const r = validateContact({ name: "Ada", email: "ada@example.com", message: "<script>alert(1)</script>" });
-    expect(r.ok && r.value.message).toBe("<script>alert(1)</script>");
-  });
-});
 
 describe("the inbox", () => {
   it("files a contact submission in the Inbox (Command center, Handle what needs you) and dedupes the contact by email", async () => {
@@ -73,11 +52,6 @@ describe("cleanPhone", () => {
     for (const bad of ["call me", "555 01", "1234567890123456", "1".repeat(41), "503 555 0100 ext 2"]) {
       expect(cleanPhone(bad).ok, bad).toBe(false);
     }
-  });
-  it("refuses a bad phone in a contact message", () => {
-    const r = validateContact({ name: "Ada", email: "ada@example.com", phone: "nope", message: "Hi" });
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errors.phone).toBe("Add a phone number with 7 to 15 digits, or leave it blank.");
   });
 });
 

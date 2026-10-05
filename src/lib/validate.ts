@@ -3,14 +3,14 @@ export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PROFILE_FIELDS = [
   "business", "short_name", "what_we_do", "who_we_serve", "how_we_sound", "website",
   "email", "phone", "city", "timezone", "owner_name", "owner_first", "owner_role",
-  "work_days", "work_start", "work_end",
+  "work_days", "work_start", "work_end", "postal_address",
 ] as const;
 export type Profile = Record<(typeof PROFILE_FIELDS)[number], string>;
 
 const LIMITS: Record<keyof Profile, number> = {
   business: 120, short_name: 40, what_we_do: 200, who_we_serve: 200, how_we_sound: 200, website: 200,
   email: 254, phone: 40, city: 80, timezone: 64, owner_name: 120, owner_first: 60, owner_role: 80,
-  work_days: 60, work_start: 5, work_end: 5,
+  work_days: 60, work_start: 5, work_end: 5, postal_address: 300,
 };
 
 function isTimeZone(tz: string): boolean {
@@ -42,6 +42,7 @@ export function validateProfile(input: Record<string, unknown>):
   for (const k of PROFILE_FIELDS) {
     if (value[k].length > LIMITS[k]) errors[k] = `Keep this under ${LIMITS[k]} characters.`;
   }
+  if (/[\r\n]/.test(value.postal_address) && !errors.postal_address) errors.postal_address = "Keep the postal address on one line.";
   if (value.email && !EMAIL.test(value.email)) errors.email = "That email does not look complete.";
   if (value.timezone && !isTimeZone(value.timezone)) errors.timezone = "Use a time zone like America/Chicago.";
   const days = cleanWorkDays(value.work_days);

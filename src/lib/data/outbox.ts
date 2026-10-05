@@ -1,6 +1,7 @@
 import type { Db, Queryable } from "@/lib/db/types";
 import { readEnv } from "@/lib/env";
 import { emailHash, parseEmail, MissingSecretError } from "@/lib/email";
+import { httpsOrigin, unsubscribeUrl } from "@/lib/email-links";
 
 // Every drafted customer email, sent at most once. A draft becomes approved only through the card
 // decision (decideCard in inbox.ts), and only while it is still a draft. A sender claims one approved,
@@ -113,20 +114,46 @@ export async function draftEmail(db: Queryable, input: DraftEmail, secret?: stri
 
 export type Claimed = { id: string; to_email: string; subject: string; body: string; send_key: string; attempts: number; kind: OutboxKind };
 
-/** Moves one approved, due row to sending in one statement, so two senders never take the same row. */
-export async function claimNext(db: Queryable, now: Date): Promise<Claimed | null> {
+/**
+ * Moves one approved, due row to sending in one statement, so two senders never take the same row.
+ * Marketing rows are taken only by a caller that can add their unsubscribe link.
+ */
+export async function claimNext(db: Queryable, now: Date, opts: { marketing?: boolean } = {}): Promise<Claimed | null> {
+  const due = "status = 'approved' and (send_after is null or send_after <= $1) and (kind = 'transactional' or $2)";
   const [row] = await db.query<Claimed>(
     `update outbox set status = 'sending', claimed_at = $1, attempts = attempts + 1, updated_at = $1
-      where id = (
-        select id from outbox
-         where status = 'approved' and (send_after is null or send_after <= $1)
-         order by approved_at nulls last, created_at limit 1 for update skip locked
-      )
-        and status = 'approved' and (send_after is null or send_after <= $1)
+      where id = (select id from outbox where ${due} order by approved_at nulls last, created_at limit 1 for update skip locked)
+        and ${due}
       returning id, to_email, subject, body, send_key, attempts, kind`,
-    [now],
+    [now, opts.marketing === true],
   );
   return row ?? null;
+}
+
+/** What a sender hands the provider: the body with any footer, and the headers to set. */
+export type OutgoingEmail = Claimed & { headers: Record<string, string> };
+export type Footer = { postalAddress: string; unsubscribeUrl: string | null; mailto: string | null };
+
+/**
+ * A marketing email gets the business's postal address when it is set, a link that unsubscribes this
+ * message's address, and the List-Unsubscribe headers for a mail app's one-click. Transactional email goes as written.
+ */
+export function composeEmail(msg: Claimed, footer: Footer): OutgoingEmail {
+  if (msg.kind !== "marketing") return { ...msg, headers: {} };
+  const lines = [footer.postalAddress.trim(), footer.unsubscribeUrl ? `To stop getting these emails, open ${footer.unsubscribeUrl}` : ""].filter(Boolean);
+  const targets = [footer.mailto ? `<mailto:${footer.mailto}?subject=unsubscribe>` : "", footer.unsubscribeUrl ? `<${footer.unsubscribeUrl}>` : ""].filter(Boolean);
+  return {
+    ...msg,
+    body: lines.length ? `${msg.body}\n\n${lines.join("\n")}` : msg.body,
+    headers: targets.length ? { "List-Unsubscribe": targets.join(", "), ...(footer.unsubscribeUrl ? { "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : {}) } : {},
+  };
+}
+
+/** The business's postal address and the mailto for unsubscribing, read fresh: jobs never keep a copy. */
+export async function readFooterFacts(db: Queryable): Promise<{ postalAddress: string; mailto: string | null }> {
+  const [p] = await db.query<{ postal_address: string; email: string }>("select postal_address, email from business_profile where id = 1");
+  const mail = parseEmail(p?.email ?? "");
+  return { postalAddress: (p?.postal_address ?? "").replace(/[\r\n]+/g, " ").trim(), mailto: mail.ok ? mail.send : null };
 }
 
 export async function markSent(db: Queryable, id: string, providerRef: string, now: Date): Promise<boolean> {
@@ -162,15 +189,20 @@ export async function cancelEmail(db: Queryable, id: string, now: Date): Promise
   return rows.length === 1;
 }
 
-export type Sender = (msg: Claimed) => Promise<{ providerRef: string }>;
+export type Sender = (msg: OutgoingEmail) => Promise<{ providerRef: string }>;
+/** secret: the fixed secret, else FOUNDATION_SECRET. baseUrl: the live site's https address, which marketing email needs. */
+export type SendOptions = { secret?: string | null; baseUrl?: string | null };
 
-export async function sendApproved(db: Db, send: Sender, now: Date, max = 20, secret?: string | null): Promise<{ sent: number; failed: number; refused: number }> {
+export async function sendApproved(db: Db, send: Sender, now: Date, max = 20, opts: SendOptions = {}): Promise<{ sent: number; failed: number; refused: number }> {
   // Without the fixed secret the opt-out list cannot be read, so nothing is claimed at all.
-  const key = keyOf(secret);
+  const key = keyOf(opts.secret);
+  const base = httpsOrigin(opts.baseUrl);
+  const facts = base ? await readFooterFacts(db) : null;
   const out = { sent: 0, failed: 0, refused: 0 };
   for (let i = 0; i < max; i++) {
-    const msg = await claimNext(db, now);
-    if (!msg) break;
+    const claimed = await claimNext(db, now, { marketing: base !== null });
+    if (!claimed) break;
+    const msg = composeEmail(claimed, { postalAddress: facts?.postalAddress ?? "", mailto: facts?.mailto ?? null, unsubscribeUrl: base ? unsubscribeUrl(base, claimed.id, key) : null });
     if (await isOptedOut(db, msg.to_email, key)) {
       await db.query("update outbox set status = 'cancelled', last_error = 'opted_out', updated_at = $2 where id = $1 and status = 'sending'", [msg.id, now]);
       out.refused++;

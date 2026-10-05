@@ -12,6 +12,7 @@ const FIELDS: Field[] = [
   { name: "phone", label: "Phone" },
   { name: "website", label: "Website" },
   { name: "city", label: "City" },
+  { name: "postal_address", label: "Postal address, shown at the foot of marketing email" },
   { name: "timezone", label: "Time zone" },
   { name: "work_days", label: "Working days, such as mon, tue, wed, thu, fri" },
   { name: "work_start", label: "Opening time", type: "time" },

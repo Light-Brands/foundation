@@ -8,6 +8,9 @@ import { PromptBox } from "@/components/PromptBox";
 import { loadCardKinds } from "@/lib/data/card-kinds";
 import { CardActions } from "./CardActions";
 import { EmailDraft } from "./EmailDraft";
+import { composeEmail, readFooterFacts } from "@/lib/data/outbox";
+import { publicBaseUrl, unsubscribeUrl } from "@/lib/email-links";
+import type { CardEmail } from "@/lib/data/inbox";
 
 const STATUS_LABEL = { new: "", decided: "Decided, waiting for its job to finish", done: "Done" } as const;
 
@@ -15,7 +18,18 @@ export default async function InboxPage() {
   const db = await getDb();
   const items = await listInbox(db);
   const kinds = await loadCardKinds();
-  const { timezone } = await getProfile(db, readEnv().businessName);
+  const env = readEnv();
+  const { timezone } = await getProfile(db, env.businessName);
+  const base = publicBaseUrl();
+  const facts = db ? await readFooterFacts(db) : { postalAddress: "", mailto: null };
+  // The text the owner copies to send by hand. A marketing email carries its footer and unsubscribe link, so
+  // it can be copied only where that link works: on the live site, with FOUNDATION_SECRET set.
+  const copyText = (e: CardEmail): string | null => {
+    if (e.kind === "marketing" && (!base || !env.fixedSecret)) return null;
+    const unsubscribe = e.kind === "marketing" && base && env.fixedSecret ? unsubscribeUrl(base, e.id, env.fixedSecret) : null;
+    const out = composeEmail({ id: e.id, to_email: e.to, subject: e.subject, body: e.body, send_key: "", attempts: 0, kind: e.kind }, { ...facts, unsubscribeUrl: unsubscribe });
+    return `Subject: ${out.subject}\n\n${out.body}`;
+  };
   return (
     <div className="space-y-6">
       <div>
@@ -46,7 +60,7 @@ export default async function InboxPage() {
               {i.contact_email && <p className="text-sm text-mist">{i.contact_email}</p>}
               <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-300">{i.body}</p>
               {i.emails.map((e) => (
-                <EmailDraft key={e.id} email={e} sendAfter={e.send_after ? formatCardTime(e.send_after, timezone) : null} copyText={`Subject: ${e.subject}\n\n${e.body}`} />
+                <EmailDraft key={e.id} email={e} sendAfter={e.send_after ? formatCardTime(e.send_after, timezone) : null} copyText={copyText(e)} />
               ))}
               {i.status !== "new" && (
                 <p className="mt-2 text-xs text-mist">

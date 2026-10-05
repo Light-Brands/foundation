@@ -15,3 +15,15 @@ test("the contact page carries where a visitor came from", async ({ context }) =
   await contact.getByRole("button", { name: "Send" }).click();
   await expect(contact.getByRole("status")).toContainText("Thank you");
 });
+
+test("a forged unsubscribe link reaches its page without a session and records nothing", async ({ browser }) => {
+  const visitor = await browser.newContext();
+  const page = await visitor.newPage();
+  const forged = `/u/6f1c2a4e-1b2c-4d5e-8f90-1234567890ab.${"A".repeat(43)}`;
+  const res = await page.goto(`http://localhost:3100${forged}`);
+  expect(res?.status()).toBe(404);
+  await expect(page.getByRole("heading", { name: "This link does not work" })).toBeVisible();
+  const post = await visitor.request.post(`http://localhost:3100${forged}`, { form: { "List-Unsubscribe": "One-Click" } });
+  expect(post.status()).toBe(404);
+  await visitor.close();
+});

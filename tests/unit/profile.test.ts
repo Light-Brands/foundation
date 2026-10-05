@@ -93,3 +93,17 @@ describe("working hours", () => {
     await db.close();
   });
 });
+
+describe("postal address", () => {
+  it("is a business fact, saved, read back and kept to one line of up to 300 characters", async () => {
+    const r = validateProfile({ business: "Harbor", postal_address: " 12 Harbor Way, Portland, OR 97201 " });
+    expect(r.ok && r.value.postal_address).toBe("12 Harbor Way, Portland, OR 97201");
+    expect(validateProfile({ business: "Harbor", postal_address: "x".repeat(301) }).ok).toBe(false);
+    expect(validateProfile({ business: "Harbor", postal_address: "12 Harbor Way\nBcc: x" }).ok).toBe(false);
+    const db = await openPglite();
+    await migrate(db, MIGRATIONS, "core");
+    await saveProfile(db, { ...EMPTY, business: "Harbor", postal_address: "12 Harbor Way, Portland, OR 97201" });
+    expect((await getProfile(db, "x")).postal_address).toBe("12 Harbor Way, Portland, OR 97201");
+    await db.close();
+  });
+});

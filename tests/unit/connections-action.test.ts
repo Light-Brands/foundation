@@ -7,6 +7,11 @@ vi.mock("@/lib/auth/session", () => ({ hasSession: () => hasSession() }));
 const upsertConnection = vi.fn(async () => {});
 vi.mock("@/lib/data/connections", async (orig) => ({ ...(await orig<typeof import("@/lib/data/connections")>()), upsertConnection: (...a: unknown[]) => (upsertConnection as (...x: unknown[]) => unknown)(...a) }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
+const actorRef: { value: unknown } = { value: null };
+vi.mock("@/lib/auth/roles", async (orig) => {
+  const real = await orig<typeof import("@/lib/auth/roles")>();
+  return { ...real, get PIN_OWNER() { return actorRef.value ?? real.PIN_OWNER; } };
+});
 
 import { saveConnectionAction } from "@/app/(console)/system/connections/actions";
 
@@ -18,6 +23,18 @@ describe("saveConnectionAction", () => {
     expect((await saveConnectionAction(null, form({ service: "email-sending", door: "own" }))).ok).toBe(false);
     expect(getDb).not.toHaveBeenCalled();
     expect(upsertConnection).not.toHaveBeenCalled();
+  });
+  it("refuses an actor without the owner role", async () => {
+    hasSession.mockResolvedValue(true);
+    actorRef.value = { id: "a1", role: "team", via: "account", departments: ["sell"] };
+    try {
+      const r = await saveConnectionAction(null, form({ service: "email-sending", door: "own", status: "connected" }));
+      expect(r.ok).toBe(false);
+      expect(getDb).not.toHaveBeenCalled();
+      expect(upsertConnection).not.toHaveBeenCalled();
+    } finally {
+      actorRef.value = null;
+    }
   });
   it("refuses a key typed where its setting name goes, before opening the database", async () => {
     hasSession.mockResolvedValue(true);

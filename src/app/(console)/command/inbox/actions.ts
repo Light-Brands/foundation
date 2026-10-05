@@ -9,7 +9,7 @@ import { routeCard } from "@/lib/data/cards";
 import { SLUG } from "@/lib/key/frontmatter";
 import { PREVIEW_MESSAGE } from "@/lib/data/profile";
 import { cancelEmail, markSentByHand, type HandSentResult } from "@/lib/data/outbox";
-import { emailSenderActive } from "@/lib/data/connections";
+import { emailSendingActive } from "@/lib/data/connections";
 import { MissingSecretError } from "@/lib/email";
 
 export type CardActionResult = { ok: boolean; message: string };
@@ -99,7 +99,7 @@ export async function markSentByHandAction(_prev: CardActionResult | null, form:
   try {
     const db = await getDb();
     if (!db) return { ok: false, message: PREVIEW_MESSAGE };
-    const r = await markSentByHand(db, id, new Date(), { approved: !(await emailSenderActive(db)) });
+    const r = await markSentByHand(db, id, new Date(), { approved: !(await emailSendingActive(db)) });
     revalidatePath("/command/inbox");
     return { ok: r === "sent", message: HAND_SENT[r] };
   } catch (err) {

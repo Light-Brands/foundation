@@ -4,7 +4,7 @@ import { getProfile } from "@/lib/data/profile";
 import { listInbox } from "@/lib/data/inbox";
 import { buildNav } from "@/lib/layout/registry";
 import { stackStatus } from "@/lib/setup/steps";
-import { connectionStatuses } from "@/lib/data/connections";
+import { connectionStatuses, emailSendingActive } from "@/lib/data/connections";
 import { readEnv } from "@/lib/env";
 import { ICONS } from "@/components/shell/icons";
 import { formatCardTime } from "@/lib/time";
@@ -27,7 +27,7 @@ export default async function Home() {
   }
   const profile = await getProfile(db, readEnv().businessName);
   const latest = await listInbox(db, 3, { status: "new" });
-  const steps = stackStatus(process.env, { storage: storageMode(), connections: await connectionStatuses(db) });
+  const steps = stackStatus(process.env, { storage: storageMode(), connections: await connectionStatuses(db), emailSending: await emailSendingActive(db) });
   const done = steps.filter((s) => s.status === "done").length;
   const nav = buildNav().filter((g) => g.id !== "command" && g.id !== "system");
   return (

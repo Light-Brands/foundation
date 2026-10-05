@@ -25,6 +25,15 @@ export function looksLikeSecret(value: string): boolean {
   return s.length >= 24 && /^[A-Za-z0-9_\-+/=.]+$/.test(s) && /\d/.test(s) && /[a-z]/.test(s) && /[A-Z]/.test(s);
 }
 
+/** A YYYY-MM-DD string that names a real day, so 2026-02-30 is refused. */
+function isCalendarDate(value: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const t = new Date(Date.UTC(y, mo - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d;
+}
+
 const KEY_MESSAGE = "That looks like a key. Save the name of the setting that holds it, such as RESEND_API_KEY, never the key itself.";
 
 export function validateConnection(input: Record<string, unknown>):
@@ -46,7 +55,7 @@ export function validateConnection(input: Record<string, unknown>):
     else if (value.key_setting.startsWith("NEXT_PUBLIC_")) errors.key_setting = "A key setting must never start with NEXT_PUBLIC_, because the browser can read those.";
     else if (!SETTING.test(value.key_setting)) errors.key_setting = "Use the setting's name in capitals, such as RESEND_API_KEY.";
   }
-  if (value.tested_on && !/^\d{4}-\d{2}-\d{2}$/.test(value.tested_on)) errors.tested_on = "Use a date like 2026-10-05.";
+  if (value.tested_on && !isCalendarDate(value.tested_on)) errors.tested_on = "Use a date like 2026-10-05.";
   if (value.owner.length > 120 || looksLikeSecret(value.owner)) errors.owner = "Name who looks after it, in up to 120 characters.";
   return Object.keys(errors).length ? { ok: false, errors } : { ok: true, value };
 }
@@ -78,13 +87,12 @@ export async function connectionStatuses(db: Db | null): Promise<Record<string, 
 export const EMAIL_SENDING = "email-sending";
 
 /**
- * True while the email-sending connection may be sending approved email on its own: connected, or failing
- * (a failing sender still runs and may still succeed). Copying an approved email to send by hand waits on this,
- * so the owner and the sender never both send one email.
+ * True only while the email-sending connection is connected. Then drainOutbox sends approved email on its own,
+ * and Copy email waits for it so the owner and the sender never both send one email. A failing connection
+ * does not drain, so Copy email stays available. The one rule every screen and the drain read.
  */
-export async function emailSenderActive(db: Db | null): Promise<boolean> {
-  const status = (await connectionStatuses(db))[EMAIL_SENDING];
-  return status === "connected" || status === "failing";
+export async function emailSendingActive(db: Db | null): Promise<boolean> {
+  return (await connectionStatuses(db))[EMAIL_SENDING] === "connected";
 }
 
 /**

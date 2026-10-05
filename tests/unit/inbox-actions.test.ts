@@ -16,7 +16,7 @@ vi.mock("@/lib/data/card-kinds", () => ({ loadCardKinds: async () => new Map() }
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 const markSentByHand = vi.fn(async (): Promise<string> => "sent");
 const cancelEmail = vi.fn(async () => true);
-vi.mock("@/lib/data/connections", () => ({ emailSenderActive: async () => false }));
+vi.mock("@/lib/data/connections", () => ({ emailSendingActive: async () => false }));
 vi.mock("@/lib/data/outbox", () => ({
   markSentByHand: (...a: unknown[]) => (markSentByHand as (...x: unknown[]) => unknown)(...a),
   cancelEmail: (...a: unknown[]) => (cancelEmail as (...x: unknown[]) => unknown)(...a),

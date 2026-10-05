@@ -2,7 +2,7 @@ import "server-only";
 import type { Db, Queryable } from "@/lib/db/types";
 import type { CardEmail } from "@/lib/data/inbox";
 import { composeEmail, isOptedOut, readFooterFacts } from "@/lib/data/outbox";
-import { emailSenderActive } from "@/lib/data/connections";
+import { emailSendingActive } from "@/lib/data/connections";
 import { readEnv } from "@/lib/env";
 import { publicBaseUrl, unsubscribeUrl } from "@/lib/email-links";
 
@@ -32,7 +32,7 @@ export async function handSendContext(db: Db | null): Promise<HandSendContext> {
     secret: readEnv().fixedSecret,
     baseUrl: publicBaseUrl(),
     facts: db ? await readFooterFacts(db) : { postalAddress: "", mailto: null },
-    senderActive: await emailSenderActive(db),
+    senderActive: await emailSendingActive(db),
   };
 }
 

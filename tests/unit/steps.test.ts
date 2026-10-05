@@ -39,13 +39,17 @@ describe("stackStatus", () => {
 
 describe("Set up reads connection status from the table", () => {
   it("marks the hosted database and email sending done when their connections are connected", () => {
-    const steps = stackStatus({}, { storage: "pglite", connections: { "hosted-database": "connected", "email-sending": "connected" } });
+    const steps = stackStatus({}, { storage: "pglite", connections: { "hosted-database": "connected", "email-sending": "connected" }, emailSending: true });
     expect(steps.find((s) => s.id === "supabase")!.status).toBe("done");
     expect(steps.find((s) => s.id === "email")!.status).toBe("done");
   });
   it("leaves them open while a connection is only planned or failing", () => {
-    const steps = stackStatus({}, { storage: "pglite", connections: { "hosted-database": "planned", "email-sending": "failing" } });
+    const steps = stackStatus({}, { storage: "pglite", connections: { "hosted-database": "planned", "email-sending": "failing" }, emailSending: false });
     expect(steps.find((s) => s.id === "supabase")!.status).not.toBe("done");
     expect(steps.find((s) => s.id === "email")!.status).not.toBe("done");
+  });
+  it("marks email sending done from emailSendingActive, not from the raw status", () => {
+    expect(stackStatus({}, { storage: "pglite", connections: {}, emailSending: true }).find((s) => s.id === "email")!.status).toBe("done");
+    expect(stackStatus({}, { storage: "pglite", connections: { "email-sending": "connected" }, emailSending: false }).find((s) => s.id === "email")!.status).not.toBe("done");
   });
 });

@@ -47,6 +47,13 @@ describe("validateConnection", () => {
     const r = validateConnection({ ...GOOD, door: "both", status: "maybe", service: "Email Sending", tested_on: "yesterday" });
     expect(!r.ok && Object.keys(r.errors).sort()).toEqual(["door", "service", "status", "tested_on"]);
   });
+  it("checks tested_on as a real calendar date", () => {
+    const r = validateConnection({ ...GOOD, tested_on: "2026-02-30" });
+    expect(!r.ok && Object.keys(r.errors)).toEqual(["tested_on"]);
+    expect(validateConnection({ ...GOOD, tested_on: "2026-13-01" }).ok).toBe(false);
+    expect(validateConnection({ ...GOOD, tested_on: "2028-02-29" }).ok).toBe(true);
+    expect(validateConnection({ ...GOOD, tested_on: "2027-02-29" }).ok).toBe(false);
+  });
 });
 
 describe("the connections table", () => {

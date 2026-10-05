@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { coreDb } from "../support/db";
 import { claimNext, draftEmail, markFailed, markSentByHand, optOut } from "@/lib/data/outbox";
-import { emailSenderActive, upsertConnection } from "@/lib/data/connections";
+import { emailSendingActive, upsertConnection } from "@/lib/data/connections";
 import { HAND_SEND_NOTES, handSendFor, type HandSendContext } from "@/lib/data/hand-send";
 import type { CardEmail } from "@/lib/data/inbox";
 import type { Db } from "@/lib/db/types";
@@ -69,24 +69,24 @@ describe("sending by hand and the opt-out list", () => {
 });
 
 describe("sending by hand and the email connection", () => {
-  it("reads the email-sending connection as active while it is connected or failing", async () => {
+  it("reads the email-sending connection as active only while it is connected", async () => {
     const db = await coreDb();
-    expect(await emailSenderActive(db)).toBe(false);
+    expect(await emailSendingActive(db)).toBe(false);
     await upsertConnection(db, { ...CONNECTED, status: "planned" }, T0);
-    expect(await emailSenderActive(db)).toBe(false);
+    expect(await emailSendingActive(db)).toBe(false);
     await upsertConnection(db, CONNECTED, T0);
-    expect(await emailSenderActive(db)).toBe(true);
+    expect(await emailSendingActive(db)).toBe(true);
     await upsertConnection(db, { ...CONNECTED, status: "failing" }, T0);
-    expect(await emailSenderActive(db)).toBe(true);
+    expect(await emailSendingActive(db)).toBe(false);
     await upsertConnection(db, { ...CONNECTED, status: "disconnected" }, T0);
-    expect(await emailSenderActive(db)).toBe(false);
-    expect(await emailSenderActive(null)).toBe(false);
+    expect(await emailSendingActive(db)).toBe(false);
+    expect(await emailSendingActive(null)).toBe(false);
     await db.close();
   });
   it("with the connection active, an approved row offers no copy and a failed row still does", async () => {
     const db = await coreDb();
     await upsertConnection(db, CONNECTED, T0);
-    const ctx = { ...CTX, senderActive: await emailSenderActive(db) };
+    const ctx = { ...CTX, senderActive: await emailSendingActive(db) };
     const f = await failed(db, "k-failed");
     const a = await approved(db);
     expect(await handSendFor(db, await row(db, a), ctx)).toEqual({ copyText: null, note: HAND_SEND_NOTES.automatic });
@@ -94,6 +94,14 @@ describe("sending by hand and the email connection", () => {
     expect(await markSentByHand(db, a, T0, { approved: false })).toBe("automatic");
     expect(await markSentByHand(db, f, T0, { approved: false })).toBe("sent");
     expect(await db.query("select status from outbox where id = $1", [a])).toEqual([{ status: "approved" }]);
+    await db.close();
+  });
+  it("with the connection failing, an approved row still offers Copy email", async () => {
+    const db = await coreDb();
+    await upsertConnection(db, { ...CONNECTED, status: "failing" }, T0);
+    const ctx = { ...CTX, senderActive: await emailSendingActive(db) };
+    const a = await approved(db);
+    expect((await handSendFor(db, await row(db, a), ctx)).copyText).not.toBeNull();
     await db.close();
   });
   it("offers nothing for a draft, a sending, a sent or a cancelled row", async () => {

@@ -4,6 +4,8 @@ import { getDb, storageMode } from "@/lib/db";
 import { saveProfile, PREVIEW_MESSAGE } from "@/lib/data/profile";
 import { validateProfile, PROFILE_FIELDS, type Profile } from "@/lib/validate";
 import { hasSession } from "@/lib/auth/session";
+import { PIN_OWNER, SESSION_ENDED_MESSAGE } from "@/lib/auth/roles";
+import { setPause, cleanReason } from "@/lib/data/pause";
 import { contextBlockFromProfile } from "@/lib/key/context-block";
 import { writeContextBlock, writeKeyName, keyRoot } from "@/lib/key/write";
 
@@ -40,5 +42,24 @@ export async function saveProfileAction(_prev: ActionResult | null, form: FormDa
   } catch (err) {
     console.error("saveProfileAction failed", err);
     return { ok: false, message: "We could not save just now. Try again in a moment.", values };
+  }
+}
+
+export type PauseResult = { ok: boolean; message: string };
+
+export async function pauseAction(_prev: PauseResult | null, form: FormData): Promise<PauseResult> {
+  if (!(await hasSession())) return { ok: false, message: SESSION_ENDED_MESSAGE };
+  const paused = form.get("paused") === "on";
+  const reason = cleanReason(form.get("reason"));
+  if (!reason.ok) return { ok: false, message: reason.error };
+  try {
+    const db = await getDb();
+    if (!db) return { ok: false, message: PREVIEW_MESSAGE };
+    await setPause(db, { paused, reason: reason.value, by: PIN_OWNER.id }, new Date());
+    revalidatePath("/", "layout");
+    return { ok: true, message: paused ? "Routines are paused. Nothing runs until you turn them back on." : "Routines are back on." };
+  } catch (err) {
+    console.error("pauseAction failed", err);
+    return { ok: false, message: "We could not change that just now. Try again in a moment." };
   }
 }

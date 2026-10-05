@@ -11,12 +11,20 @@ vi.mock("@/lib/data/profile", () => ({
   saveProfile: (...a: unknown[]) => (saveProfile as (...x: unknown[]) => unknown)(...a),
   PREVIEW_MESSAGE: "preview",
 }));
+const setPause = vi.fn(async () => ({ paused: true, reason: "", paused_at: "x", paused_by: "pin:owner" }));
+vi.mock("@/lib/data/pause", () => ({
+  setPause: (...a: unknown[]) => (setPause as (...x: unknown[]) => unknown)(...a),
+  cleanReason: (raw: unknown) => {
+    const v = typeof raw === "string" ? raw.trim() : "";
+    return v.length > 200 ? { ok: false, error: "Keep the reason under 200 characters." } : { ok: true, value: v };
+  },
+}));
 const revalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath: (...a: unknown[]) => revalidatePath(...a) }));
 const hasSession = vi.fn(async () => false);
 vi.mock("@/lib/auth/session", () => ({ hasSession: () => hasSession() }));
 
-import { saveProfileAction } from "@/app/(console)/system/settings/actions";
+import { saveProfileAction, pauseAction } from "@/app/(console)/system/settings/actions";
 
 function form(values: Record<string, string>) {
   const f = new FormData();
@@ -105,5 +113,31 @@ describe("saveProfileAction context block", () => {
     expect(r.ok).toBe(false);
     expect(r.message).toContain("could not save just now");
     expect(writeContextBlock).not.toHaveBeenCalled();
+  });
+});
+
+describe("pauseAction", () => {
+  beforeEach(() => {
+    getDb.mockReset().mockResolvedValue({});
+    setPause.mockClear();
+  });
+  it("refuses without a session", async () => {
+    hasSession.mockResolvedValue(false);
+    const r = await pauseAction(null, form({ paused: "on" }));
+    expect(r).toEqual({ ok: false, message: "Your session ended. Sign in again, then try once more." });
+    expect(getDb).not.toHaveBeenCalled();
+    expect(setPause).not.toHaveBeenCalled();
+  });
+  it("pauses as the owner and turns back on", async () => {
+    hasSession.mockResolvedValue(true);
+    expect((await pauseAction(null, form({ paused: "on", reason: "Holiday" }))).message).toBe("Routines are paused. Nothing runs until you turn them back on.");
+    expect((setPause.mock.calls[0] as unknown[])[1]).toEqual({ paused: true, reason: "Holiday", by: "pin:owner" });
+    expect((await pauseAction(null, form({ paused: "off" }))).message).toBe("Routines are back on.");
+  });
+  it("refuses a reason that is too long", async () => {
+    hasSession.mockResolvedValue(true);
+    const r = await pauseAction(null, form({ paused: "on", reason: "x".repeat(201) }));
+    expect(r.ok).toBe(false);
+    expect(setPause).not.toHaveBeenCalled();
   });
 });

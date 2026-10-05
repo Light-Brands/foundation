@@ -44,3 +44,5 @@ create table if not exists bookings (
 );
 alter table bookings enable row level security;
 ```
+
+- **Read the pause switch before any check or drafting routine acts.** The `pause` table holds one row. `getPause` in `src/lib/data/pause.ts` reads it, and `setPause` is its only writer, called from the Preferences pause action, which checks the session (the owner role once the hosted database is connected). Public forms keep saving while paused. Why: one switch the owner trusts stops every automatic action at once, while visitors still reach the business.

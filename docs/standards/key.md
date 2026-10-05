@@ -41,6 +41,7 @@ installed:
   - entry: routines/booking-reminders
     from: dictionary@0.1.0
     tier: essentials
+    version: 1
     files: [routines/booking-reminders.md]
     installed: 2026-10-05
 provenance:
@@ -52,6 +53,7 @@ provenance:
 
 - **Leave `provenance.base` to setup.** When setup names the Key it records the commit it ran on, the full 40 character id, as `base`, and keeps the other provenance fields. The build log starts after that commit. When setup did not record one, as in a Foundation set up before setup recorded its base, run `npm run log:base` once: it sets `base` to the current commit and touches no other field, and it changes an existing `base` only with `--force` (see `log.md`). Why: `npm run log:sync` reads only the commits after `base`, so Light Brands' own template history never lands in the member's log.
 - **Record every Dictionary install in `installed`.** Each item has `entry` (a kind folder and a slug, such as `routines/booking-reminders`), `from` (`dictionary@` and a version such as `0.1.0`), `tier` (`essentials`, `complete` or `mastery`), `files` (a non-empty list of paths inside `key/`, written without `..`, without a leading `/` and without a backslash, each of which exists) and `installed` (the date). Why: the list shows what the business has put in place and from which version, and a file named there that is gone is found at once.
+- **Record the entry's version in `version` when its front matter has one.** It is the `version` from the entry's front matter in the dictionary, a positive whole number such as `2`. A row may leave it out. Why: it records which version of the entry was put in place, so an upgrade can tell whether the entry has changed since, and the format test rejects anything that is not a positive whole number.
 - **Name the app code an install added in `code`.** Most installs add code outside `key/` as well as Key files. Give each such row a `code` list of paths from the top of the repository, each starting with `src/` or `modules/`, written without `..` or `.` segments, without an empty segment such as `src//x`, without a leading or trailing `/` and without a backslash, and each of which exists. A row with only Key files has no `code`. Why: the list then shows everything an install put in place, and a code file named there that is gone is found at once. Upgrade, check and remove treat these files the same way as the Key files, so an upgrade keeps your edits in them too.
 - **Keep `key.yaml` in step with the files.** Add the entry when you add the file, and run `npm run key:sync` afterward. Why: the system document's inventory is built from this file.
 - **Set `charter` to `agents/<role>/charter.md` for every roster entry, and give it a `persona`.** Why: the format test fails on any other path, and the converter reads the persona as the agent's display name.

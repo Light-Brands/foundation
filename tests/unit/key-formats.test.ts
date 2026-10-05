@@ -360,6 +360,11 @@ describe("guards", () => {
     expect(run({ files: ["../x"] })).toMatch(/files/);
     expect(run({ files: ["/etc/x"] })).toMatch(/files/);
   });
+  it("accepts an entry version that is a positive whole number, and rejects anything else", () => {
+    expect(run({ version: 1 })).toBe("");
+    expect(run({ version: 12 })).toBe("");
+    for (const v of [0, -1, 1.5, "1", "1.0.0", null, true, [1]]) expect(run({ version: v }), String(v)).toMatch(/installed\[0\]\.version must be a positive whole number/);
+  });
   it("rejects files written with a backslash", () => {
     expect(run({ files: ["routines\\x.md"] })).toMatch(/installed\[0\]\.files/);
     expect(run({ files: ["routines/x.md"] })).toBe("");

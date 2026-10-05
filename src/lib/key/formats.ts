@@ -130,6 +130,7 @@ export function checkInstalled(file: string, d: Obj): string[] {
     if (fl.length === 0 || fl.some((f) => !str(f).trim() || path.isAbsolute(str(f)) || str(f).includes("\\") || str(f).split("/").includes(".."))) bad(`${at}.files must be a non-empty list of paths relative to key/`);
     if (e.code !== undefined && (!Array.isArray(e.code) || e.code.some((c) => !codePathOk(c)))) bad(`${at}.code must be a list of paths relative to the repository root, each starting with src/ or modules/`);
     if (!realDate(e.installed)) bad(`${at}.installed must be a date like 2026-10-06`);
+    if ("version" in e && !(Number.isInteger(e.version) && (e.version as number) > 0)) bad(`${at}.version must be a positive whole number, the entry's version from its front matter`);
   });
   return p;
 }

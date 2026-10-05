@@ -156,6 +156,22 @@ describe("log:sync", () => {
     expect(parseLog(readFileSync(logFile, "utf8")).map((e) => e.commit)).toEqual([first, work]);
   }, 60000);
 
+  it("skips a run's closing commit that touches only key/runs/, as it skips a log-only commit", () => {
+    const dir = repo();
+    const git = (...a: string[]) => execFileSync("git", a, { cwd: dir, encoding: "utf8", stdio: "pipe" });
+    mkdirSync(path.join(dir, "key/runs"), { recursive: true });
+    writeFileSync(path.join(dir, "key/runs/2026-10-06-install-routines-x.md"), "brief");
+    git("add", "key/runs"); git("commit", "-qm", "chore: close 2026-10-06-install-routines-x");
+    mkdirSync(path.join(dir, "key/log"), { recursive: true });
+    writeFileSync(path.join(dir, "key/log/note.md"), "x");
+    git("add", "key/log", "key/runs"); writeFileSync(path.join(dir, "key/runs/2026-10-06-install-routines-x.md"), "brief 2");
+    git("add", "key/runs"); git("commit", "-qm", "chore: log and close together");
+    expect(sync(dir)).toContain("added 2 entries");
+    const text = allLog(dir);
+    expect(text).not.toContain("chore: close");
+    expect(text).not.toContain("log and close together");
+  }, 60000);
+
   it("never logs a commit from before setup's base", () => {
     const dir = repo();
     expect(sync(dir)).toContain("added 2 entries");

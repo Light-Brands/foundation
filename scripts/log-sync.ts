@@ -59,7 +59,10 @@ const PLATFORM = ["k", "y", "l", "o", "n"].join("");
 const clean = (s: string) => s.replace(/[–—]/g, ",");
 let added = 0;
 // oldest first so each month file stays in time order
-const todo = missingCommits(logged, commits.filter((c) => !c.files.every((f) => f.startsWith("key/log/")))).reverse();
+// Bookkeeping commits are never build steps: a log-only commit, or a run's "chore: close <brief>",
+// which touches only key/runs/. A commit whose files all sit in those folders gets no entry.
+const BOOKKEEPING = ["key/log/", "key/runs/"];
+const todo = missingCommits(logged, commits.filter((c) => !c.files.every((f) => BOOKKEEPING.some((d) => f.startsWith(d))))).reverse();
 for (const c of todo) {
   const utc = new Date(c.date).toISOString();
   const entry = {

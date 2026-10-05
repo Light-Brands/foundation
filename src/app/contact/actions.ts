@@ -9,22 +9,18 @@ export type ContactResult = { ok: boolean; message: string; errors?: Record<stri
 export async function contactAction(_prev: ContactResult | null, form: FormData): Promise<ContactResult> {
   const raw = Object.fromEntries(form);
   const result = validateContact(raw);
+  const s = (k: string) => (typeof raw[k] === "string" ? (raw[k] as string) : "");
+  const typed = { name: s("name"), email: s("email"), message: s("message") };
   if (!result.ok) {
-    const s = (k: string) => (typeof raw[k] === "string" ? (raw[k] as string) : "");
-    return {
-      ok: false,
-      message: "A few details need a look.",
-      errors: result.errors,
-      values: { name: s("name"), email: s("email"), message: s("message") },
-    };
+    return { ok: false, message: "A few details need a look.", errors: result.errors, values: typed };
   }
   try {
     const db = await getDb();
-    if (!db) return { ok: false, message: "This page opens for messages very soon. Please check back.", values: result.value };
+    if (!db) return { ok: false, message: "This page opens for messages very soon. Please check back.", values: typed };
     await submitContact(db, result.value);
     return { ok: true, message: "Thank you. Your message is in, and you will hear back soon." };
   } catch (err) {
     console.error("contactAction failed", err);
-    return { ok: false, message: "We could not send that just now. Please try again in a moment.", values: result.value };
+    return { ok: false, message: "We could not send that just now. Please try again in a moment.", values: typed };
   }
 }

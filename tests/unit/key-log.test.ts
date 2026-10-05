@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { formatEntry, parseLog, missingCommits, logFileFor, type LogEntry } from "@/lib/key/log";
@@ -31,9 +31,13 @@ describe("log entries", () => {
     expect(checkLogText("x", formatEntry(entry))).toEqual([]);
     expect(checkLogText("x", formatEntry({ ...entry, what: "mail a@b.com" })).length).toBeGreaterThan(0);
   });
+  it("an all-digit commit id is not a phone number, but digits elsewhere still are", () => {
+    expect(checkLogText("x", formatEntry({ ...entry, commit: "1234567" }))).toEqual([]);
+    expect(checkLogText("x", formatEntry({ ...entry, what: "call 555 123 4567" })).length).toBeGreaterThan(0);
+  });
 });
 
-function repo() {
+function repo(subject2 = "second", date2?: string) {
   const dir = mkdtempSync(path.join(tmpdir(), "logsync-"));
   const git = (...a: string[]) => execFileSync("git", a, { cwd: dir, stdio: "pipe" });
   git("init", "-q"); git("config", "user.email", "t@example.org"); git("config", "user.name", "t");
@@ -42,7 +46,8 @@ function repo() {
   writeFileSync(path.join(dir, "a.txt"), "1");
   git("add", "."); git("commit", "-qm", "first — thing");
   writeFileSync(path.join(dir, "a.txt"), "2");
-  git("add", "."); git("commit", "-qm", "second");
+  git("add", ".");
+  execFileSync("git", ["commit", "-qm", subject2], { cwd: dir, stdio: "pipe", env: { ...process.env, ...(date2 ? { GIT_AUTHOR_DATE: date2, GIT_COMMITTER_DATE: date2 } : {}) } });
   return dir;
 }
 
@@ -58,5 +63,34 @@ describe("log:sync", () => {
     expect(checkLogText("x", text)).toEqual([]);
     expect(run()).toContain("added 0 entries");
     expect(readFileSync(file, "utf8")).toBe(text);
+  }, 60000);
+
+  const sync = (dir: string) => execFileSync("npx", ["tsx", path.resolve("scripts/log-sync.ts"), "--root", dir], { encoding: "utf8" });
+  const allLog = (dir: string) => readdirSync(path.join(dir, "key/log")).filter((f) => f.endsWith(".md")).map((f) => readFileSync(path.join(dir, "key/log", f), "utf8")).join("\n");
+
+  it("keeps an email in a commit subject out of the log", () => {
+    const dir = repo("fix reminder for ada@example.com");
+    sync(dir);
+    const text = allLog(dir);
+    expect(text).not.toContain("ada@example.com");
+    expect(parseLog(text)).toHaveLength(2);
+    expect(checkLogText("x", text)).toEqual([]);
+  }, 60000);
+
+  it("handles a repo with no commits and a folder with no git", () => {
+    const empty = mkdtempSync(path.join(tmpdir(), "logsync-empty-"));
+    execFileSync("git", ["init", "-q"], { cwd: empty });
+    expect(sync(empty)).toContain("No git history yet. Nothing to add.");
+    expect(existsSync(path.join(empty, "key/log"))).toBe(false);
+    const plain = mkdtempSync(path.join(tmpdir(), "logsync-plain-"));
+    expect(sync(plain)).toContain("No git history yet. Nothing to add.");
+    expect(existsSync(path.join(plain, "key/log"))).toBe(false);
+  }, 60000);
+
+  it("files each commit by its UTC month and time", () => {
+    const dir = repo("late", "2026-10-31T23:30:00-07:00");
+    sync(dir);
+    const nov = readFileSync(path.join(dir, "key/log/2026-11.md"), "utf8");
+    expect(nov).toContain("## 2026-11-01 06:30 \u00b7 late");
   }, 60000);
 });

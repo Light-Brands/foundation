@@ -7,13 +7,23 @@ import { checkLogText } from "../src/lib/key/formats";
 const i = process.argv.indexOf("--root");
 const root = path.resolve(i >= 0 ? process.argv[i + 1] : process.cwd());
 const logDir = path.join(root, "key/log");
+
+let raw = "";
+try {
+  raw = execFileSync("git", ["log", "-200", "--format=%h%x09%aI%x09%s", "--name-only"], { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
+} catch {
+  raw = "";
+}
+if (!raw.trim()) {
+  console.log("No git history yet. Nothing to add.");
+  process.exit(0);
+}
 mkdirSync(logDir, { recursive: true });
 
 const logged = readdirSync(logDir)
   .filter((f) => f.endsWith(".md"))
   .flatMap((f) => parseLog(readFileSync(path.join(logDir, f), "utf8")).map((e) => e.commit));
 
-const raw = execFileSync("git", ["log", "-200", "--format=%h%x09%aI%x09%s", "--name-only"], { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 const commits: CommitInfo[] = [];
 for (const line of raw.split("\n")) {
   const parts = line.split("\t");
@@ -26,8 +36,9 @@ let added = 0;
 // oldest first so each month file stays in time order
 const todo = missingCommits(logged, commits.filter((c) => !c.files.every((f) => f.startsWith("key/log/")))).reverse();
 for (const c of todo) {
+  const utc = new Date(c.date).toISOString();
   const entry = {
-    at: `${c.date.slice(0, 10)} ${c.date.slice(11, 16)}`,
+    at: `${utc.slice(0, 10)} ${utc.slice(11, 16)}`,
     title: clean(c.subject),
     kind: "change" as const,
     category: "System",
@@ -37,11 +48,13 @@ for (const c of todo) {
     checked: "Not recorded at the time",
     by: "member" as const,
   };
-  let text = formatEntry(entry);
-  if (checkLogText("entry", text).length) {
-    text = formatEntry({ ...entry, title: "Commit summary withheld", what: "Summary withheld by the log check" });
-  }
-  const file = path.join(root, logFileFor(c.date));
+  const ok = (e: typeof entry) => checkLogText("entry", formatEntry(e)).length === 0;
+  let final = entry;
+  if (!ok(final)) final = { ...entry, title: "Commit summary withheld", what: "Summary withheld by the log check" };
+  if (!ok(final)) final = { ...final, files: [] };
+  if (!ok(final)) final = { ...final, title: "A change to the system", what: "Details kept out of the log for privacy" };
+  const text = formatEntry(final);
+  const file = path.join(root, logFileFor(utc));
   mkdirSync(path.dirname(file), { recursive: true });
   const lead = existsSync(file) && readFileSync(file, "utf8").length > 0 ? "\n" : "";
   appendFileSync(file, lead + text);

@@ -158,6 +158,7 @@ export function checkLogText(file: string, md: string): string[] {
   const p: string[] = [];
   if (/\b[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\b/.test(md)) p.push(`${file}: log text holds an email address; the build log never holds customer details`);
   const cleaned = md
+    .replace(/^- Commit:.*$/gm, "- Commit:")
     .replace(/\b(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b/gi, " ")
     .replace(/\d{4}-\d{2}-\d{2}(T|\b)/g, " ")
     .replace(/\b\d{1,2}:\d{2}(:\d{2})?(\.\d+)?Z?\b/g, " ");

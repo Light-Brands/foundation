@@ -2,22 +2,25 @@ import type { Db } from "@/lib/db/types";
 import type { ContactInput } from "@/lib/validate";
 import type { KindRegistry } from "@/lib/data/card-kinds";
 import { allows, type Actor } from "@/lib/auth/roles";
+import { writeCard } from "@/lib/data/cards";
+import { registryFrom } from "@/lib/data/card-kinds";
+import { CORE_CARD_KINDS } from "@/lib/key/core-kinds";
+import type { SourceMeta } from "@/lib/forms/source";
 
-export async function submitContact(db: Db, c: ContactInput): Promise<string> {
-  // One statement, so the contact and its message land together or not at all.
-  // On an email match the stored name and phone are kept: a public form never rewrites a contact.
-  const [item] = await db.query<{ id: string }>(
-    `with c as (
-       insert into contacts (name, email, phone) values ($1, $2, $5)
-       on conflict ((lower(email))) do update set email = contacts.email
-       returning id
-     )
-     insert into inbox_items (kind, category, subcategory, title, body, contact_id)
-     select 'contact', 'command', 'inbox', $3, $4, c.id from c
-     returning id`,
-    [c.name, c.email, `${c.name} sent a message`, c.message, c.phone],
-  );
-  return item.id;
+const CORE_KINDS = registryFrom(CORE_CARD_KINDS);
+
+export async function submitContact(db: Db, c: ContactInput, opts: { source?: SourceMeta; now?: Date } = {}): Promise<string> {
+  // The writer creates or reuses the contact and the card in one statement. A public form never
+  // rewrites a stored name or phone.
+  const r = await writeCard(db, CORE_KINDS, {
+    kind: "contact",
+    title: `${c.name} sent a message`,
+    body: c.message,
+    contact: { name: c.name, email: c.email, phone: c.phone || undefined },
+    meta: { ...(opts.source ?? { source: "direct" }) },
+  }, opts.now);
+  if (r.status !== "written") throw new Error("The contact card was not written.");
+  return r.id;
 }
 
 export type CardStatus = "new" | "decided" | "done";

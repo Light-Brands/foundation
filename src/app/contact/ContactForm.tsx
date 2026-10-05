@@ -2,7 +2,7 @@
 import { useActionState } from "react";
 import { contactAction, type ContactResult } from "./actions";
 
-export function ContactForm() {
+export function ContactForm({ source }: { source: Record<string, string> }) {
   const [state, action, pending] = useActionState<ContactResult | null, FormData>(contactAction, null);
   if (state?.ok) return <p role="status" className="surface p-6 text-zinc-100">{state.message}</p>;
   const keyFor = (k: "name" | "email" | "phone" | "message") => `${k}-${state?.values ? "v" : "p"}-${state?.values?.[k] ?? ""}`;
@@ -28,6 +28,7 @@ export function ContactForm() {
         <textarea key={keyFor("message")} name="message" required maxLength={4000} rows={5} defaultValue={state?.values?.message ?? ""} className="mt-1 w-full rounded-xl border border-white/10 bg-ink-50 px-3 py-2" />
         {state?.errors?.message && <span className="text-sm text-amber-200">{state.errors.message}</span>}
       </label>
+      {Object.entries(source).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
       <div aria-hidden="true" className="absolute left-[-10000px]">
         <label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label>
       </div>

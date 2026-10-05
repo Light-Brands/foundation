@@ -1,6 +1,7 @@
 "use server";
 import { getDb } from "@/lib/db";
 import { submitContact } from "@/lib/data/inbox";
+import { captureSource } from "@/lib/forms/source";
 import { validateContact, type ContactInput } from "@/lib/validate";
 
 export type ContactResult = { ok: boolean; message: string; errors?: Record<string, string>; values?: ContactInput };
@@ -17,7 +18,7 @@ export async function contactAction(_prev: ContactResult | null, form: FormData)
   try {
     const db = await getDb();
     if (!db) return { ok: false, message: "This page opens for messages very soon. Please check back.", values: typed };
-    await submitContact(db, result.value);
+    await submitContact(db, result.value, { source: captureSource(raw) });
     return { ok: true, message: "Thank you. Your message is in, and you will hear back soon." };
   } catch (err) {
     console.error("contactAction failed", err);

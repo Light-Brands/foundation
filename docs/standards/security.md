@@ -1,0 +1,14 @@
+# Security
+
+- **Call `hasSession()` first in every server action.** It lives in `src/lib/auth/session.ts` and returns false when the PIN session is missing or expired. Return a plain message to the person when it is false, and change nothing. Why: a server action is a public endpoint, and the request gate does not protect it.
+- **Send every redirect target through `safeNext`.** It lives in `src/lib/auth/gate.ts`, resolves the value against a fixed origin, and returns `/` for anything that leaves the site. Why: an unchecked `next` parameter turns the gate page into a link to anywhere.
+- **Keep secrets in server-only modules that begin with `import "server-only"`.** `src/lib/env.ts` and `src/lib/auth/session.ts` are the pattern. Why: the build fails if client code imports them, so a secret cannot ship to a browser by accident.
+- **Never give a secret a name that starts with `NEXT_PUBLIC_`.** Why: Next.js copies every such variable into the browser bundle.
+- **Bind every local server to 127.0.0.1.** The `dev` and `start` scripts pass `-H 127.0.0.1`. Why: a server bound to every address is reachable by anyone on the same network.
+- **Keep the wrong-PIN limiter on `/api/gate`.** It is `gateLimiter` in `src/lib/auth/limit.ts`, five wrong tries in ten minutes. Why: a six-digit PIN falls to guessing without it.
+- **Never run a shell command from a route or action.** No `exec`, `spawn` or `execSync` reachable from a request. Scripts in `scripts/` run only from npm scripts. Why: a request that can start a process can take over the machine.
+- **Let a public form add records and never rewrite stored ones.** The contact form inserts a new row. Why: a form anyone can reach must not be able to change what the owner already saved.
+- **Make related writes one statement or one transaction.** When two rows have to agree, write them together with `begin` and `commit`, as the migration runner does. Why: a failure between two separate writes leaves records that disagree.
+- **Never ask for the PIN, or any password, key or token, in a Claude conversation.** The member types secrets into their own terminal, for example with `npm run setup -- --pin-prompt`. Why: anything typed into a chat is stored by the chat.
+- **Pin the host of an outside request and refuse redirects.** When code fetches a URL, check the host against the one expected and set `redirect: "error"`. Why: a redirect can send a trusted request to an address the owner never approved.
+- **Check the session in the request gate and again at the action.** `src/proxy.ts` sends visitors without a session to `/gate`. The action's own check is still required. Why: the gate covers pages, and an action can be called without loading a page.

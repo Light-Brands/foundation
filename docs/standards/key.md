@@ -1,0 +1,197 @@
+# The Key
+
+The Key is the `key/` folder. Every format below has one complete example. The examples follow one small business, Harbor Studio, and they are checked by the same code that checks the real folder (`src/lib/key/formats.ts`).
+
+- **Write every name as a slug: lowercase letters and digits joined by single hyphens, as in `front-desk`.** A slug matches `^[a-z0-9]+(-[a-z0-9]+)*$`. A role slug is the agent's key everywhere: in `key.yaml`, in the charter's folder, and in workflows and skills. Why: one name for one thing lets every file find every other file without a lookup table.
+- **Use only the eleven category ids in `key.yaml`, workflows and apps.** They are `command`, `attract`, `sell`, `deliver`, `keep`, `money`, `team`, `plan`, `vendors`, `risk`, `system`. Why: a new category would break the navigation and every place that groups by category.
+- **Never put customer details, business records or secrets in the Key.** Business records live in the database. Why: the Key travels with the repository, and records do not belong there (see `privacy.md`).
+- **Never use `core` as an app slug.** Why: it would collide with the core migration names.
+
+## key.yaml
+
+The ring: the list of everything the Key holds. `stage` is `seed` or `systems`. `home` is always `repo`. Paths are relative to `key/`.
+
+```yaml
+key: 1
+client: harbor-studio
+name: Harbor Studio
+stage: systems
+home: repo
+roster:
+  - persona: Mara
+    role: front-desk
+    charter: agents/front-desk/charter.md
+    added: 2026-10-05
+    version: 1
+skills:
+  - slug: confirm-booking
+    path: skills/confirm-booking/SKILL.md
+    agent: front-desk
+apps:
+  - slug: bookings
+    definition: apps/bookings/definition.yaml
+    category: deliver
+workflows:
+  - slug: booking-reminders
+    path: workflows/booking-reminders.md
+    agent: front-desk
+    category: deliver
+runs: []
+provenance:
+  stated_by: Jo Harbor
+  recorded: 2026-10-05
+  guide: foundation
+```
+
+- **Keep `key.yaml` in step with the files.** Add the entry when you add the file, and run `npm run key:sync` afterward. Why: the system document's inventory is built from this file.
+- **Set `charter` to `agents/<role>/charter.md` for every roster entry.** Why: the format test fails on any other path.
+
+## The context block
+
+`key/knowledge/context-block.yaml` is the single source of business facts. The database's `business_profile` table has the same fields under the same names, with `owner` stored as `owner_name`, `owner_first` and `owner_role`. `npm run key:sync` copies the row into this file with no mapping.
+
+```yaml
+business: Harbor Studio
+short_name: Harbor
+what_we_do: Private yoga and mobility sessions for people recovering from injury
+who_we_serve: Adults in Portland who want to move well again
+how_we_sound: Warm, plain and encouraging
+website: https://harborstudio.example
+email: hello@harborstudio.example
+phone: 503 555 0100
+city: Portland
+timezone: America/Los_Angeles
+owner:
+  name: Jo Harbor
+  first: Jo
+  role: Founder
+stated_by: Jo Harbor
+recorded: 2026-10-05
+```
+
+- **Change a business fact through the profile, then run `npm run key:sync`.** Never edit the file by hand. Why: the database row is the source, and a hand edit is overwritten on the next sync.
+
+## Charter
+
+`key/agents/<role>/charter.md` has exactly eight headings, in this order: Role, Who I serve, How I work, What I know, What I never do, Tasks, Skills, Memory. Each Memory entry starts with its type: `preference:`, `feedback:`, `reference:` or `context:`.
+
+```markdown
+# Front desk
+
+## Role
+I answer new inquiries and keep the booking calendar accurate.
+
+## Who I serve
+Jo Harbor and the people who book sessions with Harbor Studio.
+
+## How I work
+I reply within one business day, in plain words, and I confirm every booking in writing.
+
+## What I know
+The session types, the prices and the cancellation policy in key/knowledge/context-block.yaml.
+
+## What I never do
+I never take a payment, change a price, or promise a time Jo has not approved.
+
+## Tasks
+- Confirm new bookings.
+- Send reminders before each session.
+
+## Skills
+- confirm-booking
+
+## Memory
+- preference: Jo likes confirmations to open with the client's first name.
+- context: Sessions run Tuesday to Saturday.
+```
+
+## Skill
+
+`key/skills/<slug>/SKILL.md` has front matter with `name` and `description`, then the sections Input, Steps, Output and Check, in that order.
+
+```markdown
+---
+name: Confirm a booking
+description: Confirm a new booking with the client in writing and record it.
+---
+
+## Input
+The client's name, email and the session time they asked for.
+
+## Steps
+1. Check the time is free on the calendar.
+2. Write a short confirmation in the voice from the context block.
+3. Ask Jo to approve it, then send it.
+
+## Output
+A sent confirmation and a booking record with status confirmed.
+
+## Check
+The booking appears on the calendar and the client has the confirmation.
+```
+
+## Workflow
+
+`key/workflows/<slug>.md` has front matter with `name`, `agent` (a role slug), `category` (a category id) and `trigger`, plus the fields the trigger needs. Then the sections Goal, Steps, Expected output, Check and When blocked, in that order.
+
+| trigger | fields it needs |
+|---|---|
+| `cron` | `cron`, a schedule such as `0 9 * * *` |
+| `every` | `every`, an interval such as `1 day` |
+| `at` | `at`, a date and time |
+| `record_change` | `entity` and `events` |
+
+```markdown
+---
+name: Booking reminders
+agent: front-desk
+category: deliver
+trigger: record_change
+entity: bookings
+events: [insert]
+---
+
+## Goal
+Every client gets a reminder 24 hours before their session.
+
+## Steps
+1. Read the new booking.
+2. Schedule a reminder for 24 hours before the start.
+3. Draft the message in the voice from the context block.
+
+## Expected output
+One scheduled reminder for each confirmed booking.
+
+## Check
+A test booking produces exactly one reminder at the right time.
+
+## When blocked
+Ask Jo in the Inbox and change nothing.
+```
+
+## App definition
+
+`key/apps/<app>/definition.yaml` registers the app and describes its tables. Field types are limited to `text`, `number`, `date`, `select`, `multi_select`, `checkbox`, `user`, `multi_user`, `url`, `email` and `attachment`. A `select` or `multi_select` field needs `options`. An automation names a workflow that exists. `migrations` is always `migrations/`. The SQL for each type is in `data.md`.
+
+```yaml
+app: bookings
+name: Bookings
+category: deliver
+runtime: custom_app
+entities:
+  - key: bookings
+    name: Booking
+    fields:
+      - { key: client_email, name: Client email, type: email }
+      - { key: starts, name: Starts, type: date }
+      - { key: status, name: Status, type: select, options: [new, confirmed] }
+      - { key: paid, name: Paid, type: checkbox }
+    views: [table]
+automations:
+  - key: send-reminder
+    trigger: { record_change: { entity: bookings, events: [insert] } }
+    workflow: booking-reminders
+migrations: migrations/
+```
+
+- **Run `npm test` after any change to the Key.** The format tests read every file in `key/`. Why: a malformed charter or definition is found in seconds here and in days after it is plugged into something else.

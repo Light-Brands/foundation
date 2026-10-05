@@ -26,6 +26,24 @@ Everything belongs to one of eleven categories, in this order: Command, Attract,
 
 `key/` holds everything that makes this business's system yours: agents, skills, workflows and apps, plus `key/knowledge/` (the context block and `system.md`, the plain-words record of what is built) and `key/log/` (the monthly build log). It stays in this repository and never holds customer details, business records or secrets. `docs/standards/key.md` has the formats.
 
+## Standards
+
+The rules every builder follows, each with its reason, live in `docs/standards/`. Read the file for your topic before you change code in it, and change a standard only in a pull request that also changes the code or test that enforces it.
+
+- `docs/standards/README.md`: the index and how to change a standard.
+- `docs/standards/stack.md`: versions, Next.js 16 specifics, npm scripts, no Docker.
+- `docs/standards/layout.md`: what each folder holds and what never goes there.
+- `docs/standards/glossary.md`: one meaning for each project word.
+- `docs/standards/key.md`: the Key formats, with an example of each.
+- `docs/standards/data.md`: migrations, the one-shape rule, field types.
+- `docs/standards/security.md`: sessions, redirects, secrets, limits and writes.
+- `docs/standards/testing.md`: tests that can fail, and what runs when.
+- `docs/standards/copy.md`: the words and punctuation we use.
+- `docs/standards/prompts.md`: how member prompts are written.
+- `docs/standards/commits.md`: commits and the checks before a push.
+- `docs/standards/log.md`: the build log and the system document.
+- `docs/standards/privacy.md`: what never leaves the repository or goes into it.
+
 ## Commands
 
 - `npm run setup -- --name "<business>" --pin-prompt`: create `.env.local`

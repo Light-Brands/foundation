@@ -23,4 +23,5 @@ Every folder has one job. Put a file where its job is listed, and never where th
 - `prompts/`: member-facing prompts, one per step. Never part of the Key.
 - `scripts/`: commands run from npm scripts, each taking flags. Never code the app imports at run time.
 - `tests/unit/`: Vitest tests. `tests/e2e/`: Playwright tests. `tests/support/` and `tests/fixtures/`: shared helpers and sample data. Never a test next to the code it covers.
-- `.data/`: local PGlite data and end-to-end scratch data. Never committed.
+- `.claude/agents/crew-*.md`: reserved for the dictionary's build crew and replaced on every dictionary update: a member's own agents use any other name. Never edited by hand.
+- `.data/`: local PGlite data, end-to-end scratch data and `.data/exports/`, where remove saves what it exports. Never committed.

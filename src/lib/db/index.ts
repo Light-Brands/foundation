@@ -1,8 +1,10 @@
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
 import { readEnv } from "@/lib/env";
-import { selectDriver, type DriverKind } from "./driver";
+import { DATABASE_INSECURE_MESSAGE, selectDriver, type DriverKind } from "./driver";
 import { openPglite } from "./pglite";
+import { openSupabase } from "./supabase";
+import { tablesWithoutRls } from "./rls";
 import { migrateAll } from "./migrate";
 import type { Db } from "./types";
 
@@ -20,16 +22,26 @@ export function getDb(): Promise<Db | null> {
   return g.__foundationDb;
 }
 
+async function openLocal(dataDir: string): Promise<Db> {
+  const dir = path.resolve(process.cwd(), dataDir);
+  await mkdir(dir, { recursive: true });
+  return openPglite(dir);
+}
+
 async function open(): Promise<Db | null> {
   const env = readEnv();
-  if (selectDriver(env) === "preview") return null;
-  const dir = path.resolve(process.cwd(), env.dataDir);
-  await mkdir(dir, { recursive: true });
-  const db = await openPglite(dir);
+  const kind = selectDriver(env);
+  if (env.databaseProblem === "insecure") console.error(DATABASE_INSECURE_MESSAGE);
+  if (kind === "preview") return null;
+  const db = kind === "supabase" ? openSupabase(env.databaseUrl as string, { ca: env.databaseCa }) : await openLocal(env.dataDir);
   try {
     await migrateAll(db, process.cwd());
-    const [{ n }] = await db.query<{ n: number }>("select count(*)::int as n from business_profile");
-    if (n === 0) await db.query("insert into business_profile (business) values ($1)", [env.businessName]);
+    // One statement, so two starts at once never seed two rows.
+    await db.query("insert into business_profile (id, business) values (1, $1) on conflict (id) do nothing", [env.businessName]);
+    if (kind === "supabase") {
+      const unprotected = await tablesWithoutRls(db);
+      if (unprotected.length) console.error(`These tables have no row level security: ${unprotected.join(", ")}. Add it in their app's migrations.`);
+    }
     return db;
   } catch (err) {
     await db.close().catch(() => {});

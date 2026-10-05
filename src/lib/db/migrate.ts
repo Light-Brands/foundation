@@ -2,8 +2,14 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { Db } from "./types";
 
+// A transaction-scoped advisory lock: it works through Supabase's transaction pooler and releases at commit.
+export const MIGRATE_LOCK = "foundation:migrate";
+
 async function ensureTable(db: Db) {
-  await db.exec("create table if not exists _migrations (name text primary key, applied_at timestamptz not null default now())");
+  await db.transaction(async (tx) => {
+    await tx.query("select pg_advisory_xact_lock(hashtext($1))", [MIGRATE_LOCK]);
+    await tx.exec("create table if not exists _migrations (name text primary key, applied_at timestamptz not null default now())");
+  });
 }
 
 export async function normalizeLegacyNames(db: Db): Promise<void> {
@@ -20,16 +26,20 @@ export async function migrate(db: Db, dir: string, prefix: string): Promise<stri
     const name = `${prefix}/${file}`;
     if (done.has(name)) continue;
     const sql = await readFile(path.join(dir, file), "utf8");
-    await db.exec("begin");
+    let ran: boolean;
     try {
-      await db.exec(sql);
-      await db.query("insert into _migrations (name) values ($1)", [name]);
-      await db.exec("commit");
+      // Under the lock, check again: another start may have applied this file since the list above.
+      ran = await db.transaction(async (tx) => {
+        await tx.query("select pg_advisory_xact_lock(hashtext($1))", [MIGRATE_LOCK]);
+        if ((await tx.query("select 1 as hit from _migrations where name = $1", [name])).length) return false;
+        await tx.exec(sql);
+        await tx.query("insert into _migrations (name) values ($1)", [name]);
+        return true;
+      });
     } catch (err) {
-      try { await db.exec("rollback"); } catch { /* keep the original error */ }
       throw new Error(`Migration ${name} failed: ${(err as Error).message}`);
     }
-    applied.push(name);
+    if (ran) applied.push(name);
   }
   return applied;
 }

@@ -1,6 +1,8 @@
 import "server-only";
 import postgres from "postgres";
 import type { Db, Tx } from "./types";
+import { insecureSslMode } from "@/lib/env";
+import { DATABASE_INSECURE_MESSAGE } from "./driver";
 
 // The hosted database, reached through Supabase's pooler in transaction mode. postgres.js runs the
 // same raw SQL with $1 parameters as PGlite and gives each transaction its own connection.
@@ -28,11 +30,26 @@ function wrap(s: postgres.Sql | postgres.TransactionSql): Tx {
   };
 }
 
-export function openSupabase(url: string, opts: { max?: number } = {}): Db {
-  const sql = postgres(url, {
-    prepare: false, max: opts.max ?? 5, idle_timeout: 20, connect_timeout: 10, ssl: "require", onnotice: () => {},
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+
+/**
+ * The options handed to postgres(). The server's certificate is always verified (postgres.js's ssl: "require"
+ * would skip that check), against Node's public authorities or the given ca. Only a database on this computer,
+ * such as one a test starts, connects without TLS.
+ */
+export function connectionOptions(url: string, opts: { max?: number; ca?: string | null } = {}) {
+  if (insecureSslMode(url)) throw new Error(DATABASE_INSECURE_MESSAGE);
+  let host = "";
+  try { host = new URL(url).hostname; } catch { /* postgres() reports a malformed address itself */ }
+  const ssl = LOCAL_HOSTS.has(host) ? (false as const) : { rejectUnauthorized: true as const, ...(opts.ca ? { ca: opts.ca } : {}) };
+  return {
+    prepare: false, max: opts.max ?? 5, idle_timeout: 20, connect_timeout: 10, ssl, onnotice: () => {},
     types: { json: JSON_TYPE },
-  });
+  };
+}
+
+export function openSupabase(url: string, opts: { max?: number; ca?: string | null } = {}): Db {
+  const sql = postgres(url, connectionOptions(url, opts));
   return {
     ...wrap(sql),
     async transaction<T>(fn: (tx: Tx) => Promise<T>, o: { readOnly?: boolean } = {}): Promise<T> {

@@ -30,6 +30,29 @@ describe("selectDriver", () => {
     expect(emailSignIn(readEnv({ ...all, FOUNDATION_SUPABASE_URL: "" }))).toBe(false);
     expect(emailSignIn(readEnv({ ...all, FOUNDATION_DATABASE_URL: "" }))).toBe(false);
   });
+  it("refuses an address whose sslmode turns off certificate checks, with a plain message", async () => {
+    const base = "postgresql://postgres.ref:pw@aws-0-us-west-1.pooler.supabase.com:6543/postgres";
+    for (const mode of ["disable", "no-verify", "allow", "prefer", "require"]) {
+      const env = readEnv({ FOUNDATION_DATABASE_URL: `${base}?sslmode=${mode}` });
+      expect([env.databaseUrl, env.databaseProblem], mode).toEqual([null, "insecure"]);
+      expect(selectDriver(env), mode).toBe("pglite");
+    }
+    for (const mode of ["verify-full", "verify-ca"]) expect(readEnv({ FOUNDATION_DATABASE_URL: `${base}?sslmode=${mode}` }).databaseProblem).toBeNull();
+    const { DATABASE_INSECURE_MESSAGE } = await import("@/lib/db/driver");
+    expect(DATABASE_INSECURE_MESSAGE).toMatch(/sslmode/);
+    const { openSupabase } = await import("@/lib/db/supabase");
+    expect(() => openSupabase(`${base}?sslmode=no-verify`)).toThrow(DATABASE_INSECURE_MESSAGE);
+  });
+  it("verifies the server certificate, and skips TLS only for a database on this computer", async () => {
+    const { connectionOptions } = await import("@/lib/db/supabase");
+    const hosted = connectionOptions("postgresql://postgres.ref:pw@aws-0-us-west-1.pooler.supabase.com:6543/postgres");
+    expect(hosted.ssl).toEqual({ rejectUnauthorized: true });
+    expect(hosted.prepare).toBe(false);
+    const withCa = connectionOptions("postgresql://postgres.ref:pw@pooler.example:6543/postgres", { ca: "-----BEGIN CERTIFICATE-----\nx\n-----END CERTIFICATE-----" });
+    expect(withCa.ssl).toEqual({ rejectUnauthorized: true, ca: "-----BEGIN CERTIFICATE-----\nx\n-----END CERTIFICATE-----" });
+    for (const host of ["localhost", "127.0.0.1"]) expect(connectionOptions(`postgresql://postgres:pw@${host}:5432/postgres`).ssl, host).toBe(false);
+    expect(readEnv({ FOUNDATION_DATABASE_CA: " pem " }).databaseCa).toBe("pem");
+  });
   it("builds a hosted handle without connecting until used", async () => {
     const { openSupabase } = await import("@/lib/db/supabase");
     const db = openSupabase("postgresql://postgres.ref:pw@pooler.invalid:6543/postgres");
@@ -123,5 +146,27 @@ describe("profile shape migration", () => {
     expect(row).toEqual({ business: "Harbor", what_we_do: "Calm" });
     await db.close();
     fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("the migration lock", () => {
+  it("two starts migrating at once apply each file once", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mig-"));
+    // No "if not exists": a second apply would fail, so a pass proves the file ran once.
+    fs.writeFileSync(path.join(dir, "0001_once.sql"), "create table t_once (x int);");
+    fs.writeFileSync(path.join(dir, "0002_twice.sql"), "create table t_twice (x int);");
+    const db = await openPglite();
+    const [a, b] = await Promise.all([migrate(db, dir, "race"), migrate(db, dir, "race")]);
+    expect([...a, ...b].sort()).toEqual(["race/0001_once.sql", "race/0002_twice.sql"]);
+    expect(await db.query("select count(*)::int as n from _migrations")).toEqual([{ n: 2 }]);
+    await db.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  it("seeds the one profile row without racing", async () => {
+    const db = await openPglite();
+    await migrate(db, MIGRATIONS, "core");
+    for (let i = 0; i < 2; i++) await db.query("insert into business_profile (id, business) values (1, $1) on conflict (id) do nothing", ["Harbor"]);
+    expect(await db.query("select count(*)::int as n from business_profile")).toEqual([{ n: 1 }]);
+    await db.close();
   });
 });

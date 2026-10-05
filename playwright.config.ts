@@ -8,6 +8,8 @@ export default defineConfig({
     url: "http://localhost:3100/gate",
     timeout: 180_000,
     reuseExistingServer: false,
+    // Stop the server the way a person does, so it releases the database lock (.data/e2e.lock) on the way out.
+    gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },
     env: {
       FOUNDATION_PIN: "246810",
       FOUNDATION_SECRET: "e2e-only-secret",

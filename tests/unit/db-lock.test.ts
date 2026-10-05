@@ -42,6 +42,14 @@ describe("the local database lock", () => {
     expect(existsSync(file)).toBe(false);
   }, 60000);
 
+  it("releases the lock when the holding process is stopped with a signal, and still stops", () => {
+    const file = path.join(scratch(), "pglite.lock");
+    const lib = path.resolve("src/lib/db/lock.ts");
+    const r = spawnSync("npx", ["tsx", "-e", `Promise.all([import("${lib}"), import("node:fs")]).then(([m, fs]) => { m.acquireDbLock(${JSON.stringify(file)}); console.log(fs.existsSync(${JSON.stringify(file)})); process.kill(process.pid, "SIGTERM"); setTimeout(() => console.log("still running"), 2000); })`], { encoding: "utf8" });
+    expect(r.stdout.trim()).toBe("true");
+    expect(existsSync(file)).toBe(false);
+  }, 60000);
+
   it("lets only one PGlite open the same folder, and frees it on close", async () => {
     const dir = path.join(scratch(), "pglite");
     const first = await openPglite(dir);

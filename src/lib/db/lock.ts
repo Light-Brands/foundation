@@ -33,6 +33,8 @@ function readPid(file: string): number | null {
   }
 }
 
+const SIGNALS: NodeJS.Signals[] = ["SIGINT", "SIGTERM", "SIGHUP"];
+
 const unlinkQuiet = (f: string) => {
   try { unlinkSync(f); } catch { /* already gone */ }
 };
@@ -65,13 +67,21 @@ export function acquireDbLock(file: string, opts: { pid?: number; isAlive?: (pid
         continue;
       }
       let released = false;
+      // Ctrl+C or a stop request: free the lock, then let the signal end the process as it would have,
+      // unless another handler (such as Next's own) is there to end it.
+      const onSignal = (signal: NodeJS.Signals) => {
+        release();
+        if (process.listenerCount(signal) === 0) process.kill(process.pid, signal);
+      };
       const release = () => {
         if (released) return;
         released = true;
         process.removeListener("exit", release);
+        for (const s of SIGNALS) process.removeListener(s, onSignal);
         if (readPid(file) === pid) unlinkQuiet(file);
       };
       process.on("exit", release);
+      for (const s of SIGNALS) process.once(s, onSignal);
       return release;
     }
     throw new DbLockedError();

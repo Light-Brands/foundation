@@ -44,8 +44,10 @@ describe("log entries", () => {
   });
   it("flags a malformed entry id and accepts a good one", () => {
     expect(checkLogText("x", formatEntry({ ...entry, entry: "routines/monday-brief" }))).toEqual([]);
-    for (const bad of ["Routines/Monday", "routines//x", "/routines/x", "routines/x/", "routines/my brief", ""]) {
-      expect(checkLogText("x", formatEntry({ ...entry, entry: bad })).join("\n")).toContain("x: log entry id must be lowercase segments joined by /, such as routines/monday-brief");
+    expect(checkLogText("x", formatEntry({ ...entry, entry: "modules/sell/leads" }))).toEqual([]);
+    // The same entry id rule as key.yaml's installed list: a kind folder, then one or two names.
+    for (const bad of ["Routines/Monday", "routines//x", "/routines/x", "routines/x/", "routines/my brief", "", "monday-brief", "widgets/x", "modules/sell/leads/extra"]) {
+      expect(checkLogText("x", formatEntry({ ...entry, entry: bad })).join("\n"), bad).toContain("x: log entry id must look like routines/monday-brief (a kind folder, then lowercase hyphenated names)");
     }
   });
   it("a formatted entry passes the privacy check, an email fails it", () => {

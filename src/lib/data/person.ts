@@ -180,10 +180,11 @@ function whoMatches(stored: string, n: string): boolean {
   try { return normalizeEmail(stored) === n; } catch { return stored.trim().toLowerCase().replace(/^([^+@]+)\+[^@]*@/, "$1@") === n; }
 }
 
-async function findApps(db: Queryable, refs: PersonRef[], n: string): Promise<Record<string, unknown[]>> {
-  const team = await teamIds(db, refs, n);
-  const teamSet = new Set(team);
-  const apps: Record<string, unknown[]> = {};
+type AppRows = { key: string; tableRefs: PersonRef[]; rows: Row[] };
+
+/** Every app row that holds the person's address or team member id, as stored, by app table. */
+async function findAppRows(db: Queryable, refs: PersonRef[], n: string, team: string[]): Promise<AppRows[]> {
+  const out: AppRows[] = [];
   for (const key of [...new Set(refs.map((r) => `${r.app}/${r.table}`))]) {
     const tableRefs = refs.filter((r) => `${r.app}/${r.table}` === key);
     const params: unknown[] = [];
@@ -191,9 +192,20 @@ async function findApps(db: Queryable, refs: PersonRef[], n: string): Promise<Re
       params.push(r.how === "email" ? n : team);
       return r.how === "email" ? `${N(column(r.column))} = $${params.length}` : `${column(r.column)} = any($${params.length}::text[])`;
     });
-    const rows = await db.query<Row>(`select * from ${table(tableRefs[0].table)} where ${where.join(" or ")} order by created_at, id`, params);
-    apps[key] = rows.map((row) => forExport(row, tableRefs, n, teamSet));
+    out.push({ key, tableRefs, rows: await db.query<Row>(`select * from ${table(tableRefs[0].table)} where ${where.join(" or ")} order by created_at, id`, params) });
   }
+  return out;
+}
+
+/** Whether an app row is about the person, holding their address, rather than someone else's that points at them. */
+const holdsAddress = (row: Row, tableRefs: PersonRef[], n: string) =>
+  tableRefs.some((r) => r.how === "email" && typeof row[r.column] === "string" && whoMatches(row[r.column] as string, n));
+
+async function findApps(db: Queryable, refs: PersonRef[], n: string): Promise<Record<string, unknown[]>> {
+  const team = await teamIds(db, refs, n);
+  const teamSet = new Set(team);
+  const apps: Record<string, unknown[]> = {};
+  for (const { key, tableRefs, rows } of await findAppRows(db, refs, n, team)) apps[key] = rows.map((row) => forExport(row, tableRefs, n, teamSet));
   return apps;
 }
 
@@ -210,7 +222,11 @@ export async function exportPerson(db: Db, refs: PersonRef[], email: string, now
   });
 }
 
-export type ForgetCounts = Record<string, number>;
+/**
+ * By table. about: the person's own records, removed or blanked. linked: other people's records that pointed at
+ * the person through a team member id, which keep everything except that link.
+ */
+export type ForgetCounts = { about: Record<string, number>; linked: Record<string, number> };
 
 /**
  * What a forget would remove or blank, by table. An opt-out counts only while it still keeps the address,
@@ -221,7 +237,7 @@ export async function planForget(db: Db, refs: PersonRef[], email: string, opts:
   const { n, hash, key } = whoOf(email, opts.secret);
   await checkSecretFingerprint(db, key);
   const { core } = await findCore(db, n, hash);
-  const counts: ForgetCounts = {};
+  const counts: ForgetCounts = { about: {}, linked: {} };
   const cards = new Set((core.inbox_items as Row[]).map((c) => String(c.id)));
   for (const [app, ids] of Object.entries(await rowsToDelete(db, refs, n))) {
     for (const c of await db.query<{ id: string }>(`select id from inbox_items where ${CARDS_FROM("$1", "$2")}`, [app, ids])) cards.add(c.id);
@@ -229,16 +245,24 @@ export async function planForget(db: Db, refs: PersonRef[], email: string, opts:
   core.inbox_items = [...cards];
   for (const [k, v] of Object.entries(core)) {
     const held = k === "opt_outs" ? (v as { email: string | null }[]).filter((o) => o.email !== null) : v;
-    if (held.length) counts[k] = held.length;
+    if (held.length) counts.about[k] = held.length;
   }
-  for (const [k, v] of Object.entries(await findApps(db, refs, n))) if (v.length) counts[k] = v.length;
+  for (const { key, tableRefs, rows } of await findAppRows(db, refs, n, await teamIds(db, refs, n))) {
+    const about = rows.filter((r) => holdsAddress(r, tableRefs, n)).length;
+    if (about) counts.about[key] = about;
+    if (rows.length - about) counts.linked[key] = rows.length - about;
+  }
   return counts;
 }
 
+const isEmpty = (c: ForgetCounts) => Object.keys(c.about).length === 0 && Object.keys(c.linked).length === 0;
+const listed = (by: Record<string, number>) => Object.entries(by).map(([k, v]) => `${v} ${k}`).join(", ");
+
 /** The line for the build log: what went, never who. */
 export function forgetSummary(counts: ForgetCounts): string {
-  const parts = Object.entries(counts).map(([k, v]) => `${v} ${k}`);
-  return `Forgot one person: ${parts.length ? parts.join(", ") : "nothing held"}.`;
+  const about = listed(counts.about);
+  const linked = listed(counts.linked);
+  return `Forgot one person: ${about || "nothing held"}.${linked ? ` Cleared the link to them in other people's records: ${linked}.` : ""}`;
 }
 
 export type ForgetOutcome =
@@ -265,15 +289,17 @@ type Previous = "none" | "declined" | "closed" | "forgotten";
 
 async function raiseForgetCard(db: Db, kinds: KindRegistry, refs: PersonRef[], email: string, runKey: string, previous: Previous, now: Date, opts: PersonOptions): Promise<ForgetOutcome> {
   const counts = await planForget(db, refs, email, opts);
-  if (Object.keys(counts).length === 0) return previous === "forgotten" ? { status: "done_before" } : { status: "nothing" };
-  const lines = Object.entries(counts).map(([k, v]) => `${v} in ${k}`);
+  if (isEmpty(counts)) return previous === "forgotten" ? { status: "done_before" } : { status: "nothing" };
+  const lines = (by: Record<string, number>) => Object.entries(by).map(([k, v]) => `${v} in ${k}`);
+  const linked = lines(counts.linked);
   const r = await writeCard(db, kinds, {
     kind: "person-forget",
     title: "Forget one person on request",
     runKey,
     body: [
-      "When you approve, these records are removed, or kept with the person's details blanked where the app keeps them:",
-      ...lines,
+      "When you approve, these records about the person are removed, or kept with the person's details blanked where the app keeps them:",
+      ...lines(counts.about),
+      ...(linked.length ? ["Other people's records that point to this person keep everything else. Only the link is cleared:", ...linked] : []),
       "Only a scrambled fingerprint of the address stays, so this person is never emailed again.",
       "Forget does not read notes or messages inside your apps, or find someone mentioned only by name. Check those by hand first.",
     ].join("\n"),
@@ -315,8 +341,8 @@ async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: 
   // Approved and not yet carried out: do it now, in one transaction.
   const pattern = addressPattern(n);
   const counts = await db.transaction(async (tx): Promise<ForgetCounts | null> => {
-    const c: ForgetCounts = {};
-    const bump = (k: string, by: number) => { if (by) c[k] = (c[k] ?? 0) + by; };
+    const c: ForgetCounts = { about: {}, linked: {} };
+    const bump = (k: string, by: number) => { if (by) c.about[k] = (c.about[k] ?? 0) + by; };
     await checkSecretFingerprint(tx, key);
     // A sender holding an email to the person right now would mark it sent with the address still on it. Lock the
     // person's rows, so no sender takes one meanwhile, and wait while any is sending.
@@ -336,10 +362,13 @@ async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: 
     )).length);
     // App rows: the person's team member id is blanked wherever it appears, and a row that holds their address is
     // deleted, or kept with the address blanked where its entity says forget: blank. One row counts once per table.
-    const touched: Record<string, Set<string>> = {};
-    const mark = (key: string, rows: { id: unknown }[]) => { for (const r of rows) (touched[key] ??= new Set()).add(String(r.id)); };
+    // A row that held the address is about the person. One that only held their team member id is someone else's,
+    // pointing at them, and keeps everything but that link.
+    const about: Record<string, Set<string>> = {};
+    const linked: Record<string, Set<string>> = {};
+    const mark = (into: Record<string, Set<string>>, key: string, rows: { id: unknown }[]) => { for (const r of rows) (into[key] ??= new Set()).add(String(r.id)); };
     for (const r of refs.filter((x) => x.how === "team_id")) {
-      mark(`${r.app}/${r.table}`, await tx.query<{ id: unknown }>(`update ${table(r.table)} set ${column(r.column)} = '' where ${column(r.column)} = any($1::text[]) returning id`, [team]));
+      mark(linked, `${r.app}/${r.table}`, await tx.query<{ id: unknown }>(`update ${table(r.table)} set ${column(r.column)} = '' where ${column(r.column)} = any($1::text[]) returning id`, [team]));
     }
     const deleted: Record<string, string[]> = {};
     for (const r of refs.filter((x) => x.how === "email")) {
@@ -347,7 +376,7 @@ async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: 
         ? `update ${table(r.table)} set ${column(r.column)} = '' where ${N(column(r.column))} = $1 returning id`
         : `delete from ${table(r.table)} where ${N(column(r.column))} = $1 returning id`;
       const rows = await tx.query<{ id: unknown }>(sql, [n]);
-      mark(`${r.app}/${r.table}`, rows);
+      mark(about, `${r.app}/${r.table}`, rows);
       if (r.forget === "delete" && rows.length) (deleted[r.app] ??= []).push(...rows.map((x) => String(x.id)));
     }
     // A card raised from a row that is now gone would be the only trace of it, so it is blanked too.
@@ -355,7 +384,11 @@ async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: 
       for (const x of await tx.query<{ id: string }>(`update inbox_items set ${BLANK_CARD} where ${CARDS_FROM("$1", "$3")} returning id`, [app, pattern, rowIds])) cards.add(x.id);
     }
     bump("inbox_items", cards.size);
-    for (const [k, v] of Object.entries(touched)) bump(k, v.size);
+    for (const [k, v] of Object.entries(about)) bump(k, v.size);
+    for (const [k, v] of Object.entries(linked)) {
+      const n2 = [...v].filter((id) => !about[k]?.has(id)).length;
+      if (n2) c.linked[k] = n2;
+    }
     // Only the hash stays, as an opt-out from every email. Any earlier row for this person, including one that
     // kept the address under an earlier secret, is replaced.
     bump("opt_outs", (await tx.query<{ id: string }>(`delete from opt_outs where ${OPT_OUT_OF} and email is not null returning id`, [hash, n])).length);

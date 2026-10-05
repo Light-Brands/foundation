@@ -280,6 +280,11 @@ describe("forget", () => {
     expect(card.category).toBe("risk");
     expect(card.body).not.toMatch(/@|Ada/i);
     expect(card.body).toMatch(/1 in leads-demo\/leads_demo/);
+    // The card separates the person's own records from other people's records that only point at them.
+    const [about, linked] = card.body.split("Other people's records");
+    expect(about).toMatch(/1 in team-demo\/people\n/);
+    expect(about).not.toMatch(/chores|review_inputs/);
+    expect(linked).toMatch(/^ that point to this person keep everything else. Only the link is cleared:\n1 in team-demo\/people\n1 in team-demo\/chores\n2 in team-demo\/review_inputs\n/);
     expect(card.body.trim().split("\n").at(-1)).toMatch(/notes or messages inside your apps.*mentioned only by name/);
     expect(await count(db, "contacts")).toBe(2);
     expect(await count(db, "people")).toBe(2);
@@ -305,9 +310,10 @@ describe("forget", () => {
     if (r.status !== "card_raised") throw new Error("no card");
     await decideCard(db, kinds, { cardId: r.cardId, decision: "approve", actor: PIN_OWNER }, NOW);
     const done = await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER);
+    // About Ada: her own records. Linked: other people's records that pointed at her, which keep all but that link.
     expect(done).toEqual({ status: "forgotten", counts: {
-      inbox_items: 3, outbox: 1, contacts: 1, "leads-demo/leads_demo": 1,
-      "team-demo/people": 2, "team-demo/chores": 1, "team-demo/review_inputs": 2, "team-demo/invoices_demo": 1,
+      about: { inbox_items: 3, outbox: 1, contacts: 1, "leads-demo/leads_demo": 1, "team-demo/people": 1, "team-demo/invoices_demo": 1 },
+      linked: { "team-demo/people": 1, "team-demo/chores": 1, "team-demo/review_inputs": 2 },
     } });
     expect(await db.query("select email from contacts")).toEqual([{ email: "bo@harbor.example" }]);
     expect(await db.query("select title, body, contact_id from inbox_items where kind = 'contact' order by title")).toEqual([
@@ -360,7 +366,7 @@ describe("forget", () => {
     const r = await forgetPerson(db, kinds, refs, "cy@harbor.example", NOW, OWNER);
     if (r.status !== "card_raised") throw new Error("no card");
     await decideCard(db, kinds, { cardId: r.cardId, decision: "approve", actor: PIN_OWNER }, NOW);
-    expect(await forgetPerson(db, kinds, refs, "cy@harbor.example", NOW, OWNER)).toEqual({ status: "forgotten", counts: { "team-demo/people": 1, "team-demo/chores": 1 } });
+    expect(await forgetPerson(db, kinds, refs, "cy@harbor.example", NOW, OWNER)).toEqual({ status: "forgotten", counts: { about: { "team-demo/people": 1 }, linked: { "team-demo/chores": 1 } } });
     expect(await db.query("select owner_id from chores where title = 'chore Cy'")).toEqual([{ owner_id: "" }]);
     expect(await count(db, "people")).toBe(2);
     await db.close();
@@ -372,7 +378,7 @@ describe("forget", () => {
     const r = await forgetPerson(db, kinds, refs, "Dee@harbor.example", NOW, OWNER);
     if (r.status !== "card_raised") throw new Error("no card");
     await decideCard(db, kinds, { cardId: r.cardId, decision: "approve", actor: PIN_OWNER }, NOW);
-    expect(await forgetPerson(db, kinds, refs, "dee@harbor.example", NOW, OWNER)).toEqual({ status: "forgotten", counts: { opt_outs: 1 } });
+    expect(await forgetPerson(db, kinds, refs, "dee@harbor.example", NOW, OWNER)).toEqual({ status: "forgotten", counts: { about: { opt_outs: 1 }, linked: {} } });
     expect(await db.query("select email, email_hash, scope from opt_outs")).toEqual([{ email: null, email_hash: hashOf("dee@harbor.example"), scope: "all" }]);
     expect(await draftEmail(db, { to: "dee@harbor.example", subject: "Receipt", body: "x", sendKey: "k/dee" })).toEqual({ status: "opted_out" });
     await db.close();
@@ -442,8 +448,9 @@ describe("forget", () => {
     await db.close();
   });
   it("the summary never names the person", () => {
-    const s = forgetSummary({ contacts: 1, inbox_items: 1, outbox: 1, "leads-demo/leads_demo": 1 });
-    expect(s).toBe("Forgot one person: 1 contacts, 1 inbox_items, 1 outbox, 1 leads-demo/leads_demo.");
+    const s = forgetSummary({ about: { contacts: 1, inbox_items: 1, outbox: 1, "leads-demo/leads_demo": 1 }, linked: { "team-demo/chores": 2 } });
+    expect(s).toBe("Forgot one person: 1 contacts, 1 inbox_items, 1 outbox, 1 leads-demo/leads_demo. Cleared the link to them in other people's records: 2 team-demo/chores.");
+    expect(forgetSummary({ about: { contacts: 1 }, linked: {} })).toBe("Forgot one person: 1 contacts.");
     expect(s).not.toMatch(/@/);
   });
 });

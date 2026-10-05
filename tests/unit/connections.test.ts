@@ -26,6 +26,20 @@ describe("looksLikeSecret", () => {
   });
 });
 
+describe("looksLikeKey, the key-shape test app saves call", () => {
+  it("is exported from its own module, and is the test the connections registry uses", async () => {
+    const { looksLikeKey } = await import("@/lib/key-shape");
+    for (const k of KEYISH) expect(looksLikeKey(k), k.slice(0, 12)).toBe(true);
+    for (const v of ["RESEND_API_KEY", "events:read", "Owner", "Jo from Harbor Studio", "https://harbor.example/book", ""]) expect(looksLikeKey(v), v).toBe(false);
+    expect(validateConnection({ ...GOOD, owner: KEYISH[0] }).ok).toBe(false);
+  });
+  it("finds a key inside a sentence an app saves", async () => {
+    const { looksLikeKey } = await import("@/lib/key-shape");
+    expect(looksLikeKey(`our key is ${KEYISH[0]} for now`)).toBe(true);
+    expect(looksLikeKey(`notes:\n${KEYISH[3]}`)).toBe(true);
+  });
+});
+
 describe("validateConnection", () => {
   it("accepts a complete row", () => {
     expect(validateConnection(GOOD)).toEqual({ ok: true, value: { ...GOOD, door: "own", status: "connected" } });

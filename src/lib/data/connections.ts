@@ -1,5 +1,6 @@
 import type { Db } from "@/lib/db/types";
 import { SLUG } from "@/lib/key/frontmatter";
+import { looksLikeSecret } from "@/lib/key-shape";
 
 // One row per outside service: which door it came through, whether it works, and the NAME of the
 // setting that holds its key. Never the key. A key lives only in the host's settings or .env.local.
@@ -14,17 +15,7 @@ export const NOTE_MAX = 200;
 
 const SETTING = /^[A-Z][A-Z0-9_]{1,63}$/;
 const SCOPE = /^[a-z0-9:._/-]{1,80}$/;
-const KEY_SHAPES = [
-  /^(sk|rk|pk)_(live|test)_/i, /^sb_(secret|publishable)_/, /^re_[A-Za-z0-9]{8,}/, /^whsec_/, /^gh[pousr]_[A-Za-z0-9]{20,}/,
-  /^xox[abprs]-/, /^AKIA[0-9A-Z]{16}$/, /-----BEGIN [A-Z ]+-----/, /^eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+/, /:\/\/[^/\s:@]+:[^/\s@]+@/,
-];
-
-export function looksLikeSecret(value: string): boolean {
-  const s = value.trim();
-  if (KEY_SHAPES.some((re) => re.test(s))) return true;
-  // A long run of mixed-case letters and digits with no spaces reads as a token. Setting names are upper case only.
-  return s.length >= 24 && /^[A-Za-z0-9_\-+/=.]+$/.test(s) && /\d/.test(s) && /[a-z]/.test(s) && /[A-Z]/.test(s);
-}
+export { looksLikeKey, looksLikeSecret } from "@/lib/key-shape";
 
 /** A YYYY-MM-DD string that names a real day, so 2026-02-30 is refused. */
 function isCalendarDate(value: string): boolean {

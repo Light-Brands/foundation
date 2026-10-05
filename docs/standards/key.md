@@ -37,17 +37,45 @@ routines:
     agent: front-desk
     category: deliver
 runs: []
+installed:
+  - entry: routines/booking-reminders
+    from: dictionary@0.1.0
+    tier: essentials
+    files: [routines/booking-reminders.md]
+    installed: 2026-10-05
 provenance:
   stated_by: Jo Harbor
   recorded: 2026-10-05
   guide: foundation
 ```
 
+- **Record every Dictionary install in `installed`.** Each item has `entry` (a kind folder and a slug, such as `routines/booking-reminders`), `from` (`dictionary@` and a version such as `0.1.0`), `tier` (`essentials`, `complete` or `mastery`), `files` (a non-empty list of paths relative to `key/`, each of which exists) and `installed` (the date). Why: the list shows what the business has put in place and from which version, and a file named there that is gone is found at once.
 - **Keep `key.yaml` in step with the files.** Add the entry when you add the file, and run `npm run key:sync` afterward. Why: the system document's inventory is built from this file.
 - **Set `charter` to `agents/<role>/charter.md` for every roster entry, and give it a `persona`.** Why: the format test fails on any other path, and the converter reads the persona as the agent's display name.
 - **Give every skill and routine a `path` and every app a `definition`, and make each file exist.** Every file `key.yaml` names must be on disk. Why: the converter builds its manifest from these entries, and a missing file fails there instead of here.
 - **Keep every app folder in `key/apps/` listed in `key.yaml`, and name the folder, the definition's `app` and the `key.yaml` slug the same.** Why: a folder `key.yaml` does not list never reaches the manifest, and three names for one app leave nothing to find it by.
 - **Give every `record_change` routine an `entity` that some app's definition defines.** Why: a trigger on an entity nobody defines never fires.
+
+## Run briefs
+
+`key/runs/` holds one brief for each run of the Dictionary. The file name is `<YYYY-MM-DD>-<verb>-<entry with / as ->.md`, such as `2026-10-06-install-routines-booking-reminders.md`. The front matter has `verb` (`install`, `modify`, `upgrade`, `check`, `remove`, `learn` or `weave`), `entry`, `tier`, `stage` (1 to 10), `consents` (a mapping) and the dates `started` and `updated`.
+
+```markdown
+---
+verb: install
+entry: routines/booking-reminders
+tier: essentials
+stage: 5
+consents: {write: true, preview: false, messages: false}
+started: 2026-10-06
+updated: 2026-10-06
+---
+# Brief
+
+Install the booking reminders routine.
+```
+
+- **Name the file after the verb and the entry it records.** Why: the folder reads as a dated history, and the name tells you which run each brief holds.
 
 ## The context block
 

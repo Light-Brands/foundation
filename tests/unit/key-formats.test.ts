@@ -3,7 +3,7 @@ import { readFileSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
-  checkKeyFolder, checkKeyYaml, checkCharter, checkSkill, checkRoutine, checkDefinition, checkLogText, parseFrontMatter,
+  checkKeyFolder, checkKeyYaml, checkCharter, checkSkill, checkRoutine, checkDefinition, checkLogText, parseFrontMatter, checkInstalled, checkRunBrief,
 } from "@/lib/key/formats";
 import { parse } from "yaml";
 import { contextBlockFromProfile } from "@/lib/key/context-block";
@@ -297,6 +297,37 @@ describe("the Commit line exemption", () => {
   });
 });
 
+describe("the installed block", () => {
+  const base = "key: 1\nclient: a\nname: A\nstage: seed\nhome: repo\nroster: []\nskills: []\napps: []\nroutines: []\nruns: []\n";
+  it("validates the installed block", () => {
+    const good = base + "installed:\n  - {entry: routines/monday-brief, from: dictionary@0.1.0, tier: essentials, files: [routines/monday-brief.md], installed: 2026-10-06}\n";
+    expect(checkKeyYaml("key/key.yaml", good)).toEqual([]);
+    expect(checkInstalled("k", { installed: "x" }).join()).toMatch(/must be a list/);
+    const bad = base + "installed:\n  - {entry: Routines/x, from: v1, tier: max, files: [], installed: soon}\n";
+    const p = checkKeyYaml("key/key.yaml", bad).join("\n");
+    for (const k of ["entry", "from", "tier", "files", "installed"]) expect(p).toMatch(new RegExp(`installed\\[0\\]\\.${k}`));
+  });
+  it("reports a file named in installed but missing", async () => {
+    const withInstalled = keyYaml + "installed:\n  - {entry: routines/nightly-follow-up, from: dictionary@0.1.0, tier: complete, files: [routines/nightly-follow-up.md, routines/gone.md], installed: 2026-10-06}\n";
+    const problems = await checkKeyFolder(keyRoot({ "key/key.yaml": withInstalled }));
+    expect(problems).toEqual(["key/routines/gone.md: named in installed but missing"]);
+  });
+  it("checks run briefs in the folder", async () => {
+    const problems = await checkKeyFolder(keyRoot({ "key/runs/brief.md": "---\nverb: install\n---\n" }));
+    expect(problems.join("\n")).toMatch(/runs\/brief\.md: file name/);
+  });
+});
+
+describe("a run brief", () => {
+  it("validates a run brief", () => {
+    const md = "---\nverb: install\nentry: routines/monday-brief\ntier: essentials\nstage: 5\nconsents: {write: true, preview: false, messages: false}\nstarted: 2026-10-06\nupdated: 2026-10-06\n---\n# Brief\n";
+    expect(checkRunBrief("key/runs/2026-10-06-install-routines-monday-brief.md", md)).toEqual([]);
+    expect(checkRunBrief("key/runs/brief.md", md).join("\n")).toMatch(/file name/);
+    expect(checkRunBrief("key/runs/2026-10-06-fly-routines-x.md", md.replace("verb: install", "verb: fly")).join("\n")).toMatch(/verb/);
+    expect(checkRunBrief("key/runs/2026-10-06-install-routines-monday-brief.md", md.replace("stage: 5", "stage: 11")).join("\n")).toMatch(/stage/);
+  });
+});
+
 describe("the examples in docs/standards/key.md", () => {
   const md = readFileSync(path.join(process.cwd(), "docs/standards/key.md"), "utf8");
   const section = (heading: string, lang: string): string => {
@@ -307,6 +338,7 @@ describe("the examples in docs/standards/key.md", () => {
     return m![1];
   };
   it("key.yaml passes checkKeyYaml", () => expect(checkKeyYaml("key.md", section("key.yaml", "yaml"))).toEqual([]));
+  it("the run brief passes checkRunBrief", () => expect(checkRunBrief("key/runs/2026-10-06-install-routines-booking-reminders.md", section("Run briefs", "markdown"))).toEqual([]));
   it("the charter passes checkCharter", () => expect(checkCharter("key.md", section("Charter", "markdown"))).toEqual([]));
   it("the skill passes checkSkill", () => expect(checkSkill("key.md", section("Skill", "markdown"))).toEqual([]));
   it("the routine passes checkRoutine", () => expect(checkRoutine("key.md", section("Routine", "markdown"))).toEqual([]));

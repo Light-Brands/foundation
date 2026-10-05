@@ -79,6 +79,7 @@ export function checkKeyYaml(file: string, text: string): string[] {
     if (!isObj(r) || !str(r.persona).trim()) bad(`roster[${i}].persona must be a non-empty name`);
   });
   if ("workflows" in d) p.push(`${file}: ${OLD_WORKFLOWS}`);
+  p.push(...checkInstalled(file, d));
   for (const k of ["skills", "apps", "routines"] as const) {
     list(d[k]).forEach((e, i) => {
       if (!isObj(e) || !SLUG.test(str(e.slug))) bad(`${k}[${i}].slug must be a lowercase hyphenated slug`);
@@ -88,6 +89,51 @@ export function checkKeyYaml(file: string, text: string): string[] {
       if (!isObj(e) || !str(e[pathKey]).trim()) bad(`${k}[${i}].${pathKey} must name the file, relative to key/`);
     });
   }
+  return p;
+}
+
+const ENTRY = /^(frameworks|blueprints|modules|agents|skills|routines|connections)\/[a-z0-9-]+(\/[a-z0-9-]+)?$/;
+const FROM = /^dictionary@\d+\.\d+\.\d+$/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+export const TIERS = ["essentials", "complete", "mastery"];
+export const VERBS = ["install", "modify", "upgrade", "check", "remove", "learn", "weave"];
+const dateText = (v: unknown): string => (v instanceof Date && !Number.isNaN(v.getTime()) ? v.toISOString().slice(0, 10) : str(v));
+
+export function checkInstalled(file: string, d: Obj): string[] {
+  const p: string[] = [];
+  const bad = (m: string) => p.push(`${file}: ${m}`);
+  if (d.installed === undefined) return p;
+  if (!Array.isArray(d.installed)) return [`${file}: installed must be a list`];
+  d.installed.forEach((e, i) => {
+    const at = `installed[${i}]`;
+    if (!isObj(e)) { bad(`${at} must be a mapping`); return; }
+    if (!ENTRY.test(str(e.entry))) bad(`${at}.entry must look like routines/monday-brief (a kind folder, then lowercase hyphenated names)`);
+    if (!FROM.test(str(e.from))) bad(`${at}.from must look like dictionary@0.1.0`);
+    if (!TIERS.includes(str(e.tier))) bad(`${at}.tier must be one of ${TIERS.join(", ")}`);
+    const fl = list(e.files);
+    if (fl.length === 0 || fl.some((f) => !str(f).trim() || path.isAbsolute(str(f)) || str(f).split("/").includes(".."))) bad(`${at}.files must be a non-empty list of paths relative to key/`);
+    if (!ISO_DATE.test(dateText(e.installed))) bad(`${at}.installed must be a date like 2026-10-06`);
+  });
+  return p;
+}
+
+export function checkRunBrief(file: string, md: string): string[] {
+  const p: string[] = [];
+  const bad = (m: string) => p.push(`${file}: ${m}`);
+  const base = path.basename(file);
+  if (!/^\d{4}-\d{2}-\d{2}-[a-z]+-[a-z0-9-]+\.md$/.test(base)) bad("file name must be <YYYY-MM-DD>-<verb>-<entry with / as ->.md");
+  const fm = parseFrontMatter(md);
+  if (!fm) { bad("run brief needs front matter"); return p; }
+  const d = fm.data;
+  const verb = str(d.verb);
+  const entry = str(d.entry);
+  if (!VERBS.includes(verb)) bad(`verb must be one of ${VERBS.join(", ")}`);
+  if (!ENTRY.test(entry)) bad("entry must look like routines/monday-brief");
+  if (VERBS.includes(verb) && ENTRY.test(entry) && !base.endsWith(`-${verb}-${entry.replace("/", "-")}.md`)) bad(`file name must end with -${verb}-${entry.replace("/", "-")}.md`);
+  if (!TIERS.includes(str(d.tier))) bad(`tier must be one of ${TIERS.join(", ")}`);
+  if (!Number.isInteger(d.stage) || (d.stage as number) < 1 || (d.stage as number) > 10) bad("stage must be a whole number from 1 to 10");
+  if (!isObj(d.consents)) bad("consents must be a mapping");
+  for (const k of ["started", "updated"]) if (!ISO_DATE.test(dateText(d[k]))) bad(`${k} must be a date like 2026-10-06`);
   return p;
 }
 
@@ -264,6 +310,14 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
       const full = path.join(key, n);
       if (!(await exists(full))) problems.push(`${rel(full)}: named in key.yaml but missing`);
     }
+    for (const e of list(ring.installed)) {
+      if (!isObj(e)) continue;
+      for (const f of list(e.files)) {
+        if (typeof f !== "string" || !f.trim() || path.isAbsolute(f) || f.split("/").includes("..")) continue;
+        const full = path.join(key, f);
+        if (!(await exists(full))) problems.push(`${rel(full)}: named in installed but missing`);
+      }
+    }
     const listed = new Set(list(ring.apps).filter(isObj).map((e) => str(e.slug)));
     let folders: string[] = [];
     try { folders = (await readdir(path.join(key, "apps"), { withFileTypes: true })).filter((d) => d.isDirectory()).map((d) => d.name); } catch { /* no apps folder */ }
@@ -271,6 +325,7 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
       if (!listed.has(folder)) problems.push(`${rel(path.join(key, "apps", folder))}: app folder is not listed in key.yaml`);
     }
   }
+  for (const f of await files(path.join(key, "runs"), ".md")) problems.push(...checkRunBrief(rel(f), await read(f)));
   for (const f of await files(path.join(key, "log"), ".md")) problems.push(...checkLogText(rel(f), await read(f)));
   return problems;
 }

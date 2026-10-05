@@ -18,7 +18,8 @@ export function safeNext(next: string | null | undefined): string {
     return "/";
   }
   if (url.origin !== ORIGIN) return "/";
-  return url.pathname + url.search + url.hash;
+  const path = url.pathname + url.search + url.hash;
+  return path.startsWith("//") ? "/" : path;
 }
 
 export async function handleGatePost(

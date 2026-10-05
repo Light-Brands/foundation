@@ -8,7 +8,7 @@ describe("safeNext", () => {
     expect(safeNext("/sell/pipeline?x=1")).toBe("/sell/pipeline?x=1");
   });
   it("refuses other sites and odd paths", () => {
-    for (const bad of ["//evil.com", "https://evil.com", "/\\evil.com", "evil", "", null, undefined, "/\t/evil.com", "/\n/evil.com", "/\r/evil.com", "/\u0000x"]) {
+    for (const bad of ["//evil.com", "https://evil.com", "/\\evil.com", "evil", "", null, undefined, "/\t/evil.com", "/\n/evil.com", "/\r/evil.com", "/\u0000x", "/x/..//evil.com", "/%2e%2e//evil.com", "/a/..//b/../evil.com"]) {
       expect(safeNext(bad)).toBe("/");
     }
   });

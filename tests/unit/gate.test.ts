@@ -8,9 +8,15 @@ describe("safeNext", () => {
     expect(safeNext("/sell/pipeline?x=1")).toBe("/sell/pipeline?x=1");
   });
   it("refuses other sites and odd paths", () => {
-    for (const bad of ["//evil.com", "https://evil.com", "/\\evil.com", "evil", "", null, undefined]) {
+    for (const bad of ["//evil.com", "https://evil.com", "/\\evil.com", "evil", "", null, undefined, "/\t/evil.com", "/\n/evil.com", "/\r/evil.com", "/\u0000x"]) {
       expect(safeNext(bad)).toBe("/");
     }
+  });
+});
+
+describe("safeNext percent-encoding", () => {
+  it("keeps a literal percent string same-site", () => {
+    expect(safeNext("/%09/evil.com").startsWith("//")).toBe(false);
   });
 });
 

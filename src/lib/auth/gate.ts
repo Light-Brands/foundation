@@ -7,9 +7,18 @@ export function isPublicPath(pathname: string): boolean {
   return PUBLIC.some((re) => re.test(pathname));
 }
 
+const ORIGIN = "http://gate.local";
+
 export function safeNext(next: string | null | undefined): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) return "/";
-  return next;
+  if (!next || !next.startsWith("/") || /[\u0000-\u001f\u007f\\]/.test(next)) return "/";
+  let url: URL;
+  try {
+    url = new URL(next, ORIGIN);
+  } catch {
+    return "/";
+  }
+  if (url.origin !== ORIGIN) return "/";
+  return url.pathname + url.search + url.hash;
 }
 
 export async function handleGatePost(

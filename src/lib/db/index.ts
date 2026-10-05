@@ -13,7 +13,10 @@ export function storageMode(): DriverKind {
 }
 
 export function getDb(): Promise<Db | null> {
-  g.__foundationDb ??= open();
+  g.__foundationDb ??= open().catch((err) => {
+    g.__foundationDb = undefined;
+    throw err;
+  });
   return g.__foundationDb;
 }
 
@@ -23,8 +26,13 @@ async function open(): Promise<Db | null> {
   const dir = path.resolve(process.cwd(), env.dataDir);
   await mkdir(dir, { recursive: true });
   const db = await openPglite(dir);
-  await migrate(db, path.join(process.cwd(), "db/migrations"));
-  const [{ n }] = await db.query<{ n: number }>("select count(*)::int as n from business_profile");
-  if (n === 0) await db.query("insert into business_profile (business_name) values ($1)", [env.businessName]);
-  return db;
+  try {
+    await migrate(db, path.join(process.cwd(), "db/migrations"));
+    const [{ n }] = await db.query<{ n: number }>("select count(*)::int as n from business_profile");
+    if (n === 0) await db.query("insert into business_profile (business_name) values ($1)", [env.businessName]);
+    return db;
+  } catch (err) {
+    await db.close().catch(() => {});
+    throw err;
+  }
 }

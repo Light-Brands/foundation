@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
+import { copyText } from "@/lib/copy-text";
 
 /**
- * Copies text to the clipboard. With before, the copy happens only once before resolves ok, and its message
- * is shown when it does not, so a copy the server must record is never made without that record.
+ * Copies text to the clipboard through copyText, which keeps the click's permission for Safari. With before, the copy
+ * happens only once before resolves ok, and its message is shown when it does not.
  */
 export function CopyButton({ text, label = "Copy prompt", before }: { text: string; label?: string; before?: () => Promise<{ ok: boolean; message: string }> }) {
   const [copied, setCopied] = useState(false);
@@ -15,16 +16,8 @@ export function CopyButton({ text, label = "Copy prompt", before }: { text: stri
         className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-zinc-200 transition hover:border-violet/60"
         onClick={async () => {
           setNote("");
-          if (before) {
-            const r = await before();
-            if (!r.ok) { setNote(r.message); return; }
-          }
-          try {
-            await navigator.clipboard.writeText(text);
-          } catch {
-            setNote("Your browser did not allow the copy. Try once more.");
-            return;
-          }
+          const r = await copyText(text, before);
+          if (!r.ok) { setNote(r.message); return; }
           setCopied(true);
           setTimeout(() => setCopied(false), 1600);
         }}

@@ -7,6 +7,8 @@ import path from "node:path";
 import { loadEnvConfig } from "@next/env";
 
 const SCRIPT = path.join(__dirname, "../../scripts/setup.mjs");
+// The Key as it ships, before setup names it. The live key/ is named once setup runs, so tests copy this instead.
+const SEED_KEY = path.join(__dirname, "../fixtures/key-seed");
 const run = (cwd: string, args: string[]) =>
   execFileSync("node", [SCRIPT, ...args], { cwd, encoding: "utf8", stdio: "pipe" });
 
@@ -85,9 +87,12 @@ describe("npm run setup", () => {
     expect(env).toContain("FOUNDATION_PIN=135790");
     expect(env).toContain(`FOUNDATION_BUSINESS_NAME='Harbor "Studio" \\ Co'`);
   });
+  it("tests against the unnamed seed Key, never the live key/ folder setup has named", () => {
+    expect(parse(readFileSync(path.join(SEED_KEY, "key.yaml"), "utf8")).client).toBe("your-business");
+  });
   it("names the Key after the business and starts its context block", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
-    cpSync(path.join(__dirname, "../../key"), path.join(dir, "key"), { recursive: true });
+    cpSync(SEED_KEY, path.join(dir, "key"), { recursive: true });
     run(dir, ["--name", "Harbor Studio & Co.", "--pin", "246810"]);
     const key = parse(readFileSync(path.join(dir, "key/key.yaml"), "utf8"));
     expect(key.client).toBe("harbor-studio-co");
@@ -98,14 +103,14 @@ describe("npm run setup", () => {
   });
   it("leaves an already named Key alone", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
-    cpSync(path.join(__dirname, "../../key"), path.join(dir, "key"), { recursive: true });
+    cpSync(SEED_KEY, path.join(dir, "key"), { recursive: true });
     run(dir, ["--name", "Harbor Studio", "--pin", "246810"]);
     run(dir, ["--name", "Other Name", "--pin", "246810", "--force"]);
     expect(parse(readFileSync(path.join(dir, "key/key.yaml"), "utf8")).client).toBe("harbor-studio");
   });
   it("runs npm run key:sync at the end so the inventory exists", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
-    cpSync(path.join(__dirname, "../../key"), path.join(dir, "key"), { recursive: true });
+    cpSync(SEED_KEY, path.join(dir, "key"), { recursive: true });
     writeFileSync(
       path.join(dir, "package.json"),
       JSON.stringify({ name: "stub", scripts: { "key:sync": "node -e \"require('fs').writeFileSync('synced.txt', 'yes')\"" } }),
@@ -115,7 +120,7 @@ describe("npm run setup", () => {
   }, 60000);
   it("still finishes setup when key:sync cannot run", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
-    cpSync(path.join(__dirname, "../../key"), path.join(dir, "key"), { recursive: true });
+    cpSync(SEED_KEY, path.join(dir, "key"), { recursive: true });
     const out = run(dir, ["--name", "Harbor Studio", "--pin", "246810"]);
     expect(out).toContain("npm run key:sync");
     expect(existsSync(path.join(dir, ".env.local"))).toBe(true);

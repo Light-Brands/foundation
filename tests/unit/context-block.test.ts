@@ -39,3 +39,21 @@ describe("slugify", () => {
     expect(slugify("Harbor Studio & Co.")).toBe("harbor-studio-co");
   });
 });
+
+describe("keyRoot", () => {
+  it("uses FOUNDATION_KEY_ROOT when set, else the working directory", async () => {
+    const { keyRoot } = await import("@/lib/key/write");
+    const prev = process.env.FOUNDATION_KEY_ROOT;
+    try {
+      process.env.FOUNDATION_KEY_ROOT = "  /somewhere ";
+      expect(keyRoot()).toBe("/somewhere");
+      process.env.FOUNDATION_KEY_ROOT = "  ";
+      expect(keyRoot()).toBe(process.cwd());
+      delete process.env.FOUNDATION_KEY_ROOT;
+      expect(keyRoot()).toBe(process.cwd());
+    } finally {
+      if (prev === undefined) delete process.env.FOUNDATION_KEY_ROOT;
+      else process.env.FOUNDATION_KEY_ROOT = prev;
+    }
+  });
+});

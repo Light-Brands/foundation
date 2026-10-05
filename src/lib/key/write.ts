@@ -8,3 +8,7 @@ export async function writeContextBlock(root: string, block: ContextBlock): Prom
   await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, "context-block.yaml"), stringify(block), "utf8");
 }
+
+export function keyRoot(): string {
+  return process.env.FOUNDATION_KEY_ROOT?.trim() || process.cwd();
+}

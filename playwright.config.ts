@@ -13,6 +13,7 @@ export default defineConfig({
       FOUNDATION_SECRET: "e2e-only-secret",
       FOUNDATION_BUSINESS_NAME: "Harbor Studio",
       FOUNDATION_DATA_DIR: ".data/e2e",
+      FOUNDATION_KEY_ROOT: ".data/e2e-key",
     },
   },
 });

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 
-export function CopyButton({ text }: { text: string }) {
+export function CopyButton({ text, label = "Copy prompt" }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -13,7 +13,7 @@ export function CopyButton({ text }: { text: string }) {
         setTimeout(() => setCopied(false), 1600);
       }}
     >
-      {copied ? "Copied" : "Copy prompt"}
+      {copied ? "Copied" : label}
     </button>
   );
 }

@@ -145,12 +145,20 @@ async function readCheck(tx: Tx, check: CheckDecl, today: string, now: Date, fun
 export async function applyLapses(db: Db, kinds: KindRegistry, now: Date): Promise<{ closed: number; raised: number }> {
   const all = [...kinds.values()];
   const closes = all.filter((k) => k.on_lapse === "closes").map((k) => k.kind);
+  // A card that lapses closed was never approved, so its unsent drafts are cancelled in the same statement.
   const closed = closes.length
-    ? await db.query<{ id: string }>(
-        "update inbox_items set status = 'done' where status = 'new' and expires_at is not null and expires_at <= $1 and kind = any($2::text[]) returning id",
+    ? (await db.query<{ closed: number }>(
+        `with c as (
+           update inbox_items set status = 'done'
+            where status = 'new' and expires_at is not null and expires_at <= $1 and kind = any($2::text[])
+            returning id
+         ), o as (
+           update outbox set status = 'cancelled', updated_at = $1 from c where outbox.card_id = c.id and outbox.status = 'draft' returning outbox.id
+         )
+         select (select count(*)::int from c) as closed, (select count(*)::int from o) as cancelled`,
         [now, closes],
-      )
-    : [];
+      ))[0].closed
+    : 0;
   let raised = 0;
   for (const k of all.filter((x) => x.on_lapse === "raised_again" && x.expires_days !== null)) {
     const rows = await db.query<{ id: string }>(
@@ -160,7 +168,7 @@ export async function applyLapses(db: Db, kinds: KindRegistry, now: Date): Promi
     );
     raised += rows.length;
   }
-  return { closed: closed.length, raised };
+  return { closed, raised };
 }
 
 const clip = (s: string, n: number) => s.slice(0, n);

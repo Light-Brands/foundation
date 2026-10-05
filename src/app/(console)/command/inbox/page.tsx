@@ -7,6 +7,7 @@ import { formatCardTime } from "@/lib/time";
 import { PromptBox } from "@/components/PromptBox";
 import { loadCardKinds } from "@/lib/data/card-kinds";
 import { CardActions } from "./CardActions";
+import { EmailDraft } from "./EmailDraft";
 
 const STATUS_LABEL = { new: "", decided: "Decided, waiting for its job to finish", done: "Done" } as const;
 
@@ -44,6 +45,9 @@ export default async function InboxPage() {
               </div>
               {i.contact_email && <p className="text-sm text-mist">{i.contact_email}</p>}
               <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-300">{i.body}</p>
+              {i.emails.map((e) => (
+                <EmailDraft key={e.id} email={e} sendAfter={e.send_after ? formatCardTime(e.send_after, timezone) : null} copyText={`Subject: ${e.subject}\n\n${e.body}`} />
+              ))}
               {i.status !== "new" && (
                 <p className="mt-2 text-xs text-mist">
                   {i.decision === "approve" ? "Approved. " : i.decision === "decline" ? "Declined. " : ""}{STATUS_LABEL[i.status]}

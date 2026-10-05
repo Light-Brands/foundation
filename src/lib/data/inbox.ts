@@ -6,6 +6,7 @@ import { writeCard } from "@/lib/data/cards";
 import { registryFrom } from "@/lib/data/card-kinds";
 import { CORE_CARD_KINDS } from "@/lib/key/core-kinds";
 import type { SourceMeta } from "@/lib/forms/source";
+import type { OutboxKind, OutboxStatus } from "@/lib/data/outbox";
 
 const CORE_KINDS = registryFrom(CORE_CARD_KINDS);
 
@@ -40,14 +41,23 @@ export type InboxItem = {
   created_at: string;
   contact_name: string | null;
   contact_email: string | null;
+  /** Every email drafted for this card, oldest first. Bodies are shown as plain text. */
+  emails: CardEmail[];
 };
+
+export type CardEmail = { id: string; to: string; subject: string; body: string; status: OutboxStatus; kind: OutboxKind; send_after: string | null; note: string };
 
 export async function listInbox(db: Db | null, limit = 50, opts: { status?: CardStatus } = {}): Promise<InboxItem[]> {
   if (!db) return [];
   return db.query<InboxItem>(
     `select i.id, i.kind, i.category, i.subcategory, i.title, i.body, i.status, i.always_human, i.decision,
             i.decided_at::text as decided_at, i.created_at::text as created_at,
-            c.name as contact_name, c.email as contact_email
+            c.name as contact_name, c.email as contact_email,
+            coalesce((select json_agg(json_build_object('id', o.id, 'to', o.to_email, 'subject', o.subject, 'body', o.body,
+                                                        'status', o.status, 'kind', o.kind, 'send_after', o.send_after::text,
+                                                        'note', case when o.status = 'failed' then o.last_error else '' end)
+                                      order by o.created_at, o.id)
+                        from outbox o where o.card_id = i.id), '[]'::json) as emails
        from inbox_items i left join contacts c on c.id = i.contact_id
       where ($2::text is null or i.status = $2)
       order by i.created_at desc, i.id desc
@@ -79,13 +89,26 @@ export async function decideCard(db: Db, kinds: KindRegistry, input: { cardId: s
   if (card.decision !== null || card.status !== "new") return { status: "already_decided" };
   if (card.always_human && !allows(input.actor, "owner")) return { status: "owner_only" };
   if (!allows(input.actor, "team", card.category)) return { status: "not_allowed" };
-  const rows = await db.query<{ id: string }>(
-    `update inbox_items set status = 'decided', decision = $2, decided_at = $3, decided_by = $4
-      where id = $1 and status = 'new' and decision is null and (not always_human or $5)
-      returning id`,
+  // The card and its drafted email move in one statement: an email is approved only by this yes, and
+  // only while it is still a draft, so a draft the owner already stopped stays stopped.
+  const [r] = await db.query<{ decided: number }>(
+    `with d as (
+       update inbox_items set status = 'decided', decision = $2, decided_at = $3, decided_by = $4
+        where id = $1 and status = 'new' and decision is null and (not always_human or $5)
+        returning id, decision
+     ), o as (
+       update outbox
+          set status = case when d.decision = 'approve' then 'approved' else 'cancelled' end,
+              approved_at = case when d.decision = 'approve' then $3::timestamptz else null end,
+              updated_at = $3
+         from d
+        where outbox.card_id = d.id and outbox.status = 'draft'
+        returning outbox.id
+     )
+     select (select count(*)::int from d) as decided, (select count(*)::int from o) as moved`,
     [input.cardId, input.decision, now, input.actor.id, input.actor.role === "owner"],
   );
-  return { status: rows.length ? "decided" : "already_decided" };
+  return { status: r.decided ? "decided" : "already_decided" };
 }
 
 export type DoneResult = { status: "done" | "not_found" | "already_done" | "needs_decision" | "owner_only" | "not_allowed" };

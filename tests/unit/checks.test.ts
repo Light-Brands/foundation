@@ -1,9 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { extDb, KEY_EXT } from "../support/db";
 import { CHECK_FUNCTIONS, readDeclarations, type CheckDecl } from "@/lib/key/declarations";
 import { registryFrom } from "@/lib/data/card-kinds";
 import { writeCard } from "@/lib/data/cards";
 import { setPause } from "@/lib/data/pause";
+import { draftEmail } from "@/lib/data/outbox";
 import { applyLapses, periodFor, planRelations, runCheckSql, runChecks, runChecksIfDue, describeReport, type RunnerDeps } from "@/lib/checks/runner";
 
 const TZ = "America/Los_Angeles";
@@ -260,6 +261,20 @@ describe("runChecks", () => {
     expect(await applyLapses(deps.db, deps.kinds, later(15 * DAY))).toEqual({ closed: 0, raised: 0 });
     expect(await applyLapses(deps.db, deps.kinds, later(31 * DAY))).toEqual({ closed: 1, raised: 0 });
     await deps.db.close();
+  });
+});
+
+describe("lapses and drafted email", () => {
+  it("a lapsed card that closes cancels its unsent draft", async () => {
+    vi.stubEnv("FOUNDATION_SECRET", "lapse-test-secret");
+    const deps = await setup([]);
+    const card = await writeCard(deps.db, deps.kinds, { kind: "lead-reply", title: "Reply ready" }, MON);
+    if (card.status !== "written") throw new Error("not written");
+    await draftEmail(deps.db, { to: "ada@example.com", subject: "Hi", body: "Hello", sendKey: "k1", cardId: card.id });
+    expect(await applyLapses(deps.db, deps.kinds, later(8 * DAY))).toEqual({ closed: 1, raised: 0 });
+    expect(await deps.db.query("select status from outbox")).toEqual([{ status: "cancelled" }]);
+    await deps.db.close();
+    vi.unstubAllEnvs();
   });
 });
 

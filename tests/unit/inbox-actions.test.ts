@@ -14,8 +14,14 @@ const routeCard = vi.fn(async () => ({ status: "routed" }));
 vi.mock("@/lib/data/cards", () => ({ routeCard: (...a: unknown[]) => (routeCard as (...x: unknown[]) => unknown)(...a) }));
 vi.mock("@/lib/data/card-kinds", () => ({ loadCardKinds: async () => new Map() }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
+const markSentByHand = vi.fn(async () => true);
+const cancelEmail = vi.fn(async () => true);
+vi.mock("@/lib/data/outbox", () => ({
+  markSentByHand: (...a: unknown[]) => (markSentByHand as (...x: unknown[]) => unknown)(...a),
+  cancelEmail: (...a: unknown[]) => (cancelEmail as (...x: unknown[]) => unknown)(...a),
+}));
 
-import { decideCardAction, markDoneAction, routeCardAction } from "@/app/(console)/command/inbox/actions";
+import { cancelEmailAction, decideCardAction, markDoneAction, markSentByHandAction, routeCardAction } from "@/app/(console)/command/inbox/actions";
 
 const ID = "6f1c2a4e-1b2c-4d5e-8f90-1234567890ab";
 const form = (v: Record<string, string>) => { const f = new FormData(); for (const [k, x] of Object.entries(v)) f.set(k, x); return f; };
@@ -75,5 +81,40 @@ describe("routeCardAction", () => {
     getDb.mockReset();
     expect((await routeCardAction(null, form({ id: ID, to: "Lead New" }))).ok).toBe(false);
     expect(getDb).not.toHaveBeenCalled();
+  });
+});
+
+describe("markSentByHandAction", () => {
+  it("refuses without a session, and a malformed id before opening the database", async () => {
+    hasSession.mockResolvedValue(false);
+    getDb.mockReset();
+    expect(await markSentByHandAction(null, form({ id: ID }))).toEqual({ ok: false, message: "Your session ended. Sign in again, then try once more." });
+    hasSession.mockResolvedValue(true);
+    expect((await markSentByHandAction(null, form({ id: "x' or 1=1" }))).ok).toBe(false);
+    expect(getDb).not.toHaveBeenCalled();
+    expect(markSentByHand).not.toHaveBeenCalled();
+  });
+  it("records an email the owner sent by hand", async () => {
+    hasSession.mockResolvedValue(true);
+    getDb.mockResolvedValue({});
+    expect(await markSentByHandAction(null, form({ id: ID }))).toEqual({ ok: true, message: "Marked as sent." });
+    markSentByHand.mockResolvedValueOnce(false);
+    expect(await markSentByHandAction(null, form({ id: ID }))).toEqual({ ok: false, message: "This email is not waiting to be sent." });
+  });
+});
+
+describe("cancelEmailAction", () => {
+  it("refuses without a session", async () => {
+    hasSession.mockResolvedValue(false);
+    getDb.mockReset();
+    expect((await cancelEmailAction(null, form({ id: ID }))).ok).toBe(false);
+    expect(cancelEmail).not.toHaveBeenCalled();
+  });
+  it("stops an email that has not started sending, and says when it is too late", async () => {
+    hasSession.mockResolvedValue(true);
+    getDb.mockResolvedValue({});
+    expect(await cancelEmailAction(null, form({ id: ID }))).toEqual({ ok: true, message: "This email will not be sent." });
+    cancelEmail.mockResolvedValueOnce(false);
+    expect(await cancelEmailAction(null, form({ id: ID }))).toEqual({ ok: false, message: "This email is already sending or sent, so it cannot be stopped." });
   });
 });

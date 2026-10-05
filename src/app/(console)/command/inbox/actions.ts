@@ -2,12 +2,13 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
 import { hasSession } from "@/lib/auth/session";
-import { PIN_OWNER, SESSION_ENDED_MESSAGE } from "@/lib/auth/roles";
+import { PIN_OWNER, SESSION_ENDED_MESSAGE, allows } from "@/lib/auth/roles";
 import { loadCardKinds } from "@/lib/data/card-kinds";
 import { decideCard, markCardDone, type DecideResult, type DoneResult } from "@/lib/data/inbox";
 import { routeCard } from "@/lib/data/cards";
 import { SLUG } from "@/lib/key/frontmatter";
 import { PREVIEW_MESSAGE } from "@/lib/data/profile";
+import { cancelEmail, markSentByHand } from "@/lib/data/outbox";
 
 export type CardActionResult = { ok: boolean; message: string };
 
@@ -72,6 +73,44 @@ export async function routeCardAction(_prev: CardActionResult | null, form: Form
     return { ok: false, message: r.status === "not_routable" ? "Only a new message can be moved." : r.status === "unknown_kind" ? "That job is not installed." : REFUSED.not_found };
   } catch (err) {
     console.error("routeCardAction failed", err);
+    return { ok: false, message: FAILED };
+  }
+}
+
+const EMAIL_UNREADABLE = "That email could not be read. Reload the page and try again.";
+
+/** The owner sent an approved or failed email from their own email. Owner only. */
+export async function markSentByHandAction(_prev: CardActionResult | null, form: FormData): Promise<CardActionResult> {
+  const actor = (await hasSession()) ? PIN_OWNER : null;
+  if (!actor || !allows(actor, "owner")) return { ok: false, message: SESSION_ENDED_MESSAGE };
+  const id = String(form.get("id") ?? "");
+  if (!UUID.test(id)) return { ok: false, message: EMAIL_UNREADABLE };
+  try {
+    const db = await getDb();
+    if (!db) return { ok: false, message: PREVIEW_MESSAGE };
+    const ok = await markSentByHand(db, id, new Date());
+    revalidatePath("/command/inbox");
+    return ok ? { ok: true, message: "Marked as sent." } : { ok: false, message: "This email is not waiting to be sent." };
+  } catch (err) {
+    console.error("markSentByHandAction failed", err);
+    return { ok: false, message: FAILED };
+  }
+}
+
+/** The owner stops one email: a draft, or an approved one no sender has picked up. Owner only. */
+export async function cancelEmailAction(_prev: CardActionResult | null, form: FormData): Promise<CardActionResult> {
+  const actor = (await hasSession()) ? PIN_OWNER : null;
+  if (!actor || !allows(actor, "owner")) return { ok: false, message: SESSION_ENDED_MESSAGE };
+  const id = String(form.get("id") ?? "");
+  if (!UUID.test(id)) return { ok: false, message: EMAIL_UNREADABLE };
+  try {
+    const db = await getDb();
+    if (!db) return { ok: false, message: PREVIEW_MESSAGE };
+    const ok = await cancelEmail(db, id, new Date());
+    revalidatePath("/command/inbox");
+    return ok ? { ok: true, message: "This email will not be sent." } : { ok: false, message: "This email is already sending or sent, so it cannot be stopped." };
+  } catch (err) {
+    console.error("cancelEmailAction failed", err);
     return { ok: false, message: FAILED };
   }
 }

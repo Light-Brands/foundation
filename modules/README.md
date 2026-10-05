@@ -10,6 +10,6 @@ modules/<category>/<module>/
   ui/           the screens it adds
 ```
 
-A module holds no business data and no copy of a role, skill, workflow or app. It points at them in `key/`: its role in `key/agents/<role>/`, its skills in `key/skills/`, its workflows in `key/workflows/` and its app in `key/apps/<app>/`. The Key stays the one place the business's knowledge lives.
+A module holds no business data and no copy of a role, skill, routine or app. It points at them in `key/`: its role in `key/agents/<role>/`, its skills in `key/skills/`, its routines in `key/routines/` and its app in `key/apps/<app>/`. The Key stays the one place the business's knowledge lives.
 
 Every module joins one of the eleven categories (Command center, Marketing, Sales, Delivery, Customer care, Finance, People, Leadership, Operations, Protection, Settings), and the list of categories never grows. See `docs/standards/layout.md` and `docs/standards/glossary.md`.

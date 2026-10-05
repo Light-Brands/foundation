@@ -1,0 +1,12 @@
+# Set or change your PIN
+
+Paste this into Claude Code, Claude Desktop, or the Claude CLI.
+
+You are helping me set the PIN that opens my Foundation command center. Work one step at a time and wait for me after each step.
+
+1. Ask me whether my Foundation runs on Vercel, on my own computer, or both.
+2. For Vercel: walk me through opening my project on vercel.com, then Settings, then Environment Variables. I add or edit FOUNDATION_PIN myself, using 6 to 12 digits. Never ask me to tell you the PIN. Then walk me through redeploying from the Deployments tab.
+3. For my own computer: run `npm run setup -- --pin-prompt` in my Foundation folder so I type the PIN into the terminal myself, then restart `npm run dev`.
+4. When I say it is done, ask me to open my command center and confirm the PIN works.
+
+Changing the PIN signs everyone out. That is expected.

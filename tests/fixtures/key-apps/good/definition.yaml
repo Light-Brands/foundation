@@ -1,0 +1,15 @@
+app: bookings-app
+name: Bookings
+category: keep
+runtime: custom_app
+entities:
+  - key: bookings
+    name: Booking
+    fields:
+      - { key: client_email, name: Client email, type: email }
+      - { key: starts, name: Starts, type: date }
+      - { key: status, name: Status, type: select, options: [new, confirmed] }
+      - { key: paid, name: Paid, type: checkbox }
+      - { key: tags, name: Tags, type: multi_select, options: [vip, repeat] }
+    views: [table]
+migrations: migrations/

@@ -1,0 +1,13 @@
+app: drifted-app
+name: Drifted
+category: keep
+runtime: custom_app
+entities:
+  - key: bookings
+    name: Booking
+    fields:
+      - { key: client_email, name: Client email, type: email }
+      - { key: starts, name: Starts, type: date }
+      - { key: paid, name: Paid, type: checkbox }
+    views: [table]
+migrations: migrations/

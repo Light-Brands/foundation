@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { parse } from "yaml";
 import { CATEGORIES } from "@/lib/layout/categories";
+import { compareDefinition } from "@/lib/key/schema";
 
 export const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export const CHARTER_HEADINGS = ["Role", "Who I serve", "How I work", "What I know", "What I never do", "Tasks", "Skills", "Memory"];
@@ -196,7 +197,13 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
   const wfFiles = await files(path.join(key, "workflows"), ".md");
   const slugs = wfFiles.map((f) => (path.basename(f, ".md") === "workflow" ? path.basename(path.dirname(f)) : path.basename(f, ".md")));
   for (const f of wfFiles) problems.push(...checkWorkflow(rel(f), await read(f)));
-  for (const f of await files(path.join(key, "apps"), "definition.yaml")) problems.push(...checkDefinition(rel(f), await read(f), slugs));
+  for (const f of await files(path.join(key, "apps"), "definition.yaml")) {
+    const text = await read(f);
+    problems.push(...checkDefinition(rel(f), text, slugs));
+    const migrations = await files(path.join(path.dirname(f), "migrations"), ".sql");
+    const sql = await Promise.all(migrations.map(read));
+    problems.push(...compareDefinition(rel(f), text, sql));
+  }
   for (const f of await files(path.join(key, "log"), ".md")) problems.push(...checkLogText(rel(f), await read(f)));
   return problems;
 }

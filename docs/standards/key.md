@@ -49,7 +49,7 @@ provenance:
   guide: foundation
 ```
 
-- **Record every Dictionary install in `installed`.** Each item has `entry` (a kind folder and a slug, such as `routines/booking-reminders`), `from` (`dictionary@` and a version such as `0.1.0`), `tier` (`essentials`, `complete` or `mastery`), `files` (a non-empty list of paths relative to `key/`, each of which exists) and `installed` (the date). Why: the list shows what the business has put in place and from which version, and a file named there that is gone is found at once.
+- **Record every Dictionary install in `installed`.** Each item has `entry` (a kind folder and a slug, such as `routines/booking-reminders`), `from` (`dictionary@` and a version such as `0.1.0`), `tier` (`essentials`, `complete` or `mastery`), `files` (a non-empty list of paths inside `key/`, written without `..` and without a leading `/`, each of which exists) and `installed` (the date). Why: the list shows what the business has put in place and from which version, and a file named there that is gone is found at once.
 - **Keep `key.yaml` in step with the files.** Add the entry when you add the file, and run `npm run key:sync` afterward. Why: the system document's inventory is built from this file.
 - **Set `charter` to `agents/<role>/charter.md` for every roster entry, and give it a `persona`.** Why: the format test fails on any other path, and the converter reads the persona as the agent's display name.
 - **Give every skill and routine a `path` and every app a `definition`, and make each file exist.** Every file `key.yaml` names must be on disk. Why: the converter builds its manifest from these entries, and a missing file fails there instead of here.
@@ -58,7 +58,7 @@ provenance:
 
 ## Run briefs
 
-`key/runs/` holds one brief for each run of the Dictionary. The file name is `<YYYY-MM-DD>-<verb>-<entry with / as ->.md`, such as `2026-10-06-install-routines-booking-reminders.md`. The front matter has `verb` (`install`, `modify`, `upgrade`, `check`, `remove`, `learn` or `weave`), `entry`, `tier`, `stage` (1 to 10), `consents` (a mapping) and the dates `started` and `updated`.
+`key/runs/` holds one brief for each run of the Dictionary. The Dictionary is the Ninja framework guide, shipped in `ninja/`, that lists everything you can put into your business. The file name is `<YYYY-MM-DD>-<verb>-<entry with / as ->.md`, such as `2026-10-06-install-routines-booking-reminders.md`. Every `/` in the entry becomes `-`, so `modules/sell/leads` gives `2026-10-06-install-modules-sell-leads.md`. The front matter has `verb` (`install`, `modify`, `upgrade`, `check`, `remove`, `learn` or `weave`), `entry`, `tier`, `stage` (1 to 10), `consents` (a mapping of `write`, `preview` and `messages`, each `true` for yes or `false` for no) and the dates `started` and `updated`.
 
 ```markdown
 ---

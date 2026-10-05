@@ -318,7 +318,37 @@ describe("the installed block", () => {
   });
 });
 
+describe("guards", () => {
+  const ok = { entry: "routines/x", from: "dictionary@0.1.0", tier: "complete", files: ["routines/x.md"], installed: "2026-10-06" };
+  const run = (over: object) => checkInstalled("k", { installed: [{ ...ok, ...over }] }).join("\n");
+  it("rejects installed as a mapping", () => expect(checkInstalled("k", { installed: { a: 1 } }).join()).toMatch(/must be a list/));
+  it("rejects files as a string", () => expect(run({ files: "routines/x.md" })).toMatch(/files/));
+  it("rejects files that leave key/", () => {
+    expect(run({ files: ["../x"] })).toMatch(/files/);
+    expect(run({ files: ["/etc/x"] })).toMatch(/files/);
+  });
+  it("accepts a Date object and rejects an impossible date", () => {
+    expect(run({ installed: new Date("2026-10-06T00:00:00Z") })).toBe("");
+    expect(run({ installed: "2026-13-45" })).toMatch(/installed\[0\]\.installed/);
+  });
+  it("tells missing from invalid front matter", () => {
+    expect(checkRunBrief("key/runs/2026-10-06-install-routines-x.md", "# no front matter").join()).toMatch(/needs front matter/);
+    expect(checkRunBrief("key/runs/2026-10-06-install-routines-x.md", "---\nverb: [oops\n---\n").join()).toMatch(/not valid YAML/);
+  });
+  it("reports each missing path once", async () => {
+    const e = (n: string) => `  - {entry: routines/nightly-follow-up, from: dictionary@0.1.0, tier: complete, files: [routines/gone.md, ${n}], installed: 2026-10-06}\n`;
+    const text = keyYaml.replace("path: routines/nightly-follow-up.md", "path: routines/gone.md") + "installed:\n" + e("routines/gone.md") + e("routines/gone.md");
+    const problems = (await checkKeyFolder(keyRoot({ "key/key.yaml": text }))).filter((x) => /gone/.test(x));
+    expect(problems).toHaveLength(1);
+  });
+});
+
 describe("a run brief", () => {
+  it("accepts a module entry, every slash becoming a hyphen", () => {
+    const md = "---\nverb: install\nentry: modules/sell/leads\ntier: complete\nstage: 3\nconsents: {write: true}\nstarted: 2026-10-06\nupdated: 2026-10-06\n---\n";
+    expect(checkRunBrief("key/runs/2026-10-06-install-modules-sell-leads.md", md)).toEqual([]);
+    expect(checkRunBrief("key/runs/2026-10-06-install-modules-sell-leads.md", md.replace("started: 2026-10-06", "started: 2026-13-45")).join()).toMatch(/started/);
+  });
   it("validates a run brief", () => {
     const md = "---\nverb: install\nentry: routines/monday-brief\ntier: essentials\nstage: 5\nconsents: {write: true, preview: false, messages: false}\nstarted: 2026-10-06\nupdated: 2026-10-06\n---\n# Brief\n";
     expect(checkRunBrief("key/runs/2026-10-06-install-routines-monday-brief.md", md)).toEqual([]);

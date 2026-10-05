@@ -97,6 +97,12 @@ const FROM = /^dictionary@\d+\.\d+\.\d+$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 export const TIERS = ["essentials", "complete", "mastery"];
 export const VERBS = ["install", "modify", "upgrade", "check", "remove", "learn", "weave"];
+const realDate = (v: unknown): boolean => {
+  const t = dateText(v);
+  if (!ISO_DATE.test(t)) return false;
+  const d = new Date(`${t}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === t;
+};
 const dateText = (v: unknown): string => (v instanceof Date && !Number.isNaN(v.getTime()) ? v.toISOString().slice(0, 10) : str(v));
 
 export function checkInstalled(file: string, d: Obj): string[] {
@@ -112,7 +118,7 @@ export function checkInstalled(file: string, d: Obj): string[] {
     if (!TIERS.includes(str(e.tier))) bad(`${at}.tier must be one of ${TIERS.join(", ")}`);
     const fl = list(e.files);
     if (fl.length === 0 || fl.some((f) => !str(f).trim() || path.isAbsolute(str(f)) || str(f).split("/").includes(".."))) bad(`${at}.files must be a non-empty list of paths relative to key/`);
-    if (!ISO_DATE.test(dateText(e.installed))) bad(`${at}.installed must be a date like 2026-10-06`);
+    if (!realDate(e.installed)) bad(`${at}.installed must be a date like 2026-10-06`);
   });
   return p;
 }
@@ -123,17 +129,22 @@ export function checkRunBrief(file: string, md: string): string[] {
   const base = path.basename(file);
   if (!/^\d{4}-\d{2}-\d{2}-[a-z]+-[a-z0-9-]+\.md$/.test(base)) bad("file name must be <YYYY-MM-DD>-<verb>-<entry with / as ->.md");
   const fm = parseFrontMatter(md);
-  if (!fm) { bad("run brief needs front matter"); return p; }
+  if (!fm) {
+    const lines = md.replace(/\r\n/g, "\n").split("\n");
+    const closed = lines[0]?.trim() === "---" && lines.findIndex((l, i) => i > 0 && l.trim() === "---") > 0;
+    bad(closed ? "run brief front matter is not valid YAML" : "run brief needs front matter");
+    return p;
+  }
   const d = fm.data;
   const verb = str(d.verb);
   const entry = str(d.entry);
   if (!VERBS.includes(verb)) bad(`verb must be one of ${VERBS.join(", ")}`);
   if (!ENTRY.test(entry)) bad("entry must look like routines/monday-brief");
-  if (VERBS.includes(verb) && ENTRY.test(entry) && !base.endsWith(`-${verb}-${entry.replace("/", "-")}.md`)) bad(`file name must end with -${verb}-${entry.replace("/", "-")}.md`);
+  if (VERBS.includes(verb) && ENTRY.test(entry) && !base.endsWith(`-${verb}-${entry.replace(/\//g, "-")}.md`)) bad(`file name must end with -${verb}-${entry.replace(/\//g, "-")}.md`);
   if (!TIERS.includes(str(d.tier))) bad(`tier must be one of ${TIERS.join(", ")}`);
   if (!Number.isInteger(d.stage) || (d.stage as number) < 1 || (d.stage as number) > 10) bad("stage must be a whole number from 1 to 10");
   if (!isObj(d.consents)) bad("consents must be a mapping");
-  for (const k of ["started", "updated"]) if (!ISO_DATE.test(dateText(d[k]))) bad(`${k} must be a date like 2026-10-06`);
+  for (const k of ["started", "updated"]) if (!realDate(d[k])) bad(`${k} must be a date like 2026-10-06`);
   return p;
 }
 
@@ -303,19 +314,22 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
 
   if (ring) {
     const named: string[] = [];
+    const reported = new Set<string>();
     for (const r of list(ring.roster)) if (isObj(r) && str(r.charter)) named.push(str(r.charter));
     for (const k of ["skills", "routines"] as const) for (const e of list(ring[k])) if (isObj(e) && str(e.path)) named.push(str(e.path));
     for (const e of list(ring.apps)) if (isObj(e) && str(e.definition)) named.push(str(e.definition));
     for (const n of named) {
       const full = path.join(key, n);
-      if (!(await exists(full))) problems.push(`${rel(full)}: named in key.yaml but missing`);
+      if (reported.has(full)) continue;
+      if (!(await exists(full))) { reported.add(full); problems.push(`${rel(full)}: named in key.yaml but missing`); }
     }
     for (const e of list(ring.installed)) {
       if (!isObj(e)) continue;
       for (const f of list(e.files)) {
         if (typeof f !== "string" || !f.trim() || path.isAbsolute(f) || f.split("/").includes("..")) continue;
         const full = path.join(key, f);
-        if (!(await exists(full))) problems.push(`${rel(full)}: named in installed but missing`);
+        if (reported.has(full)) continue;
+        if (!(await exists(full))) { reported.add(full); problems.push(`${rel(full)}: named in installed but missing`); }
       }
     }
     const listed = new Set(list(ring.apps).filter(isObj).map((e) => str(e.slug)));

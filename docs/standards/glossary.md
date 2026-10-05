@@ -2,8 +2,8 @@
 
 One meaning for each word. If a word has two meanings in the code or a prompt, one of them is wrong.
 
-- **Category**: one of the eleven top-level areas of the business: Command, Attract, Sell, Deliver, Keep, Money, Team, Plan, Vendors and assets, Risk, System. The list lives in `src/lib/layout/categories.ts` and never grows.
-- **Sub-category**: one screen area inside a category, such as Booking inside Deliver.
+- **Category**: one of the eleven top-level areas of the business. The founder reads a category as a department: Command center, Marketing, Sales, Delivery, Customer care, Finance, People, Leadership, Operations, Protection, Settings. The list lives in `src/lib/layout/categories.ts` and never grows.
+- **Sub-category**: one screen area inside a category. The founder reads it as a job done in that department, such as Book appointments inside Delivery. Ids stay the same (`deliver`, `booking`); only the words a founder sees changed.
 - **Module**: a product that sets up one sub-category, such as booking. A module points at a role, skills, routines and an app in the Key.
 - **The Key**: the `key/` folder, the business's knowledge, roles and skills kept in one place.
 - **Role**: a job in the business, such as front desk. Its slug is the agent's key everywhere.

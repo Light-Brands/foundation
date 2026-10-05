@@ -4,7 +4,7 @@ A Next.js 16 app that runs one business. The owner builds it out with prompts; y
 
 ## How it is organized
 
-Everything belongs to one of eleven categories, in this order: Command, Attract, Sell, Deliver, Keep, Money, Team, Plan, Vendors and assets, Risk, System. The list lives in `src/lib/layout/categories.ts` and the navigation is generated from it by `src/lib/layout/registry.ts`. Never add a category. Place every new screen in an existing category and sub-category.
+Everything belongs to one of eleven categories (a founder reads them as departments, and each sub-category as a job), in this order: Command center, Marketing, Sales, Delivery, Customer care, Finance, People, Leadership, Operations, Protection, Settings. The list lives in `src/lib/layout/categories.ts` and the navigation is generated from it by `src/lib/layout/registry.ts`. Never add a category. Place every new screen in an existing category and sub-category.
 
 - Built screens are listed in `CORE_SCREENS` in `src/lib/layout/registry.ts`.
 - Every other sub-category is a "ready to set up" page with three doors (`src/components/Doors.tsx`).

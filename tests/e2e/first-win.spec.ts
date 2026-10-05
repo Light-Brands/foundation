@@ -35,7 +35,7 @@ test("the first win: in with the PIN, profile saved, a real message in the Inbox
   await expect(page.getByText("Nothing is built yet.")).toBeVisible();
 
   await page.goto("/deliver/booking");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Booking");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Book appointments");
   await expect(page.getByText("Have Light Brands build it")).toBeVisible();
 
   await page.goto("/deliver/not-a-thing");

@@ -5,24 +5,25 @@ import { buildNav, hrefFor, findSubcategory, activeKey } from "@/lib/layout/regi
 describe("the eleven categories", () => {
   it("are in the spec's order", () => {
     expect(CATEGORIES.map((c) => c.label)).toEqual([
-      "Command", "Attract", "Sell", "Deliver", "Keep", "Money", "Team", "Plan", "Vendors and assets", "Risk", "System",
+      "Command center", "Marketing", "Sales", "Delivery", "Customer care", "Finance", "People", "Leadership", "Operations", "Protection", "Settings",
     ]);
   });
   it("carry exactly the spec's sub-categories", () => {
     const subs = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.subcategories.map((s) => s.label)]));
     expect(subs).toEqual({
-      command: ["Home", "Inbox", "Alerts"],
-      attract: ["Content", "Social", "Ads", "Referrals", "Events"],
-      sell: ["Leads", "Pipeline", "Proposals", "Checkout", "Contracts"],
-      deliver: ["Booking", "Projects", "Programs", "Orders"],
-      keep: ["Support", "Client success", "Community", "Reviews"],
-      money: ["Invoicing", "Books", "Bills", "Pay prep"],
-      team: ["People", "Hiring", "Tasks and manual"],
-      plan: ["Scorecard", "Priorities", "Reports"],
-      vendors: ["Vendors", "Stock", "Equipment"],
-      risk: ["Compliance", "Access", "Backups"],
-      system: ["Connections", "Modules", "Setup", "Users and roles", "Settings", "Requests"],
+      command: ["See your day", "Handle what needs you", "Get alerted"],
+      attract: ["Create content", "Post on social", "Run ads", "Get referrals", "Host events"],
+      sell: ["Capture leads", "Follow up and close", "Send proposals", "Take payment", "Sign contracts"],
+      deliver: ["Book appointments", "Run projects", "Run programs", "Fulfill orders"],
+      keep: ["Answer customers", "Keep clients happy", "Run a community", "Collect reviews"],
+      money: ["Invoice and collect", "Keep the books", "Pay bills", "Prepare payroll"],
+      team: ["Manage your team", "Hire", "Assign work"],
+      plan: ["Track your numbers", "Set priorities", "Get reports"],
+      vendors: ["Manage suppliers", "Track stock", "Maintain equipment"],
+      risk: ["Stay compliant", "Control access", "Back up your data"],
+      system: ["Connect your tools", "Add capabilities", "Set up", "Users", "Preferences", "Requests"],
     });
+    expect(CATEGORIES.flatMap((c) => c.subcategories).length).toBe(43);
   });
   it("give every sub-category a blurb and an hours estimate", () => {
     for (const c of CATEGORIES) for (const s of c.subcategories) {
@@ -61,7 +62,7 @@ describe("the nav", () => {
     expect(nav.find((g) => g.id === "command")!.badge).toBe(5);
   });
   it("finds sub-categories and refuses unknown ones", () => {
-    expect(findSubcategory("deliver", "booking")?.sub.label).toBe("Booking");
+    expect(findSubcategory("deliver", "booking")?.sub.label).toBe("Book appointments");
     expect(findSubcategory("deliver", "nope")).toBeUndefined();
     expect(findSubcategory("nope", "booking")).toBeUndefined();
   });

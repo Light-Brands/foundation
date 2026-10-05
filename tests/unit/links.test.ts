@@ -15,17 +15,17 @@ describe("Dojo links", () => {
     expect(lessonWithSpace).toContain("module=cat.sub");
   });
   it("write a lesson prompt Claude can run inside the Foundation", () => {
-    const p = lessonPrompt("Deliver", "Booking");
+    const p = lessonPrompt("Delivery", "Book appointments");
     expect(p).toContain("CLAUDE.md");
-    expect(p).toContain("Deliver, Booking");
+    expect(p).toContain('the Delivery job "Book appointments"');
     expect(p).not.toMatch(/[–—]/);
   });
   it("write a connect prompt for existing tools", () => {
-    const p = connectPrompt("Deliver", "Booking");
+    const p = connectPrompt("Delivery", "Book appointments");
     expect(p).toContain("CLAUDE.md");
-    expect(p).toContain("Deliver, Booking");
+    expect(p).toContain('the Delivery job "Book appointments"');
     expect(p).not.toMatch(/[–—]/);
-    expect(p).not.toBe(lessonPrompt("Deliver", "Booking"));
+    expect(p).not.toBe(lessonPrompt("Delivery", "Book appointments"));
   });
 });
 

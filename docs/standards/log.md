@@ -9,7 +9,7 @@ One file per month, named `key/log/<YYYY-MM>.md`. Entries are only added, newest
 ```markdown
 ## 2026-10-05 14:02 · Booking reminders
 - Kind: lesson | module | connection | setup | change
-- Category: Deliver · Booking
+- Category: Delivery · Book appointments
 - What changed: reminders go out 24 hours and 1 hour before each session
 - Files: key/apps/booking/definition.yaml, key/routines/booking-reminders.md
 - Commit: 3f2a91c

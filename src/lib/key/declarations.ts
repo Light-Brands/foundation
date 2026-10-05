@@ -340,8 +340,8 @@ export async function readDeclarations(root: string): Promise<Declarations> {
 export const CORE_TABLES = ["business_profile", "contacts", "inbox_items", "pause", "form_hits", "form_counts", "webhook_events", "check_runs", "outbox", "opt_outs", "connections", "accounts"];
 
 export const CHECK_PERIODS = ["day", "week"] as const;
-// Core tables a check may read. K7 appends "connections" when that table exists. The outbox stays out: it holds message bodies.
-export const CHECK_CORE_TABLES: readonly string[] = ["contacts", "inbox_items", "business_profile", "check_runs"];
+// Core tables a check may read. The outbox stays out: it holds message bodies.
+export const CHECK_CORE_TABLES: readonly string[] = ["contacts", "inbox_items", "business_profile", "check_runs", "connections"];
 export const CHECK_FUNCTIONS: ReadonlySet<string> = new Set([
   "count", "sum", "min", "max", "avg", "coalesce", "nullif", "greatest", "least", "lower", "upper", "trim", "btrim",
   "ltrim", "rtrim", "length", "char_length", "concat", "concat_ws", "format", "left", "right", "replace", "split_part",

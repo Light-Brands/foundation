@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { coreDb, KEY_EXT } from "../support/db";
 import { drainOutbox } from "@/lib/outbox/drain";
-import { draftEmail, optOut } from "@/lib/data/outbox";
+import { draftEmail, markCopied, optOut } from "@/lib/data/outbox";
 import { upsertConnection, type ConnectionStatus } from "@/lib/data/connections";
 import { setPause } from "@/lib/data/pause";
 import type { Db } from "@/lib/db/types";
@@ -313,6 +313,73 @@ describe("drainOutbox fails closed at every step", () => {
       expect(await drainOutbox(failing(db, /where status = 'sending' and claimed_at </), ENV, T0, { root: KEY_EXT })).toMatchObject({ status: "error", sent: 0 });
     } finally { err.mockRestore(); }
     await nothingSent(db);
+    await db.close();
+  });
+  const failingWith = (db: Db, pattern: RegExp, err: () => Error): Db => ({
+    ...db,
+    query: (async (sql: string, params?: unknown[]) => {
+      if (pattern.test(sql)) throw err();
+      return db.query(sql, params);
+    }) as Db["query"],
+    transaction: db.transaction.bind(db),
+    exec: db.exec.bind(db),
+    close: db.close.bind(db),
+  });
+  it("sends nothing and keeps the events when bounces() returns something that is not a list", async () => {
+    const db = await ready();
+    await db.query("insert into webhook_events (connection, event_id, received_at) values ('email-sending', 'evt_b2', $1)", [T0]);
+    mail().bounces = { email: "jo@harbor.example", kind: "bounce" } as never;
+    const err = quietLog();
+    try {
+      expect(await drainOutbox(db, ENV, T0, { root: KEY_EXT })).toMatchObject({ status: "bounces_unrecorded", sent: 0 });
+    } finally { err.mockRestore(); }
+    await nothingSent(db);
+    expect(await db.query("select handled_at from webhook_events")).toEqual([{ handled_at: null }]);
+    expect(await db.query("select count(*)::int as n from opt_outs")).toEqual([{ n: 0 }]);
+    await db.close();
+  });
+  it("skips a bounce that is not one plain address, but fails closed on any other error, a TypeError among them", async () => {
+    const db = await ready();
+    mail().bounces = [{ email: "not an address", kind: "bounce" }];
+    expect(await drainOutbox(db, ENV, T0, { root: KEY_EXT })).toMatchObject({ status: "ran", sent: 1, bounced: 0 });
+    await db.close();
+    const db2 = await ready();
+    g.__fixtureMail = { sent: [], lookups: [], events: [], bounces: [{ email: "jo@harbor.example", kind: "bounce" }] };
+    const err = quietLog();
+    try {
+      expect(await drainOutbox(failingWith(db2, /^\s*(insert into|update) opt_outs/, () => new TypeError("a driver bug")), ENV, T0, { root: KEY_EXT })).toMatchObject({ status: "bounces_unrecorded", sent: 0 });
+    } finally { err.mockRestore(); }
+    await nothingSent(db2);
+    await db2.close();
+  });
+  it("never logs the provider key from a bounce that could not be recorded or a sender that failed to import", async () => {
+    const db = await ready();
+    mail().bounces = [{ email: "jo@harbor.example", kind: "bounce" }];
+    const err = quietLog();
+    try {
+      expect(await drainOutbox(failingWith(db, /^\s*insert into opt_outs/, () => new Error(`refused for ${API_KEY}`)), ENV, T0, { root: KEY_EXT })).toMatchObject({ status: "bounces_unrecorded" });
+      const root = copyFixture();
+      writeFileSync(path.join(root, "key/connections/email-sending/send.ts"), `throw new Error('broken with ${API_KEY}');\nexport const send = async () => ({ providerRef: 'x' });\n`);
+      expect(await drainOutbox(db, ENV, T0, { root })).toMatchObject({ status: "no_sender" });
+      const logged = err.mock.calls.map((c) => c.map(String).join(" ")).join("\n");
+      expect(logged).toMatch(/refused for/);
+      expect(logged).toMatch(/broken with/);
+      expect(logged).not.toContain(API_KEY);
+    } finally { err.mockRestore(); }
+    await nothingSent(db);
+    await db.close();
+  });
+});
+
+describe("a copied email and a connection that turns active later", () => {
+  it("is never sent by the drain", async () => {
+    const db = await coreDb();
+    const id = await approve(db);
+    expect(await markCopied(db, id, T0)).toBe(true);
+    await connect(db);
+    expect(await drainOutbox(db, ENV, T0, { root: KEY_EXT })).toMatchObject({ status: "ran", sent: 0 });
+    expect(mail().sent).toEqual([]);
+    expect(await statuses(db)).toEqual([{ status: "approved" }]);
     await db.close();
   });
 });

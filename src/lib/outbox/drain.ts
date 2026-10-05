@@ -3,6 +3,7 @@ import type { Db } from "@/lib/db/types";
 import { EMAIL_SENDING, emailSendingActive } from "@/lib/data/connections";
 import { isPaused } from "@/lib/data/pause";
 import { optOut, recoverStuck, sendApproved, senderOptions } from "@/lib/data/outbox";
+import { parseEmail } from "@/lib/email";
 import { loadSender, readSender, type EmailSender, type KeptEvent, type SenderContext } from "./sender";
 
 // Sends approved email through the email-sending connection's own sender, from the host's schedule or from
@@ -37,9 +38,10 @@ function result(status: DrainStatus, extra: Partial<DrainResult> = {}): DrainRes
 
 /**
  * Records every address the provider reports as bounced or complained about as an opt-out from all email,
- * then marks the kept events it was given as handled. Returns the count recorded, or null when bounces threw
- * or one could not be recorded: then nothing is marked handled and the caller sends nothing, so an address
- * is never mailed past a bounce that was not recorded.
+ * then marks the kept events it was given as handled. Returns the count recorded, or null when bounces threw,
+ * returned something that is not a list, or one could not be recorded: then nothing is marked handled and the
+ * caller sends nothing, so an address is never mailed past a bounce that was not recorded. An entry that is
+ * not one plain address is skipped, read by parseEmail first, so no error is ever taken to mean "not an address".
  */
 async function recordBounces(db: Db, sender: EmailSender, ctx: SenderContext, fixedSecret: string | null): Promise<number | null> {
   if (!sender.bounces) return 0;
@@ -55,17 +57,21 @@ async function recordBounces(db: Db, sender: EmailSender, ctx: SenderContext, fi
     console.error(`Email sender bounces failed, so no email was sent: ${redact(firstLine(err), ctx.secret)}`);
     return null;
   }
+  if (!Array.isArray(reported)) {
+    console.error("Email sender bounces did not return a list, so no email was sent.");
+    return null;
+  }
   let recorded = 0;
-  for (const b of Array.isArray(reported) ? reported : []) {
+  for (const b of reported) {
     const kind = (b as { kind?: unknown })?.kind;
     const email = (b as { email?: unknown })?.email;
     if ((kind !== "bounce" && kind !== "complaint") || typeof email !== "string") continue;
+    if (!parseEmail(email).ok) continue; // Not one plain address: nothing to stop sending to.
     try {
       await optOut(db, { email, source: kind, scope: "all" }, ctx.now, fixedSecret);
       recorded++;
     } catch (err) {
-      if (err instanceof TypeError) continue; // Not one plain address: nothing to stop sending to.
-      console.error(`A ${kind} could not be recorded as an opt-out, so no email was sent: ${firstLine(err)}`);
+      console.error(`A ${kind} could not be recorded as an opt-out, so no email was sent: ${redact(firstLine(err), ctx.secret)}`);
       return null;
     }
   }
@@ -98,7 +104,7 @@ export async function drainOutbox(db: Db | null, env: Record<string, string | un
     }
     const loaded = await loadSender(root);
     if ("problem" in loaded) {
-      console.error(loaded.problem);
+      console.error(redact(loaded.problem, secret));
       return result("no_sender");
     }
     const sender = loaded.sender;

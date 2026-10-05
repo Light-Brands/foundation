@@ -24,7 +24,9 @@
     "preoutbox:send": "node scripts/gen-build-secret.mjs",
     "outbox:send": "tsx --conditions=react-server scripts/outbox-send.ts",
     "preconnection:set": "node scripts/gen-build-secret.mjs",
-    "connection:set": "tsx --conditions=react-server scripts/connection-set.ts"
+    "connection:set": "tsx --conditions=react-server scripts/connection-set.ts",
+    "preperson": "node scripts/gen-build-secret.mjs",
+    "person": "tsx --conditions=react-server scripts/person.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

@@ -24,6 +24,11 @@ describe("readEnv", () => {
   it("never uses VERCEL_PROJECT_PRODUCTION_URL as the secret", () => {
     expect(readEnv({ VERCEL_PROJECT_PRODUCTION_URL: "a.vercel.app" }, "buildsecret").secret).toBe("buildsecret");
   });
+  it("keeps the fixed secret for opt-outs only from FOUNDATION_SECRET, never the build secret", () => {
+    expect(readEnv({ FOUNDATION_SECRET: " fixed " }, "buildsecret").fixedSecret).toBe("fixed");
+    expect(readEnv({ FOUNDATION_SECRET: "" }, "buildsecret").fixedSecret).toBeNull();
+    expect(readEnv({}, "buildsecret").fixedSecret).toBeNull();
+  });
   it("falls through to build secret if FOUNDATION_SECRET is empty", () => {
     expect(readEnv({ FOUNDATION_SECRET: "" }, "buildsecret").secret).toBe("buildsecret");
   });

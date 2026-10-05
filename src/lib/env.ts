@@ -5,6 +5,8 @@ export type FoundationEnv = {
   pin: string | null;
   pinProblem: "missing" | "invalid" | null;
   secret: string;
+  /** FOUNDATION_SECRET alone, never the build secret, or null. Keys the opt-out list, so it is fixed for the life of the Foundation. */
+  fixedSecret: string | null;
   onVercel: boolean;
   businessName: string;
   dataDir: string;
@@ -22,6 +24,7 @@ export function readEnv(e: Record<string, string | undefined> = process.env, bui
     pin: pinProblem ? null : raw,
     pinProblem,
     secret: e.FOUNDATION_SECRET?.trim() || buildSecret,
+    fixedSecret: e.FOUNDATION_SECRET?.trim() || null,
     onVercel: e.VERCEL === "1",
     businessName: e.FOUNDATION_BUSINESS_NAME?.trim() || "Your business",
     dataDir: e.FOUNDATION_DATA_DIR?.trim() || ".data/pglite",

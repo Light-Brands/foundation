@@ -46,3 +46,4 @@ alter table bookings enable row level security;
 ```
 
 - **Read the pause switch before any check or drafting routine acts.** The `pause` table holds one row. `getPause` in `src/lib/data/pause.ts` reads it, and `setPause` is its only writer, called from the Preferences pause action, which checks the session (the owner role once the hosted database is connected). Public forms keep saving while paused. Why: one switch the owner trusts stops every automatic action at once, while visitors still reach the business.
+- **Create every card through `writeCard` in `src/lib/data/cards.ts`.** Pass a kind the installed Key declares, a title, and a run key when the same run could write twice. Never insert into `inbox_items` directly and never pass a category. Why: the writer takes the department, the job, who decides and when it lapses from the declared kind, and a run key keeps a routine to one card per run.

@@ -2,6 +2,7 @@ import type { Db, Queryable } from "@/lib/db/types";
 import { FIXED_SECRET_MIN, readEnv } from "@/lib/env";
 import { emailHash, normalizedEmailSql, parseEmail, MissingSecretError } from "@/lib/email";
 import { isPaused } from "@/lib/data/pause";
+import { checkSecretFingerprint, FINGERPRINT_KEY, secretFingerprint, SecretMismatchError } from "@/lib/data/secret-check";
 import { httpsOrigin, publicBaseUrl, unsubscribeUrl } from "@/lib/email-links";
 
 // Every drafted customer email, sent at most once. A draft becomes approved only through the card
@@ -87,6 +88,7 @@ export function optOutCovers(hash: string, send: string, match: string, kind: st
  */
 export async function isOptedOut(db: Queryable, email: string, kind: OutboxKind, secret?: string | null): Promise<boolean> {
   const key = keyOf(secret);
+  await checkSecretFingerprint(db, key);
   const p = parseEmail(email);
   if (!p.ok) return true;
   const [row] = await db.query<{ hit: boolean }>(
@@ -99,7 +101,8 @@ export async function isOptedOut(db: Queryable, email: string, kind: OutboxKind,
 /**
  * Records an opt-out once, with its scope. It matches an earlier row on email_hash or on lower(email), so an
  * opt-out kept under an earlier FOUNDATION_SECRET is re-keyed to today's hash. A second opt-out for the same
- * person only widens a marketing one to all, never narrows it. Never raises a database error on a clash with any unique index, and then reads back:
+ * person only widens a marketing one to all, never narrows it. Refused with SecretMismatchError when today's secret is not
+ * the one this Foundation started with. Never raises a database error on a clash with any unique index, and then reads back:
  * unless a row for this address now covers the scope, it throws OptOutNotRecordedError. Throws for an address parseEmail
  * refuses, for a scope that is not marketing or all, and while FOUNDATION_SECRET is unset.
  */
@@ -108,6 +111,7 @@ export async function optOut(db: Queryable, input: { email: string; source: stri
   const p = parseEmail(input.email);
   if (!p.ok) throw new TypeError(p.error);
   if (!(OPT_OUT_SCOPES as readonly string[]).includes(input.scope)) throw new TypeError("An opt-out is for marketing email or for all email.");
+  await checkSecretFingerprint(db, key);
   const hash = emailHash(p.send, key);
   // One row per person, found by today's hash or by the address itself, so an opt-out kept under an earlier
   // secret is re-keyed to today's hash. The hash row wins when both exist. A scope only widens.
@@ -163,7 +167,7 @@ export async function draftEmail(db: Queryable, input: DraftEmail, secret?: stri
     optedOut = await isOptedOut(db, p.send, input.kind ?? "transactional", secret);
   } catch (err) {
     // Fail closed: a list that cannot be read never counts as not opted out.
-    return { status: "invalid", error: err instanceof MissingSecretError ? err.message : UNCHECKED_DRAFT };
+    return { status: "invalid", error: err instanceof MissingSecretError || err instanceof SecretMismatchError ? err.message : UNCHECKED_DRAFT };
   }
   if (optedOut) return { status: "opted_out" };
   for (let tries = 0; tries < 2; tries++) {
@@ -309,8 +313,10 @@ export function senderOptions(env: Record<string, string | undefined> = process.
  * recoverStuck to ask the provider about, because putting it back could send it twice.
  */
 export async function sendApproved(db: Db, send: Sender, now: Date, max = 20, opts: SendOptions = {}): Promise<{ sent: number; failed: number; refused: number }> {
-  // Without the fixed secret the opt-out list cannot be read, so nothing is claimed at all.
+  // Without the fixed secret the opt-out list cannot be read, so nothing is claimed at all. Under a secret that is
+  // not the one this Foundation started with, or a fingerprint that cannot be read, nothing is claimed either.
   const key = keyOf(opts.secret);
+  await checkSecretFingerprint(db, key);
   const base = httpsOrigin(opts.baseUrl);
   const facts = base ? await readFooterFacts(db) : null;
   const out = { sent: 0, failed: 0, refused: 0 };
@@ -371,22 +377,28 @@ async function claimClear(db: Queryable, now: Date, key: string, marketing: bool
     const r = await db.query("update outbox set status = 'cancelled', last_error = 'opted_out', updated_at = $2 where id = $1 and status = 'approved' returning id", [next.id, now]);
     return r.length ? "refused" : "busy";
   }
-  const params = [now, marketing, next.id, emailHash(p.send, key), p.send, p.match];
+  const params = [now, marketing, next.id, emailHash(p.send, key), p.send, p.match, FINGERPRINT_KEY, secretFingerprint(key)];
   const covered = optOutCovers("$4", "$5", "$6", "outbox.kind");
+  // The claim itself also requires the stored fingerprint to be this secret's, so no row moves to sending under
+  // another secret even if the fingerprint changed after the pass checked it.
+  const sameSecret = "exists (select 1 from core_settings s where s.key = $7 and s.value = $8)";
   const [row] = await db.query<Claimed>(
     `update outbox set status = 'sending', claimed_at = $1, attempts = attempts + 1, updated_at = $1
       where id = (select id from outbox where id = $3 and ${due} for update skip locked)
-        and ${due} and not ${covered}
+        and ${due} and ${sameSecret} and not ${covered}
       returning id, to_email, subject, body, send_key, attempts, kind`,
     params,
   );
   if (row) return row;
   const cancelled = await db.query(
     `update outbox set status = 'cancelled', last_error = 'opted_out', updated_at = $1
-      where id = $3 and ${due} and ${covered} returning id`,
+      where id = $3 and ${due} and ${covered} and ${sameSecret} returning id`,
     params,
   );
-  return cancelled.length ? "refused" : "busy";
+  if (cancelled.length) return "refused";
+  // Neither moved: another sender took the row, or the secret no longer matches. Ask again, which throws for the second.
+  await checkSecretFingerprint(db, key);
+  return "busy";
 }
 
 /** What the provider says about a send it may or may not have taken: confirmed sent, or unknown. */

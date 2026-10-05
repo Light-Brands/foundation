@@ -26,6 +26,9 @@ async function approved(db: Db, extra: Partial<Parameters<typeof draftEmail>[1]>
 beforeEach(() => { vi.stubEnv("FOUNDATION_SECRET", "outbox-test-secret-of-at-least-32-chars"); });
 afterEach(() => { vi.unstubAllEnvs(); });
 
+// A Foundation from before the secret fingerprint: rows kept under an earlier secret, and no fingerprint stored yet.
+const beforeFingerprint = (db: Db) => db.query("delete from core_settings where key = 'secret_fingerprint'");
+
 const statusOf = async (db: Db, id: string) => (await db.query<{ status: string }>("select status from outbox where id = $1", [id]))[0].status;
 
 describe("drafting", () => {
@@ -233,6 +236,7 @@ describe("opt-out scope", () => {
   it("never raises a database error on a second unique index, and records under the new secret", async () => {
     const db = await coreDb();
     await optOut(db, { email: "jo@harbor.example", source: "link", scope: "marketing" }, T0, "an-earlier-secret-of-at-least-32-chars");
+    await beforeFingerprint(db);
     await expect(optOut(db, { email: "jo@harbor.example", source: "owner", scope: "all" }, T0)).resolves.toBeUndefined();
     expect(await db.query("select scope from opt_outs")).toEqual([{ scope: "all" }]);
     await db.close();
@@ -242,6 +246,7 @@ describe("opt-out scope", () => {
     const B = "secret-b-".padEnd(40, "b");
     const db = await coreDb();
     await optOut(db, { email: "Jo@Harbor.example", source: "link", scope: "marketing" }, T0, A);
+    await beforeFingerprint(db);
     // The address itself is kept, so the opt-out already refuses under B before it is recorded again.
     expect(await isOptedOut(db, "jo@harbor.example", "marketing", B)).toBe(true);
     await optOut(db, { email: "jo@harbor.example", source: "owner", scope: "marketing" }, T0, B);
@@ -255,6 +260,7 @@ describe("opt-out scope", () => {
     const B = "secret-b-".padEnd(40, "b");
     const db = await coreDb();
     await optOut(db, { email: "jo@harbor.example", source: "owner", scope: "all" }, T0, A);
+    await beforeFingerprint(db);
     await optOut(db, { email: "jo@harbor.example", source: "link", scope: "marketing" }, T0, B);
     expect(await db.query("select email_hash, scope from opt_outs")).toEqual([{ email_hash: emailHash("jo@harbor.example", B), scope: "all" }]);
     expect(await isOptedOut(db, "jo@harbor.example", "transactional", B)).toBe(true);
@@ -445,7 +451,7 @@ describe("recovering a stuck send", () => {
   });
 });
 
-describe("an opt-out kept under an earlier secret", () => {
+describe("an opt-out kept under an earlier secret, from before the fingerprint", () => {
   const A = "secret-a-".padEnd(40, "a");
   const B = "secret-b-".padEnd(40, "b");
   it("is still refused under a new secret, by the address it keeps, in every check", async () => {
@@ -454,6 +460,7 @@ describe("an opt-out kept under an earlier secret", () => {
     const booking = await approved(db);
     const byHand = await approved(db, { sendKey: "bookings/b9/confirm" });
     await optOut(db, { email: "Jo+Promos@Harbor.Example", source: "owner", scope: "all" }, T0, A);
+    await beforeFingerprint(db);
     vi.stubEnv("FOUNDATION_SECRET", B);
     expect(await isOptedOut(db, "jo@harbor.example", "transactional", B)).toBe(true);
     expect(await isOptedOut(db, "JO+other@harbor.example", "marketing", B)).toBe(true);

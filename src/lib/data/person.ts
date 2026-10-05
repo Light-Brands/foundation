@@ -7,6 +7,7 @@ import { emailHash, InvalidEmailError, MissingSecretError, normalizeEmail, norma
 import { personFields, type PersonRef } from "@/lib/key/schema";
 import { readSources } from "@/lib/key/declarations";
 import { allows, type Actor } from "@/lib/auth/roles";
+import { checkSecretFingerprint, SecretMismatchError } from "@/lib/data/secret-check";
 
 // Seeing or removing what the business holds about one person. A person is found by their address, read by the
 // one strict parser in src/lib/email.ts and matched in every spelling its rule joins, and by their team member id,
@@ -32,7 +33,7 @@ async function plainErrors<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
   } catch (err) {
-    if (err instanceof InvalidEmailError || err instanceof MissingSecretError || err instanceof OwnerOnlyError) throw err;
+    if (err instanceof InvalidEmailError || err instanceof MissingSecretError || err instanceof OwnerOnlyError || err instanceof SecretMismatchError) throw err;
     throw new Error("The person command could not finish, and nothing was changed.", { cause: err });
   }
 }
@@ -51,10 +52,12 @@ const column = (name: string) => {
 /** The secret the opt-out list is keyed by: the caller's, else FOUNDATION_SECRET. emailHash refuses one too short. */
 const secretOf = (secret: string | null | undefined) => (secret === undefined ? readEnv().fixedSecret : secret);
 
-/** Who is asked about: the matching form of the address and its keyed hash. Throws for anything but one plain address. */
-function whoOf(email: string, secret: string | null | undefined): { n: string; hash: string } {
+/** Who is asked about: the matching form of the address, its keyed hash and the secret that keyed it. Throws for anything but one plain address. */
+function whoOf(email: string, secret: string | null | undefined): { n: string; hash: string; key: string } {
   const n = normalizeEmail(email);
-  return { n, hash: emailHash(n, secretOf(secret)) };
+  const key = secretOf(secret);
+  const hash = emailHash(n, key);
+  return { n, hash, key: key as string };
 }
 
 export async function installedPersonRefs(root: string): Promise<PersonRef[]> {
@@ -169,8 +172,9 @@ export type PersonExport = { generated_at: string; email_hash: string; core: Rec
 /** Everything held about one person, in core tables, in card text and in every installed app. Reads only. */
 export async function exportPerson(db: Db, refs: PersonRef[], email: string, now: Date, opts: PersonOptions): Promise<PersonExport> {
   if (!isOwner(opts)) throw new OwnerOnlyError();
-  const { n, hash } = whoOf(email, opts.secret);
+  const { n, hash, key } = whoOf(email, opts.secret);
   return plainErrors(async () => {
+    await checkSecretFingerprint(db, key);
     const { ids, core } = await findCore(db, n, hash);
     return { generated_at: now.toISOString(), email_hash: hash, core: coreForExport(core, ids, n), apps: await findApps(db, refs, n) };
   });
@@ -184,7 +188,8 @@ export type ForgetCounts = Record<string, number>;
  */
 export async function planForget(db: Db, refs: PersonRef[], email: string, opts: PersonOptions): Promise<ForgetCounts> {
   if (!isOwner(opts)) throw new OwnerOnlyError();
-  const { n, hash } = whoOf(email, opts.secret);
+  const { n, hash, key } = whoOf(email, opts.secret);
+  await checkSecretFingerprint(db, key);
   const { core } = await findCore(db, n, hash);
   const counts: ForgetCounts = {};
   for (const [k, v] of Object.entries(core)) {
@@ -250,11 +255,13 @@ async function raiseForgetCard(db: Db, kinds: KindRegistry, refs: PersonRef[], e
  */
 export async function forgetPerson(db: Db, kinds: KindRegistry, refs: PersonRef[], email: string, now: Date, opts: PersonOptions): Promise<ForgetOutcome> {
   if (!isOwner(opts)) return { status: "owner_only" };
-  const { n, hash } = whoOf(email, opts.secret);
-  return plainErrors(() => forgetFor(db, kinds, refs, email, n, hash, now, opts));
+  const { n, hash, key } = whoOf(email, opts.secret);
+  return plainErrors(() => forgetFor(db, kinds, refs, email, n, hash, key, now, opts));
 }
 
-async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: string, n: string, hash: string, now: Date, opts: PersonOptions): Promise<ForgetOutcome> {
+async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: string, n: string, hash: string, key: string, now: Date, opts: PersonOptions): Promise<ForgetOutcome> {
+  // Under another secret the hash written below would not match, and an earlier hash-only opt-out would be missed.
+  await checkSecretFingerprint(db, key);
   if (await hasAccount(db, n)) return { status: "has_account" };
   const prefix = `forget:${hash.slice(0, 16)}:`;
   const cards = await db.query<{ id: string; status: string; decision: string | null; run_key: string }>(
@@ -275,6 +282,7 @@ async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: 
   const counts = await db.transaction(async (tx) => {
     const c: ForgetCounts = {};
     const bump = (k: string, by: number) => { if (by) c[k] = (c[k] ?? 0) + by; };
+    await checkSecretFingerprint(tx, key);
     const { ids } = await findCore(tx, n, hash);
     // Team ids are read before the people rows go.
     const team = await teamIds(tx, refs, n);

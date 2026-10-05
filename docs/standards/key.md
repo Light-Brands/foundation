@@ -235,6 +235,33 @@ card_kinds:
 - **Give a card that goes stale an `expires_days` and an `on_lapse` rule.** `stays` keeps it, `closes` marks it done, and `raised_again` brings it back to the top. Why: an Inbox full of old cards hides the ones that matter.
 - **Restart the app after a run adds a routine or a card kind in production.** In production the app reads the Key's declarations once and keeps them for the life of the process. Why: a deployed app never changes its Key, so reading once is safe, and a restart is how a new declaration shows up.
 
+## Public forms
+
+An app's `definition.yaml` declares the public forms its job takes in, under `forms`. The Foundation serves each one at `/f/<key>` and writes every answer as a card of the declared kind, through the same helper `/contact` uses.
+
+```yaml
+forms:
+  - key: request-a-session
+    title: Request a session
+    intro: Pick a day that suits you and we will confirm by email.
+    card_kind: booking-request
+    submit: Send request
+    thanks: Thank you. We will confirm your time by email.
+    fields:
+      - { key: name, label: Your name, type: text, required: true, max: 120 }
+      - { key: email, label: Email, type: email, required: true }
+      - { key: phone, label: Phone, type: phone }
+      - { key: day, label: Preferred day, type: date }
+      - { key: service, label: Session, type: select, options: [Mobility, Recovery] }
+      - { key: notes, label: Anything we should know, type: long_text, max: 2000 }
+```
+
+`key` is a slug no other form uses, and never `contact`. `title` is 1 to 80 characters, `intro` up to 300, `submit` 1 to 30 (default Send) and `thanks` 1 to 200. A form has 2 to 20 fields. Field `type` is one of `text`, `long_text`, `email`, `phone`, `date`, `number`, `select` and `checkbox`, a `select` needs 1 to 30 `options`, and `max` is a whole number from 1 to 4000. No file upload in 1.0.
+
+- **Declare a public form in its app's `definition.yaml`, under `forms`, and never build a public page by hand.** The Foundation serves every declared form at `/f/<key>`, refuses any form the Key does not declare, and saves through one helper that only inserts. Why: one route with one set of protections is safer than a new public page per job.
+- **Give every form a required `name` text field and a required `email` field, and a `phone` field of type `phone` when you ask for one.** Those three create or reuse the contact, and every other answer lands on the card. Why: a person's details live once, on the contact, and never in an app's own table.
+- **Keep the reserved field keys out of a form:** `website`, `_form`, `source`, `utm_source`, `utm_medium`, `utm_campaign`, `utm_content` and `referrer`. Why: the helper uses them for its honeypot and for where the visitor came from.
+
 ## App definition
 
 `key/apps/<app>/definition.yaml` registers the app and describes its tables. Field types are limited to `text`, `number`, `date`, `select`, `multi_select`, `checkbox`, `user`, `multi_user`, `url`, `email` and `attachment`. A `select` or `multi_select` field needs `options`. An automation names a routine that exists. `migrations` is always `migrations/`. Every table the migrations create turns on row level security (see `data.md`). The SQL for each type is in `data.md`.

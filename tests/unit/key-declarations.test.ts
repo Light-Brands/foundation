@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { loadDeclarations } from "@/lib/key/load";
 import { KEY_EXT } from "../support/db";
 import { checkKeyFolder } from "@/lib/key/formats";
-import { checkCardKinds, readDeclarations, readSources } from "@/lib/key/declarations";
+import { checkCardKinds, checkForms, readDeclarations, readSources } from "@/lib/key/declarations";
 
 function copyFixture(): string {
   const root = mkdtempSync(path.join(tmpdir(), "keyext-"));
@@ -130,5 +130,62 @@ describe("loading declarations at run time", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     await loadDeclarations(copyFixture());
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("public forms in the Key", () => {
+  const src = { file: "d.yaml", slug: "leads-demo" };
+  const kinds = new Set(["lead-new", "contact"]);
+  const base = {
+    key: "get-in-touch", title: "Get in touch", card_kind: "lead-new", thanks: "Thank you.",
+    fields: [{ key: "name", label: "Your name", type: "text", required: true }, { key: "email", label: "Email", type: "email", required: true }],
+  };
+  const bad = (patch: Record<string, unknown>) => checkForms(src, [{ ...base, ...patch }], kinds).problems.join("\n");
+
+  it("loads the fixture form with its defaults filled in", async () => {
+    const d = await readDeclarations(KEY_EXT);
+    expect(d.forms.map((f) => f.key)).toEqual(["get-in-touch"]);
+    const form = d.forms[0];
+    expect(form.fields.find((f) => f.key === "email")).toEqual({ key: "email", label: "Email", type: "email", required: true, max: 254, options: [] });
+    expect(form.fields.find((f) => f.key === "phone")).toMatchObject({ required: false, max: 40 });
+    expect(form.source).toBe("leads-demo");
+  });
+  it("passes a minimal form", () => expect(checkForms(src, [base], kinds).problems).toEqual([]));
+  it("refuses a bad key, the reserved contact key and a missing or core card kind", () => {
+    expect(bad({ key: "Get In Touch" })).toMatch(/key must be a lowercase hyphenated slug/);
+    expect(bad({ key: "contact" })).toMatch(/"contact" is reserved/);
+    expect(bad({ card_kind: "nope" })).toMatch(/card_kind "nope" is not declared/);
+    expect(bad({ card_kind: "contact" })).toMatch(/card_kind "contact" is a core kind/);
+  });
+  it("needs a name and an email that make the contact", () => {
+    expect(bad({ fields: [base.fields[0]] })).toMatch(/needs a required email field of type email/);
+    expect(bad({ fields: [{ ...base.fields[0], required: false }, base.fields[1]] })).toMatch(/needs a required name field of type text/);
+    expect(bad({ fields: [...base.fields, { key: "phone", label: "Phone", type: "text" }] })).toMatch(/phone field must have type phone/);
+  });
+  it("refuses bad fields", () => {
+    expect(bad({ fields: [...base.fields, { key: "website", label: "Site", type: "text" }] })).toMatch(/"website" is reserved/);
+    expect(bad({ fields: [...base.fields, { key: "utm_content", label: "x", type: "text" }] })).toMatch(/"utm_content" is reserved/);
+    expect(bad({ fields: [...base.fields, { key: "cv", label: "CV", type: "file" }] })).toMatch(/type "file" must be one of/);
+    expect(bad({ fields: [...base.fields, { key: "pick", label: "Pick", type: "select" }] })).toMatch(/select needs 1 to 30 options/);
+    expect(bad({ fields: [...base.fields, { key: "big", label: "Big", type: "long_text", max: 5000 }] })).toMatch(/max must be a whole number from 1 to 4000/);
+    expect(bad({ fields: [...base.fields, { key: "name", label: "Again", type: "text" }] })).toMatch(/field key "name" repeats/);
+  });
+  it("holds the words to the copy rules", () => {
+    expect(bad({ thanks: "Thanks; talk soon." })).toMatch(/thanks must hold no long or short dash and no semicolon/);
+  });
+  it("refuses a form key two apps declare", async () => {
+    const root = copyFixture();
+    const keyFile = path.join(root, "key/key.yaml");
+    writeFileSync(keyFile, readFileSync(keyFile, "utf8").replace("routines:\n", "  - slug: leads-two\n    definition: apps/leads-two/definition.yaml\n    category: sell\nroutines:\n"));
+    mkdirSync(path.join(root, "key/apps/leads-two/migrations"), { recursive: true });
+    writeFileSync(path.join(root, "key/apps/leads-two/definition.yaml"), "app: leads-two\nname: Leads two\ncategory: sell\nruntime: custom_app\nentities:\n  - key: leads_two\n    name: Lead\n    fields: []\nmigrations: migrations/\nforms:\n  - { key: get-in-touch, title: Again, card_kind: lead-new, thanks: Thanks., fields: [{ key: name, label: Name, type: text, required: true }, { key: email, label: Email, type: email, required: true }] }\n");
+    writeFileSync(path.join(root, "key/apps/leads-two/migrations/0001_leads_two_create.sql"), "create table if not exists leads_two (id uuid primary key default gen_random_uuid(), created_at timestamptz not null default now(), updated_at timestamptz not null default now());\nalter table leads_two enable row level security;\n");
+    expect((await checkKeyFolder(root)).join("\n")).toMatch(/form "get-in-touch" is already declared by leads-demo/);
+  });
+  it("refuses a form declared in a routine", async () => {
+    const root = copyFixture();
+    const routine = readFileSync(routineFile(root), "utf8").replace("card_kinds:\n", "forms:\n  - { key: get-in-touch, title: Again, card_kind: lead-new, thanks: Thanks., fields: [{ key: name, label: Name, type: text, required: true }, { key: email, label: Email, type: email, required: true }] }\ncard_kinds:\n");
+    writeFileSync(routineFile(root), routine);
+    expect((await checkKeyFolder(root)).join("\n")).toMatch(/forms are declared in an app definition, never a routine/);
   });
 });

@@ -16,3 +16,16 @@ card_kinds:
   - { kind: lead-new, subcategory: leads, label: New lead, decide: done, expires_days: 14, on_lapse: raised_again }
   - { kind: lead-reply, subcategory: leads, label: Reply ready to send, decide: approve, expires_days: 7, on_lapse: closes }
   - { kind: discount-ask, subcategory: leads, label: Discount request, decide: approve, always_human: true }
+forms:
+  - key: get-in-touch
+    title: Tell us what you need
+    intro: We reply within one business day.
+    card_kind: lead-new
+    submit: Send
+    thanks: Thank you. We will reply within one business day.
+    fields:
+      - { key: name, label: Your name, type: text, required: true, max: 120 }
+      - { key: email, label: Email, type: email, required: true }
+      - { key: phone, label: Phone, type: phone }
+      - { key: service, label: What you need, type: select, options: [Mobility, Recovery] }
+      - { key: message, label: Tell us more, type: long_text, required: true, max: 2000 }

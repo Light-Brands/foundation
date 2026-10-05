@@ -6,7 +6,7 @@ import {
   checkKeyFolder, checkKeyYaml, checkCharter, checkSkill, checkRoutine, checkDefinition, checkLogText, parseFrontMatter, checkInstalled, checkRunBrief, codePathOk,
 } from "@/lib/key/formats";
 import { parse } from "yaml";
-import { checkCardKinds } from "@/lib/key/declarations";
+import { checkCardKinds, checkForms } from "@/lib/key/declarations";
 import { contextBlockFromProfile } from "@/lib/key/context-block";
 import { PROFILE_FIELDS, type Profile } from "@/lib/validate";
 
@@ -453,6 +453,10 @@ describe("the examples in docs/standards/key.md", () => {
   it("the card kinds example passes checkCardKinds", () => {
     const decl = parse(section("Card kinds", "yaml")) as { card_kinds: unknown };
     expect(checkCardKinds({ file: "key.md", category: "deliver", slug: "bookings" }, decl.card_kinds).problems).toEqual([]);
+  });
+  it("the public forms example passes checkForms", () => {
+    const decl = parse(section("Public forms", "yaml")) as { forms: unknown };
+    expect(checkForms({ file: "key.md", slug: "bookings" }, decl.forms, new Set(["booking-request"])).problems).toEqual([]);
   });
   it("the context block has exactly the context block fields", () => {
     const block = parse(section("The context block", "yaml")) as Record<string, unknown>;

@@ -6,6 +6,7 @@ import { buildNav } from "@/lib/layout/registry";
 import { stackStatus } from "@/lib/setup/steps";
 import { readEnv } from "@/lib/env";
 import { ICONS } from "@/components/shell/icons";
+import { formatCardTime } from "@/lib/time";
 
 export default async function Home() {
   const db = await getDb();
@@ -38,7 +39,14 @@ export default async function Home() {
           <Link href="/command/inbox" className="surface block p-5 transition hover:border-white/20">
             <p className="kicker">Inbox</p>
             {latest.length ? (
-              <ul className="mt-2 space-y-1 text-sm text-zinc-200">{latest.map((i) => <li key={i.id}>{i.title}</li>)}</ul>
+              <ul className="mt-2 space-y-1 text-sm text-zinc-200">
+                {latest.map((i) => (
+                  <li key={i.id} className="flex items-baseline justify-between gap-4">
+                    <span>{i.title}</span>
+                    <span className="font-mono text-xs text-mist">{formatCardTime(i.created_at, profile.timezone)}</span>
+                  </li>
+                ))}
+              </ul>
             ) : (
               <p className="mt-2 text-sm text-mist">Nothing yet. Share your contact page and the first message lands here.</p>
             )}

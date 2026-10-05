@@ -28,14 +28,22 @@ export default async function Home() {
           <p className="mt-2 text-2xl text-zinc-50">{done} of {steps.length} steps live</p>
           <p className="mt-1 text-sm text-mist">Next: {steps.find((s) => s.status === "next")?.label ?? "You are all set"}</p>
         </Link>
-        <Link href="/command/inbox" className="surface block p-5 transition hover:border-white/20">
-          <p className="kicker">Inbox</p>
-          {latest.length ? (
-            <ul className="mt-2 space-y-1 text-sm text-zinc-200">{latest.map((i) => <li key={i.id}>{i.title}</li>)}</ul>
-          ) : (
-            <p className="mt-2 text-sm text-mist">Nothing yet. Share your contact page and the first message lands here.</p>
-          )}
-        </Link>
+        {storageMode() === "preview" && latest.length === 0 ? (
+          <div className="surface block p-5">
+            <p className="kicker">Inbox</p>
+            <p className="mt-2 text-sm text-mist">Your contact page starts taking messages once your database is connected.</p>
+            <Link href="/system/setup" className="mt-2 inline-block text-sm text-zinc-200 underline">Open setup</Link>
+          </div>
+        ) : (
+          <Link href="/command/inbox" className="surface block p-5 transition hover:border-white/20">
+            <p className="kicker">Inbox</p>
+            {latest.length ? (
+              <ul className="mt-2 space-y-1 text-sm text-zinc-200">{latest.map((i) => <li key={i.id}>{i.title}</li>)}</ul>
+            ) : (
+              <p className="mt-2 text-sm text-mist">Nothing yet. Share your contact page and the first message lands here.</p>
+            )}
+          </Link>
+        )}
       </section>
 
       <section>

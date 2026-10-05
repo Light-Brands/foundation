@@ -42,7 +42,18 @@ describe("the inbox", () => {
     expect(items[0].body).toBe("Second");
     const [{ n }] = await db.query<{ n: number }>("select count(*)::int as n from contacts");
     expect(n).toBe(1);
+    const [{ name }] = await db.query<{ name: string }>("select name from contacts");
+    expect(name).toBe("Ada");
     expect(await countNewInbox(db)).toBe(2);
+    await db.close();
+  });
+  it("is atomic: a failed inbox insert leaves no contact behind", async () => {
+    const db = await openPglite();
+    await migrate(db, MIGRATIONS);
+    await db.query("alter table inbox_items add constraint reject_boom check (title <> 'Boom sent a message')");
+    await expect(submitContact(db, { name: "Boom", email: "boom@example.com", message: "x" })).rejects.toThrow();
+    const [{ n }] = await db.query<{ n: number }>("select count(*)::int as n from contacts");
+    expect(n).toBe(0);
     await db.close();
   });
   it("is empty in preview", async () => {

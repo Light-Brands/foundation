@@ -211,6 +211,29 @@ A test booking produces exactly one reminder at the right time.
 Ask Jo in the Inbox and change nothing.
 ```
 
+## Card kinds
+
+An app's `definition.yaml` or a routine's front matter declares the kinds of card it writes, under `card_kinds`. The category is the app's or the routine's own. `src/lib/key/declarations.ts` checks every declaration, and the running app loads the same list from `key/`.
+
+```yaml
+card_kinds:
+  - kind: booking-request
+    subcategory: booking
+    label: Booking request
+    decide: approve
+    expires_days: 3
+    on_lapse: raised_again
+  - kind: refund-ask
+    subcategory: booking
+    label: Refund request
+    decide: approve
+    always_human: true
+```
+
+- **Declare every card kind a job writes, once, in the Key.** `kind` is a slug no other app, routine or core kind uses (`contact`, `check-failed`, `brief`, `brief-blocked` are core), `subcategory` is a job in the declaring category, and `label` is 1 to 60 characters in plain words. Why: the card writer refuses a kind nobody declared, so every card has an owner and a place.
+- **Set `decide` to `approve` when the card waits for a yes or no, and `always_human: true` when only the owner may give it.** Money, signing, people and deleting records are always the owner's: the checker refuses a `decide: approve` kind without `always_human: true` in any Finance job, in Sign contracts, in Manage your team and in Hire. Why: the Inbox shows Approve and Decline only where a decision is wanted, and a team member can never decide what belongs to the owner.
+- **Give a card that goes stale an `expires_days` and an `on_lapse` rule.** `stays` keeps it, `closes` marks it done, and `raised_again` brings it back to the top. Why: an Inbox full of old cards hides the ones that matter.
+
 ## App definition
 
 `key/apps/<app>/definition.yaml` registers the app and describes its tables. Field types are limited to `text`, `number`, `date`, `select`, `multi_select`, `checkbox`, `user`, `multi_user`, `url`, `email` and `attachment`. A `select` or `multi_select` field needs `options`. An automation names a routine that exists. `migrations` is always `migrations/`. Every table the migrations create turns on row level security (see `data.md`). The SQL for each type is in `data.md`.

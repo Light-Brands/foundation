@@ -6,6 +6,7 @@ import {
   checkKeyFolder, checkKeyYaml, checkCharter, checkSkill, checkRoutine, checkDefinition, checkLogText, parseFrontMatter, checkInstalled, checkRunBrief, codePathOk,
 } from "@/lib/key/formats";
 import { parse } from "yaml";
+import { checkCardKinds } from "@/lib/key/declarations";
 import { contextBlockFromProfile } from "@/lib/key/context-block";
 import { PROFILE_FIELDS, type Profile } from "@/lib/validate";
 
@@ -449,6 +450,10 @@ describe("the examples in docs/standards/key.md", () => {
   it("the skill passes checkSkill", () => expect(checkSkill("key.md", section("Skill", "markdown"))).toEqual([]));
   it("the routine passes checkRoutine", () => expect(checkRoutine("key.md", section("Routine", "markdown"))).toEqual([]));
   it("the app definition passes checkDefinition", () => expect(checkDefinition("key.md", section("App definition", "yaml"), ["booking-reminders"])).toEqual([]));
+  it("the card kinds example passes checkCardKinds", () => {
+    const decl = parse(section("Card kinds", "yaml")) as { card_kinds: unknown };
+    expect(checkCardKinds({ file: "key.md", category: "deliver", slug: "bookings" }, decl.card_kinds).problems).toEqual([]);
+  });
   it("the context block has exactly the context block fields", () => {
     const block = parse(section("The context block", "yaml")) as Record<string, unknown>;
     expect(Object.keys(block).sort()).toEqual(Object.keys(contextBlockFromProfile(emptyProfile, "", "")).sort());

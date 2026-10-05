@@ -2,9 +2,10 @@ import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { parse } from "yaml";
 import { CATEGORIES } from "@/lib/layout/categories";
+import { parseFrontMatter, SLUG } from "./frontmatter";
+import { readDeclarations } from "./declarations";
 import { compareDefinition, rlsProblems } from "@/lib/key/schema";
 
-export const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export const COMMIT_ID = /^[0-9a-f]{40}$/;
 export const CHARTER_HEADINGS = ["Role", "Who I serve", "How I work", "What I know", "What I never do", "Tasks", "Skills", "Memory"];
 export const SKILL_SECTIONS = ["Input", "Steps", "Output", "Check"];
@@ -18,6 +19,7 @@ const SYSTEM_COLUMNS = ["id", "created_at", "updated_at"];
 const MEMORY_TYPES = ["preference", "feedback", "reference", "context"];
 const CATEGORY_IDS: string[] = CATEGORIES.map((c) => c.id);
 // A slug that would collide with the core migration names.
+export { parseFrontMatter, SLUG };
 const RESERVED_APP_SLUGS = ["core"];
 // Core tables live in the same database as every app. No entity may take one of their names.
 export const CORE_TABLES = ["business_profile", "contacts", "inbox_items", "pause", "form_hits", "check_runs", "outbox", "opt_outs", "connections", "accounts"];
@@ -32,18 +34,6 @@ function loadYaml(file: string, text: string, problems: string[]): unknown {
     problems.push(`${file}: not valid YAML (${(e as Error).message.split("\n")[0]})`);
     return undefined;
   }
-}
-
-export function parseFrontMatter(md: string): { data: Record<string, unknown>; body: string } | null {
-  const lines = md.replace(/\r\n/g, "\n").split("\n");
-  if (lines[0]?.trim() !== "---") return null;
-  const end = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
-  if (end < 0) return null;
-  let data: unknown;
-  try { data = parse(lines.slice(1, end).join("\n")); } catch { return null; }
-  if (data == null) data = {};
-  if (!isObj(data)) return null;
-  return { data, body: lines.slice(end + 1).join("\n") };
 }
 
 function h2(md: string): string[] {
@@ -390,6 +380,7 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
       if (!listed.has(folder)) problems.push(`${rel(path.join(key, "apps", folder))}: app folder is not listed in key.yaml`);
     }
   }
+  problems.push(...(await readDeclarations(root)).problems);
   for (const f of await files(path.join(key, "runs"), ".md")) problems.push(...checkRunBrief(rel(f), await read(f)));
   for (const f of await files(path.join(key, "log"), ".md")) problems.push(...checkLogText(rel(f), await read(f)));
   return problems;

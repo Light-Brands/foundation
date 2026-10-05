@@ -1,0 +1,18 @@
+key: 1
+client: harbor-studio
+name: Harbor Studio
+stage: systems
+home: repo
+roster: []
+skills: []
+apps:
+  - slug: leads-demo
+    definition: apps/leads-demo/definition.yaml
+    category: sell
+routines:
+  - slug: lead-watch
+    path: routines/lead-watch.md
+    agent: front-desk
+    category: sell
+runs: []
+installed: []

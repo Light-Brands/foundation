@@ -13,3 +13,10 @@ export async function coreDb(): Promise<Db> {
   await migrate(db, CORE_MIGRATIONS, "core");
   return db;
 }
+
+/** Core migrations plus the fixture app leads-demo. */
+export async function extDb(): Promise<Db> {
+  const db = await coreDb();
+  await migrate(db, path.join(KEY_EXT, "key/apps/leads-demo/migrations"), "leads-demo");
+  return db;
+}

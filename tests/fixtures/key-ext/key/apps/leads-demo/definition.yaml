@@ -1,0 +1,18 @@
+app: leads-demo
+name: Leads demo
+category: sell
+runtime: custom_app
+entities:
+  - key: leads_demo
+    name: Lead
+    fields:
+      - { key: contact_email, name: Contact email, type: email }
+      - { key: card_id, name: Card, type: text }
+      - { key: status, name: Status, type: select, options: [new, replied] }
+      - { key: message, name: Message, type: text }
+    views: [table]
+migrations: migrations/
+card_kinds:
+  - { kind: lead-new, subcategory: leads, label: New lead, decide: done, expires_days: 14, on_lapse: raised_again }
+  - { kind: lead-reply, subcategory: leads, label: Reply ready to send, decide: approve, expires_days: 7, on_lapse: closes }
+  - { kind: discount-ask, subcategory: leads, label: Discount request, decide: approve, always_human: true }

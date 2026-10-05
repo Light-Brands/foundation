@@ -1,11 +1,35 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { CATEGORIES } from "@/lib/layout/categories";
 
-const shipped = existsSync("ninja/VERSION");
-describe.skipIf(!shipped)("the shipped Ninja framework", () => {
+// An entry's front matter, failing with the file's name when it is missing, empty or not a mapping.
+function frontMatter(file: string): { crew?: string[]; specialists?: string[] } {
+  const text = readFileSync(file, "utf8");
+  const m = /^---\n([\s\S]*?)\n---(\n|$)/.exec(text);
+  const fm = m ? parse(m[1]) : null;
+  if (fm === null || typeof fm !== "object" || Array.isArray(fm)) throw new Error(`${file} has no front matter, or it is empty`);
+  return fm;
+}
+
+describe("frontMatter", () => {
+  it("names the file when the front matter is missing or empty", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "ninja-fm-"));
+    for (const [name, text] of [["none.md", "# No front matter\n"], ["empty.md", "---\n---\n# Empty\n"], ["null.md", "---\n~\n---\n"]]) {
+      writeFileSync(path.join(dir, name), text);
+      expect(() => frontMatter(path.join(dir, name))).toThrow(`${path.join(dir, name)} has no front matter, or it is empty`);
+    }
+    writeFileSync(path.join(dir, "ok.md"), "---\ncrew: [run-lead]\n---\n# Ok\n");
+    expect(frontMatter(path.join(dir, "ok.md"))).toEqual({ crew: ["run-lead"] });
+  });
+});
+
+// This repository always ships the dictionary, so a missing ninja/VERSION is a failure, never a skip.
+describe("the shipped Ninja framework", () => {
   it("has a valid version", () => {
+    expect(existsSync("ninja/VERSION"), "ninja/VERSION is missing: the dictionary must ship in this repository").toBe(true);
     expect(readFileSync("ninja/VERSION", "utf8")).toMatch(/^dictionary: \d+\.\d+\.\d+\n?$/);
   });
   it("labels match the dictionary's departments", () => {
@@ -18,7 +42,7 @@ describe.skipIf(!shipped)("the shipped Ninja framework", () => {
     const agents = new Set(readdirSync(".claude/agents").filter((f) => f.startsWith("crew-")).map((f) => f.slice(5, -3)));
     const files = readdirSync("ninja", { recursive: true }) as string[];
     for (const f of files.filter((x) => /^(frameworks|blueprints|modules|agents|skills|routines|connections)\/.*\.md$/.test(x))) {
-      const fm = parse(readFileSync(`ninja/${f}`, "utf8").split("\n---\n")[0].replace(/^---\n/, ""));
+      const fm = frontMatter(`ninja/${f}`);
       for (const r of [...(fm.crew ?? []), ...(fm.specialists ?? [])]) expect(agents.has(r), `${f} names ${r}`).toBe(true);
     }
   });

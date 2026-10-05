@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, existsSync, statSync, chmodSync, cpSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, existsSync, statSync, chmodSync, cpSync } from "node:fs";
 import { parse } from "yaml";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -103,4 +103,21 @@ describe("npm run setup", () => {
     run(dir, ["--name", "Other Name", "--pin", "246810", "--force"]);
     expect(parse(readFileSync(path.join(dir, "key/key.yaml"), "utf8")).client).toBe("harbor-studio");
   });
+  it("runs npm run key:sync at the end so the inventory exists", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
+    cpSync(path.join(__dirname, "../../key"), path.join(dir, "key"), { recursive: true });
+    writeFileSync(
+      path.join(dir, "package.json"),
+      JSON.stringify({ name: "stub", scripts: { "key:sync": "node -e \"require('fs').writeFileSync('synced.txt', 'yes')\"" } }),
+    );
+    run(dir, ["--name", "Harbor Studio", "--pin", "246810"]);
+    expect(readFileSync(path.join(dir, "synced.txt"), "utf8")).toBe("yes");
+  }, 60000);
+  it("still finishes setup when key:sync cannot run", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
+    cpSync(path.join(__dirname, "../../key"), path.join(dir, "key"), { recursive: true });
+    const out = run(dir, ["--name", "Harbor Studio", "--pin", "246810"]);
+    expect(out).toContain("npm run key:sync");
+    expect(existsSync(path.join(dir, ".env.local"))).toBe(true);
+  }, 60000);
 });

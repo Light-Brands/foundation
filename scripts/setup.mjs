@@ -6,6 +6,7 @@
 //   node scripts/setup.mjs --pin-prompt --force                  (keeps the business name already saved)
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import { mkdirSync } from "node:fs";
@@ -98,5 +99,10 @@ if (existsSync(keyFile)) {
     mkdirSync("key/knowledge", { recursive: true });
     writeFileSync(blockFile, stringify(block));
   }
+}
+// Build the inventory in key/knowledge/system.md so it exists from the first session.
+if (existsSync(keyFile)) {
+  const sync = spawnSync("npm", ["run", "key:sync"], { stdio: "ignore", shell: process.platform === "win32" });
+  if (sync.status !== 0) console.log("Setup is done, but the system document inventory was not built. Run `npm run key:sync` once.");
 }
 console.log("Done. Run `npm run dev`, open http://localhost:3000 and enter your PIN.");

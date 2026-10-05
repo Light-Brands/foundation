@@ -121,7 +121,8 @@ describe("export", () => {
     expect(cards.filter((c) => c.withheld)).toHaveLength(2);
     expect(cards.find((c) => c.withheld)).toEqual({ id: expect.any(String), kind: "lead-new", created_at: expect.anything(), withheld: "This card names the person in its text, which may name others too, so only that it exists is exported." });
     const reviews = out.apps["team-demo/review_inputs"] as Record<string, unknown>[];
-    expect(reviews.map((r) => Object.keys(r).sort())).toEqual([["owner_id", "withheld"], ["person_id", "withheld"]]);
+    // The two reviews share a created_at, so their order is not fixed.
+    expect(reviews.map((r) => Object.keys(r).sort().join()).sort()).toEqual(["owner_id,withheld", "person_id,withheld"]);
     expect((out.apps["team-demo/people"] as Record<string, unknown>[]).find((r) => r.withheld)).toEqual({ manager_id: ids.Ada, withheld: "This record also names someone else, so only the parts about this person are exported." });
     await db.close();
   });

@@ -295,6 +295,15 @@ export async function readSources(root: string): Promise<{ sources: DeclSource[]
 export async function readDeclarations(root: string): Promise<Declarations> {
   const { sources, routines, tablesByApp, fieldsByApp, problems: unreadable } = await readSources(root);
   const problems: string[] = [...unreadable];
+  // A table belongs to one app: two installed apps declaring the same entity would share, and overwrite, one table.
+  const owner = new Map<string, string>();
+  for (const [app, tables] of Object.entries(tablesByApp)) {
+    for (const t of new Set(tables)) {
+      const first = owner.get(t);
+      if (first) problems.push(`key/key.yaml: table "${t}" is declared by both ${first} and ${app}. Each table belongs to one app, so rename one of them`);
+      else owner.set(t, app);
+    }
+  }
   const kinds: CardKindDecl[] = [...CORE_CARD_KINDS];
   for (const s of sources) {
     if (s.type === "routine" && s.app !== null && !(s.app in tablesByApp)) problems.push(`${s.file}: app "${s.app}" is not installed`);

@@ -70,6 +70,17 @@ describe("card kinds in the Key", () => {
     writeFileSync(routineFile(root), readFileSync(routineFile(root), "utf8").replace("app: leads-demo", "app: leads-demo\nuses_apps: [vendors]"));
     expect((await checkKeyFolder(root)).join("\n")).toMatch(/uses_apps names "vendors", which is not installed/);
   });
+  it("refuses two installed apps that declare the same table, naming both", async () => {
+    const root = copyFixture();
+    const keyFile = path.join(root, "key/key.yaml");
+    writeFileSync(keyFile, readFileSync(keyFile, "utf8").replace("routines:\n", "  - slug: leads-copy\n    definition: apps/leads-copy/definition.yaml\n    category: sell\nroutines:\n"));
+    mkdirSync(path.join(root, "key/apps/leads-copy/migrations"), { recursive: true });
+    writeFileSync(path.join(root, "key/apps/leads-copy/definition.yaml"), "app: leads-copy\nname: Leads copy\ncategory: sell\nruntime: custom_app\nentities:\n  - key: leads_demo\n    name: Lead\n    fields: []\nmigrations: migrations/\n");
+    writeFileSync(path.join(root, "key/apps/leads-copy/migrations/0001_leads_copy_create.sql"), "create table if not exists leads_demo (id uuid primary key default gen_random_uuid(), created_at timestamptz not null default now(), updated_at timestamptz not null default now());\nalter table leads_demo enable row level security;\n");
+    const problems = (await checkKeyFolder(root)).join("\n");
+    expect(problems).toMatch(/table "leads_demo" is declared by both leads-demo and leads-copy/);
+    expect((await readDeclarations(root)).problems.join("\n")).toMatch(/leads-demo and leads-copy/);
+  });
   it("refuses a kind declared twice, and a core kind name", async () => {
     const root = copyFixture();
     const text = readFileSync(routineFile(root), "utf8").replace(

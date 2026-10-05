@@ -7,6 +7,7 @@ import {
 } from "@/lib/key/formats";
 import { parse } from "yaml";
 import { checkCardKinds, checkChecks, checkDraftBlock, checkForms } from "@/lib/key/declarations";
+import { checkWebhook } from "@/lib/hooks/declaration";
 import { contextBlockFromProfile } from "@/lib/key/context-block";
 import { PROFILE_FIELDS, type Profile } from "@/lib/validate";
 
@@ -457,6 +458,11 @@ describe("the examples in docs/standards/key.md", () => {
   it("the public forms example passes checkForms", () => {
     const decl = parse(section("Public forms", "yaml")) as { forms: unknown };
     expect(checkForms({ file: "key.md", slug: "bookings" }, decl.forms, new Set(["booking-request"])).problems).toEqual([]);
+  });
+  it("the webhooks example passes checkWebhook", () => {
+    expect(checkWebhook("key/connections/stripe.yaml", "stripe", parse(section("Webhooks", "yaml")))).toEqual({
+      decl: { connection: "stripe", verifier: "verify.ts", secretSetting: "STRIPE_WEBHOOK_SECRET" }, problems: [],
+    });
   });
   it("the checks example passes checkChecks", () => {
     const decl = parse(section("Checks", "yaml")) as { checks: unknown };

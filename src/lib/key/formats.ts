@@ -393,7 +393,11 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
     if (!SLUG.test(name)) { problems.push(`${rel(f)}: a connection file is named with a lowercase hyphenated slug`); continue; }
     let data: unknown;
     try { data = parse(await read(f)); } catch { problems.push(`${rel(f)}: could not be read as YAML`); continue; }
-    problems.push(...checkWebhook(rel(f), name, data).problems);
+    const hook = checkWebhook(rel(f), name, data);
+    problems.push(...hook.problems);
+    if (hook.decl && !(await exists(path.join(key, "connections", name, hook.decl.verifier)))) {
+      problems.push(`${rel(f)}: webhook verifier ${hook.decl.verifier} is not in key/connections/${name}/`);
+    }
   }
   for (const f of await files(path.join(key, "runs"), ".md")) problems.push(...checkRunBrief(rel(f), await read(f)));
   for (const f of await files(path.join(key, "log"), ".md")) problems.push(...checkLogText(rel(f), await read(f)));

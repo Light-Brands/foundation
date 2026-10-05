@@ -8,11 +8,14 @@ import { insideKey } from "@/lib/key/declarations";
 // A connection declares its inbound webhook in key/connections/<connection>.yaml:
 //   webhook: { verifier: verify.ts, secret_setting: STRIPE_WEBHOOK_SECRET }
 // The verifier is code inside key/connections/<connection>/ and the secret is a setting name, so the
-// value never lives in the Key.
+// value never lives in the Key. The contract a verifier keeps (constant time compare, a 5 minute
+// freshness window, idempotent handle) is in docs/standards/key.md under Webhooks.
 
 export type WebhookDecl = { connection: string; verifier: string; secretSetting: string };
+/** What verify gets beside the decoded body: the exact bytes received, the clock, and the freshness window. */
+export type VerifyContext = { bytes: Uint8Array; now: Date; toleranceMs: number };
 export type Verifier = {
-  verify: (req: Request, rawBody: string, secret: string) => boolean | Promise<boolean>;
+  verify: (req: Request, rawBody: string, secret: string, ctx: VerifyContext) => boolean | Promise<boolean>;
   handle?: (event: unknown) => Promise<void> | void;
   eventId?: (rawBody: string, req: Request) => string;
 };
@@ -55,18 +58,32 @@ export async function readWebhook(root: string, connection: string): Promise<{ d
   return checkWebhook(file, connection, data);
 }
 
-/** Loads the verifier module, only when its real path stays inside the connection's own folder. */
+const firstLine = (err: unknown): string => (err instanceof Error ? err.message : String(err)).split("\n")[0].slice(0, 200);
+
+/**
+ * Loads the verifier module, only when the connection's folder is really inside the Key and the
+ * verifier is really inside that folder. A module that fails to import is logged in one line and
+ * treated as missing, so the provider sees 404 and never a crash.
+ */
 export async function loadVerifier(root: string, decl: WebhookDecl): Promise<Verifier | null> {
+  let key: string;
   let dir: string;
   let file: string;
   try {
+    key = await realpath(path.join(root, "key"));
     dir = await realpath(path.join(connectionsDir(root), decl.connection));
     file = await realpath(path.join(dir, decl.verifier));
   } catch {
     return null;
   }
-  if (!file.startsWith(dir + path.sep)) return null;
-  const mod = (await import(/* webpackIgnore: true */ /* turbopackIgnore: true */ pathToFileURL(file).href)) as Partial<Verifier>;
+  if (!dir.startsWith(key + path.sep) || !file.startsWith(dir + path.sep)) return null;
+  let mod: Partial<Verifier>;
+  try {
+    mod = (await import(/* webpackIgnore: true */ /* turbopackIgnore: true */ pathToFileURL(file).href)) as Partial<Verifier>;
+  } catch (err) {
+    console.error(`Webhook verifier for ${decl.connection} could not be loaded: ${firstLine(err)}`);
+    return null;
+  }
   if (typeof mod.verify !== "function") return null;
   return {
     verify: mod.verify,

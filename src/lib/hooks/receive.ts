@@ -7,6 +7,8 @@ import { recordWebhookEvent, forgetWebhookEvent } from "./events";
 // signature on the raw body is verified: an unknown connection or verifier is 404, a bad signature 401.
 
 export const HOOK_BODY_MAX = 1_048_576;
+/** How far a delivery's signed timestamp may be from now, either way, before its verifier refuses it. */
+export const WEBHOOK_TOLERANCE_MS = 5 * 60_000;
 const EVENT_ID = /^[\x21-\x7e]{1,200}$/;
 
 export type HookOutcome = { status: 200 | 401 | 404 | 413 | 500 | 503; body: string };
@@ -21,11 +23,11 @@ function warnOnce(problems: string[]) {
   }
 }
 
-/** The raw body as text, or null when it is larger than the cap. Reads no further than the cap. */
-async function readCapped(req: Request, max: number): Promise<string | null> {
+/** The raw body bytes, or null when they are more than the cap. Reads no further than the cap. */
+async function readCapped(req: Request, max: number): Promise<Uint8Array | null> {
   const declared = Number(req.headers.get("content-length") ?? "");
   if (Number.isFinite(declared) && declared > max) return null;
-  if (!req.body) return "";
+  if (!req.body) return new Uint8Array(0);
   const reader = req.body.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
@@ -36,7 +38,7 @@ async function readCapped(req: Request, max: number): Promise<string | null> {
     if (size > max) { await reader.cancel().catch(() => {}); return null; }
     chunks.push(value);
   }
-  return new TextDecoder().decode(Buffer.concat(chunks));
+  return new Uint8Array(Buffer.concat(chunks));
 }
 
 function parseEvent(raw: string): unknown {
@@ -62,10 +64,11 @@ export async function receiveWebhook(
   if (!verifier) return out(404, "Not found");
   const secret = deps.env[decl.secretSetting]?.trim() ?? "";
   if (!secret || !deps.db) return out(503, "Not set up");
-  const raw = await readCapped(input.req, HOOK_BODY_MAX);
-  if (raw === null) return out(413, "Too large");
+  const bytes = await readCapped(input.req, HOOK_BODY_MAX);
+  if (bytes === null) return out(413, "Too large");
+  const raw = new TextDecoder().decode(bytes);
   let ok = false;
-  try { ok = (await verifier.verify(input.req, raw, secret)) === true; } catch { ok = false; }
+  try { ok = (await verifier.verify(input.req, raw, secret, { bytes, now, toleranceMs: WEBHOOK_TOLERANCE_MS })) === true; } catch { ok = false; }
   if (!ok) return out(401, "Signature not verified");
   const event = parseEvent(raw);
   let custom: string | undefined;

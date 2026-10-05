@@ -262,6 +262,38 @@ forms:
 - **Give every form a required `name` text field and a required `email` field, and a `phone` field of type `phone` when you ask for one.** Those three create or reuse the contact, and every other answer lands on the card. Why: a person's details live once, on the contact, and never in an app's own table.
 - **Keep the reserved field keys out of a form:** `website`, `_form`, `source`, `utm_source`, `utm_medium`, `utm_campaign`, `utm_content` and `referrer`. Why: the helper uses them for its honeypot and for where the visitor came from.
 
+## Webhooks
+
+A connection takes inbound provider deliveries at `/api/hooks/<connection>` when its file `key/connections/<connection>.yaml` declares a `webhook` block. The verifier is code in the connection's own folder, `key/connections/<connection>/`, and the secret is the name of a setting, never its value.
+
+```yaml
+connection: stripe
+name: Stripe
+webhook:
+  verifier: verify.ts
+  secret_setting: STRIPE_WEBHOOK_SECRET
+```
+
+The verifier module exports `verify`, and may export `eventId` and `handle`:
+
+```ts
+type VerifyContext = { bytes: Uint8Array; now: Date; toleranceMs: number };
+export function verify(req: Request, rawBody: string, secret: string, ctx: VerifyContext): boolean | Promise<boolean>;
+export function eventId(rawBody: string, req: Request): string;
+export function handle(event: unknown): void | Promise<void>;
+```
+
+`receiveWebhook` in `src/lib/hooks/receive.ts` reads the body once, up to 1 MB, then calls `verify` with the body decoded as UTF-8 (`rawBody`), the setting's value (`secret`), and `ctx`: the exact bytes received, the time now, and `toleranceMs`, which is 300000 (5 minutes). Only a `verify` that returns exactly `true` lets the delivery in. Then the event id is `eventId(rawBody, req)` when it returns 1 to 200 visible ASCII characters, else the body's top-level JSON `id`, else a SHA-256 hash of the body. The first record of that id in `webhook_events` wins, and `handle` runs with the parsed JSON body (or the text when it is not JSON) only on that first record. The fixture verifier `tests/fixtures/key-ext/key/connections/demo-pay/verify.ts` follows every rule below.
+
+- **Declare a webhook with `verifier` and `secret_setting`, and keep the verifier file in the connection's own folder.** `verifier` is a `.ts` path inside `key/connections/<connection>/`, and the Key checker reports a declared file that does not exist. The app loads it only when the real paths of the folder and the file stay inside `key/`, and a verifier that fails to import answers 404 with one line in the log. `secret_setting` is a setting name in capitals that never starts with `NEXT_PUBLIC_`, `FOUNDATION_`, `VERCEL` or `SUPABASE_` and is never `CRON_SECRET` or `DATABASE_URL`. Why: code reached by a public address must come only from the Key's own folder, and the Foundation's own settings must never be handed to a Key's code.
+- **Compare the signature in constant time, after a length check.** Return false when the lengths differ, then compare with `timingSafeEqual` from `node:crypto`. Why: a plain `===` can reveal through its timing how much of a forged signature matched, and `timingSafeEqual` throws on different lengths instead of answering false.
+- **Refuse a delivery whose signed timestamp is more than 5 minutes from `ctx.now`, in either direction.** Use the provider's signed timestamp, never one the signature does not cover, and compare it with `ctx.now` and `ctx.toleranceMs`, never with the computer's clock. Why: `webhook_events` forgets an event when the owner prunes it, so without freshness a delivery captured once could be replayed after that and act again.
+- **Sign over `ctx.bytes` when the provider signs the exact bytes it sent.** `rawBody` is the same bytes decoded as UTF-8, which is enough for providers that send JSON. Why: decoding replaces bytes that are not valid UTF-8, so a signature checked over text can refuse a genuine delivery.
+- **Read the delivery only through `rawBody` and `ctx.bytes`, and use `req` only for its headers and address.** Why: the body of `req` is already read when `verify` runs, so `req.text()` or `req.json()` throws, and the capped copy is the only one there is.
+- **Export `eventId` when the provider's event id is not the body's top-level `id`.** Why: the event id is how a retry or a replay is recognized, and a hash of the body changes whenever the provider resends anything in it differently.
+- **Make `handle` idempotent.** When `handle` throws, the record is deleted and the provider gets 500, so its retry runs `handle` again on the same event, after whatever the first attempt already wrote. Why: a failed attempt that half wrote must not leave two records or two charges when it runs again.
+- **Write verifiers in TypeScript that Node's type stripping supports, and import only `node:` built-ins.** Type annotations and `type` declarations are fine. Never use `enum`, `namespace`, parameter properties or the `@/` alias. Why: the running server imports the file as it is, with no build step, and anything type stripping cannot erase fails to import.
+
 ## Checks
 
 An app's `definition.yaml` or a routine's front matter declares its checks, under `checks`. A check is SQL the Foundation runs read-only, at most once per period, raising at most one card. A routine that declares checks names the app it acts for with a top-level `app: <slug>`. A check that reads another app's table names that app in a top-level `uses_apps` in the same file. The install writes `uses_apps` from the entry's `uses`, and the Key checker refuses an app there that is not installed. An app written `{app: <slug>, optional: true}` may be absent: while it is, a check that reads its tables is skipped each period with a record in `check_runs` and no card, and once it is installed the check runs like any other.

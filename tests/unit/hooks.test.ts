@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { cpSync, mkdtempSync, readFileSync, writeFileSync, symlinkSync, mkdirSync } from "node:fs";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { cpSync, mkdtempSync, readFileSync, writeFileSync, symlinkSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { createHmac } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { coreDb, KEY_EXT } from "../support/db";
-import { receiveWebhook, HOOK_BODY_MAX } from "@/lib/hooks/receive";
+import { receiveWebhook, HOOK_BODY_MAX, WEBHOOK_TOLERANCE_MS } from "@/lib/hooks/receive";
 import { pruneWebhookEvents, PRUNE_MIN_DAYS } from "@/lib/hooks/events";
 import { checkKeyFolder } from "@/lib/key/formats";
 import { isPublicPath } from "@/lib/auth/gate";
@@ -14,8 +14,11 @@ const SECRET = "whsec-test";
 const ENV = { DEMO_PAY_WEBHOOK_SECRET: SECRET };
 const g = globalThis as { __demoPayEvents?: unknown[]; __demoPayFail?: boolean };
 
-function signed(body: string, secret = SECRET, url = "http://localhost/api/hooks/demo-pay"): Request {
-  return new Request(url, { method: "POST", body, headers: { "x-demo-signature": createHmac("sha256", secret).update(body).digest("hex") } });
+// The fixture provider signs "<seconds>." followed by the raw body bytes, and sends the seconds too.
+function signed(body: string | Uint8Array, secret = SECRET, at: Date = NOW): Request {
+  const ts = String(Math.floor(at.getTime() / 1000));
+  const sig = createHmac("sha256", secret).update(`${ts}.`).update(body).digest("hex");
+  return new Request("http://localhost/api/hooks/demo-pay", { method: "POST", body: body as BodyInit, headers: { "x-demo-timestamp": ts, "x-demo-signature": sig } });
 }
 const EVENT = JSON.stringify({ id: "evt_1", type: "payment.succeeded", amount: 1200 });
 
@@ -54,9 +57,59 @@ describe("inbound webhooks", () => {
     expect((await receiveWebhook(deps, { connection: "demo-pay", req: unsigned }, NOW)).status).toBe(401);
     const tampered = signed(EVENT);
     const forged = new Request(tampered.url, { method: "POST", body: EVENT.replace("1200", "1"), headers: tampered.headers });
+    const restamped = new Headers(tampered.headers);
+    restamped.set("x-demo-timestamp", String(Number(restamped.get("x-demo-timestamp")) + 1));
+    expect((await receiveWebhook(deps, { connection: "demo-pay", req: new Request(tampered.url, { method: "POST", body: EVENT, headers: restamped }) }, NOW)).status, "restamped").toBe(401);
     expect((await receiveWebhook(deps, { connection: "demo-pay", req: forged }, NOW)).status).toBe(401);
     expect(await db.query("select id from webhook_events")).toEqual([]);
     expect(g.__demoPayEvents).toEqual([]);
+    await db.close();
+  });
+  it("refuses a correctly signed delivery whose timestamp is more than 5 minutes from now, and writes nothing", async () => {
+    const db = await coreDb();
+    const deps = { db, root: KEY_EXT, env: ENV };
+    expect(WEBHOOK_TOLERANCE_MS).toBe(5 * 60_000);
+    const old = new Date(NOW.getTime() - WEBHOOK_TOLERANCE_MS - 60_000);
+    const ahead = new Date(NOW.getTime() + WEBHOOK_TOLERANCE_MS + 60_000);
+    expect((await receiveWebhook(deps, { connection: "demo-pay", req: signed(EVENT, SECRET, old) }, NOW)).status, "old").toBe(401);
+    expect((await receiveWebhook(deps, { connection: "demo-pay", req: signed(EVENT, SECRET, ahead) }, NOW)).status, "ahead").toBe(401);
+    expect(await db.query("select id from webhook_events")).toEqual([]);
+    expect(g.__demoPayEvents).toEqual([]);
+    const recent = new Date(NOW.getTime() - WEBHOOK_TOLERANCE_MS + 60_000);
+    expect((await receiveWebhook(deps, { connection: "demo-pay", req: signed(EVENT, SECRET, recent) }, NOW)).status, "recent").toBe(200);
+    await db.close();
+  });
+  it("hands the verifier the exact raw bytes, so a body that is not UTF-8 still verifies", async () => {
+    const db = await coreDb();
+    const bytes = new Uint8Array([0x7b, 0x22, 0x69, 0x64, 0x22, 0x3a, 0x22, 0x62, 0xff, 0xfe, 0x22, 0x7d]);
+    expect((await receiveWebhook({ db, root: KEY_EXT, env: ENV }, { connection: "demo-pay", req: signed(bytes) }, NOW)).status).toBe(200);
+    expect(await db.query("select count(*)::int as n from webhook_events")).toEqual([{ n: 1 }]);
+    await db.close();
+  });
+  it("a verifier that fails to import is not found, with one line in the log", async () => {
+    const db = await coreDb();
+    const root = copyFixture();
+    writeFileSync(path.join(root, "key/connections/demo-pay/verify.ts"), "throw new Error('broken at import');\nexport const verify = () => true;\n");
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect((await receiveWebhook({ db, root, env: ENV }, { connection: "demo-pay", req: signed(EVENT) }, NOW)).status).toBe(404);
+      expect(err).toHaveBeenCalledTimes(1);
+      expect(err.mock.calls[0]).toHaveLength(1);
+      expect(String(err.mock.calls[0][0])).not.toContain("\n");
+    } finally {
+      err.mockRestore();
+    }
+    expect(await db.query("select id from webhook_events")).toEqual([]);
+    await db.close();
+  });
+  it("a connection folder whose real path leaves the Key is not found", async () => {
+    const db = await coreDb();
+    const root = copyFixture();
+    const outside = mkdtempSync(path.join(tmpdir(), "hooks-outside-"));
+    renameSync(path.join(root, "key/connections/demo-pay"), path.join(outside, "demo-pay"));
+    symlinkSync(path.join(outside, "demo-pay"), path.join(root, "key/connections/demo-pay"));
+    expect((await receiveWebhook({ db, root, env: ENV }, { connection: "demo-pay", req: signed(EVENT) }, NOW)).status).toBe(404);
+    expect(await db.query("select id from webhook_events")).toEqual([]);
     await db.close();
   });
   it("refuses when the secret setting is empty, without a database, or past the body cap, and writes nothing", async () => {
@@ -121,6 +174,11 @@ describe("webhook declarations in the Key checker", () => {
     expect((await checkKeyFolder(root)).join("\n")).toMatch(/secret_setting must be a setting name/);
     writeFileSync(yamlFile(root), base.replace("DEMO_PAY_WEBHOOK_SECRET", "FOUNDATION_SECRET"));
     expect((await checkKeyFolder(root)).join("\n")).toMatch(/secret_setting must be a setting name/);
+  });
+  it("reports a declared verifier file that does not exist", async () => {
+    const root = copyFixture();
+    rmSync(path.join(root, "key/connections/demo-pay/verify.ts"));
+    expect((await checkKeyFolder(root)).join("\n")).toMatch(/key\/connections\/demo-pay\.yaml: webhook verifier verify\.ts is not in key\/connections\/demo-pay\//);
   });
 });
 

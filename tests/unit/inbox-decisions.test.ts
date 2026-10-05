@@ -54,11 +54,11 @@ describe("deciding a card", () => {
     const { db, kinds, card } = await setup();
     const id = await card("discount-ask");
     expect(await decideCard(db, kinds, { cardId: id, decision: "approve", actor: TEAM_SALES }, NOW)).toEqual({ status: "owner_only" });
-    expect(await markCardDone(db, kinds, { cardId: id, actor: TEAM_SALES })).toEqual({ status: "owner_only" });
     const reply = await card("lead-reply");
     expect(await decideCard(db, kinds, { cardId: reply, decision: "approve", actor: TEAM_MONEY }, NOW)).toEqual({ status: "not_allowed" });
     expect(await decideCard(db, kinds, { cardId: reply, decision: "approve", actor: TEAM_SALES }, NOW)).toEqual({ status: "decided" });
     expect(await decideCard(db, kinds, { cardId: id, decision: "decline", actor: PIN_OWNER }, NOW)).toEqual({ status: "decided" });
+    expect(await markCardDone(db, kinds, { cardId: id, actor: TEAM_SALES })).toEqual({ status: "owner_only" });
     await db.close();
   });
   it("only decides what asks for a decision", async () => {
@@ -119,6 +119,22 @@ describe("the decisions migration", () => {
     ]);
     await db.query("update inbox_items set status = 'decided', decision = 'approve', decided_at = now(), decided_by = 'pin:owner' where title = 'Old new'");
     await expect(db.query("update inbox_items set status = 'archived' where title = 'Old done'")).rejects.toThrow();
+    await db.close();
+  });
+});
+
+describe("the words a refusal gets", () => {
+  it("a done kind card that is already done is not called decided", async () => {
+    const { db, kinds, card } = await setup();
+    const id = await card("lead-new");
+    await markCardDone(db, kinds, { cardId: id, actor: PIN_OWNER });
+    expect(await decideCard(db, kinds, { cardId: id, decision: "approve", actor: PIN_OWNER }, NOW)).toEqual({ status: "not_decidable" });
+    await db.close();
+  });
+  it("a team member from another department hears that a decision is needed first", async () => {
+    const { db, kinds, card } = await setup();
+    const id = await card("lead-reply");
+    expect(await markCardDone(db, kinds, { cardId: id, actor: TEAM_MONEY })).toEqual({ status: "needs_decision" });
     await db.close();
   });
 });

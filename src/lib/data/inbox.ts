@@ -72,8 +72,8 @@ export type DecideResult = { status: "decided" | "not_found" | "already_decided"
 export async function decideCard(db: Db, kinds: KindRegistry, input: { cardId: string; decision: Decision; actor: Actor }, now: Date): Promise<DecideResult> {
   const card = await cardRow(db, input.cardId);
   if (!card) return { status: "not_found" };
-  if (card.decision !== null || card.status !== "new") return { status: "already_decided" };
   if (kinds.get(card.kind)?.decide !== "approve") return { status: "not_decidable" };
+  if (card.decision !== null || card.status !== "new") return { status: "already_decided" };
   if (card.always_human && !allows(input.actor, "owner")) return { status: "owner_only" };
   if (!allows(input.actor, "team", card.category)) return { status: "not_allowed" };
   const rows = await db.query<{ id: string }>(
@@ -92,9 +92,9 @@ export async function markCardDone(db: Db, kinds: KindRegistry, input: { cardId:
   const card = await cardRow(db, input.cardId);
   if (!card) return { status: "not_found" };
   if (card.status === "done") return { status: "already_done" };
+  if (card.status === "new" && kinds.get(card.kind)?.decide === "approve") return { status: "needs_decision" };
   if (card.always_human && !allows(input.actor, "owner")) return { status: "owner_only" };
   if (!allows(input.actor, "team", card.category)) return { status: "not_allowed" };
-  if (card.status === "new" && kinds.get(card.kind)?.decide === "approve") return { status: "needs_decision" };
   const rows = await db.query<{ id: string }>("update inbox_items set status = 'done' where id = $1 and status <> 'done' returning id", [input.cardId]);
   return { status: rows.length ? "done" : "already_done" };
 }

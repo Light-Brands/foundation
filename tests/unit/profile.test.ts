@@ -26,6 +26,10 @@ describe("validateProfile context block", () => {
     expect(r.ok && r.value.city).toBe("Austin");
     expect(r.ok && r.value.owner_first).toBe("Ada");
   });
+  it("keeps a first name the person chose", () => {
+    const r = validateProfile({ business: "Harbor", owner_name: "Ada Lane", owner_first: "Addie" });
+    expect(r.ok && r.value.owner_first).toBe("Addie");
+  });
   it("rejects a time zone that is not an IANA name", () => {
     const r = validateProfile({ business: "Harbor", timezone: "Central-ish" });
     expect(r.ok).toBe(false);

@@ -19,6 +19,7 @@ const MORE: Field[] = [
   { name: "how_we_sound", label: "How you sound" },
   { name: "short_name", label: "Short name" },
   { name: "owner_role", label: "Your role" },
+  { name: "owner_first", label: "What people call you" },
 ];
 
 export function ProfileForm({ profile }: { profile: Profile }) {
@@ -39,7 +40,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   return (
     <form action={action} className="surface max-w-xl space-y-4 p-6">
       {FIELDS.map(renderField)}
-      <details className="space-y-4">
+      <details className="space-y-4" open={MORE.some((f) => state?.errors?.[f.name]) || undefined}>
         <summary className="kicker cursor-pointer">More about how you sound</summary>
         {MORE.map(renderField)}
       </details>

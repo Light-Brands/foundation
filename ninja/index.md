@@ -4,6 +4,8 @@ Your business is a set of departments, and each department is a set of jobs. The
 
 Start with [the guide](guide.md). It is short, and it shows you how to ask.
 
+Dictionary version 0.1.2.
+
 ## How to ask for anything
 
 Say what you want to your AI assistant, in plain words. Seven verbs cover everything:
@@ -37,6 +39,12 @@ The path itself.
 - [Home](frameworks/home.md): build your Ninja home.
 - [Foundation](frameworks/foundation.md): deploy your Foundation on your home.
 
+### Agents
+
+Roles in your business, each with a name and a charter.
+
+- [Chief of staff](agents/chief-of-staff.md): keeps your week in view and runs your weekly brief.
+
 ### Skills
 
 Procedures an agent follows the same way every time.
@@ -51,7 +59,7 @@ Recurring work on a schedule or a trigger.
 
 ### Coming later
 
-Blueprints, modules, agents and connections are coming in a later release.
+Blueprints, modules and connections are coming in a later release.
 
 ### Your Foundation
 

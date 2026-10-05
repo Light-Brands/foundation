@@ -4,7 +4,9 @@ Stage 2 of [the runner](run.md). Five shared questions open every run that build
 
 ## The skip rule
 
-Skip any question the request or the Key already answers, and say in one line what you took as the answer, so the owner can correct it. "Install Capture leads at Essentials" answers the first two questions. A run being resumed from its brief skips every question the brief already answers.
+Skip any question already answered by the request, the Key, or anything the owner has said in this conversation, and say in one line what you took as the answer, so the owner can correct it. "Install Capture leads at Essentials" answers the first two questions. "Essentials, for everything" said during an earlier entry of the same request answers the tier for every entry after it. A run being resumed from its brief skips every question the brief already answers.
+
+**One request, asked once.** When an install or upgrade runs an entry's parts first, as [the runner](run.md) describes, the parts and the entry are one request. The tier, anything else at the same time and each consent are asked in the first run that needs them, and hold for every run in the request. Every other answer the owner gave carries forward too, so a later run never asks it again.
 
 ## The five questions
 
@@ -44,7 +46,9 @@ In a text only chat, ask this instead:
 
 > Once you have approved the plan, I will give you each file as a block with its path, for you to save in your business folder. Is that all right?
 
-When the owner says no to writing, give every file as a block with its path for them to save.
+When the owner says no to writing, give every file as a block with its path for them to save. When they cannot save files either and the run builds a Ninja home, the home becomes a Claude Project instead, as [the Ninja home](../foundation/ninja-home.md) describes.
+
+When the entry's Questions section has its own write consent, as [Home](../frameworks/home.md) does, skip this question: the entry's sentence replaces it, and it is asked once the folder name is known.
 
 > May I put up a preview, a separate copy of your command center on its own link, so you can try it before it goes live?
 

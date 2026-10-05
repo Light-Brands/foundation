@@ -49,9 +49,11 @@ In a Foundation, the Key checker validates this block, and names any file listed
 
 For each file in `files` and each file in `code`, compare three versions. Code files are compared exactly like Key files:
 
-1. **The original:** the file as the dictionary version in `from` wrote it. The published dictionary keeps every version, so the original is always available, on the lb-share index linked from dojo.lightbrands.ai, as [the runner](../run.md) describes.
+1. **The original:** the file as it stood at the last work commit that installed or upgraded this entry. In a Foundation, find that commit through the build log: every log entry for a run carries a line `- Entry: <entry id>`, and the newest install or upgrade entry with this entry's id names the work commit. For logs written before that line existed, the commit is the one that last changed this entry's row in `key.yaml`, found with `git log -- key/key.yaml`. `git show <commit>:<path>` gives the file. In a Ninja home without git, the original is the published version of the entry that the row's `from` names, as [the runner](../run.md) describes.
 2. **The owner's file:** the file as it is in the Key or the app today.
-3. **The new version:** the file as the newer dictionary version, at the chosen tier, writes it.
+3. **The new version:** for a Key file, what the entry at the new version and tier says to write, filled with this business's answers. For a code file, what the builder produces from the entry at the new tier.
+
+**Migrations are never compared.** An applied migration is never edited. A new tier adds new migrations, listed in the plan like any new file, and the migrations already in `files` stay exactly as they are.
 
 Then, part by part:
 
@@ -61,7 +63,9 @@ Then, part by part:
 
 A deeper tier adds the parts its tier lists in the entry's Depth tiers section. New files are listed in the plan like any install.
 
-**The entries it uses come first.** When the entry names other entries in `uses` (a routine and the skill it runs, for example), upgrade each of those to the same tier first, as its own run with its own `installed` row, then the entry itself. A file belongs to exactly one row, so each entry's upgrade compares and records only its own files. Name the order in the plan.
+**The entries it uses come first.** When the entry names other entries in `uses` (a routine, the role that runs it and the skill it runs, for example), upgrade each of those to the entry's tier first, as its own run with its own `installed` row, then the entry itself. They are one request, so the tier, anything else at the same time and each consent are asked once and hold for every run, as [the runner](../run.md) describes. A file belongs to exactly one row, so each entry's upgrade compares and records only its own files. Name the order in the plan.
+
+**A part that moves into its own row.** A newer version can move a file out of an entry into a part of its own. A Monday brief installed from dictionary 0.1.0, for example, lists the chief of staff's charter in the routine's row, and from 0.1.1 the charter belongs to the `agents/chief-of-staff` entry. That part is already in place, so its run is an upgrade. The part's run takes the file into its own new row, compares it three ways like any file, and records the row with the new version and tier. The entry's run then drops the file from its own row. Its original is found the same way, through the commit that installed the entry that listed it.
 
 ## Stages
 
@@ -69,8 +73,8 @@ All ten.
 
 ## Questions
 
-1. The questionnaire's first question. The entry must be in `installed`. When it is not, offer to [install](install.md) it.
-2. "Would you like the newest version, a deeper tier, or both?" with a default: the newest version at the current tier. Explain what the newer version or the deeper tier adds, from the entry's Changing it section.
+1. The questionnaire's first question. The entry must be in `installed`, in its own row, or as files inside the row of an entry that uses it, as described above. When it is in neither, offer to [install](install.md) it.
+2. "Would you like the newest version, a deeper tier, or both?" with a default: the newest version at the current tier. Explain what the newer version or the deeper tier adds, from the entry's Changing it section. The dictionary in a folder holds one version, so when the row's `from` is older than it, a deeper tier comes with the newer version: offer the newest version, or both, and say why.
 3. The questionnaire's third and fourth questions.
 4. Each conflict from the comparison, one per message.
 5. Any of the entry's own questions the deeper tier adds.
@@ -79,7 +83,7 @@ All ten.
 
 The scribe updates the entry's row in `installed`: `from` becomes the new dictionary version, `tier` the chosen tier, `files` and `code` every file the entry now has in place, and `installed` today's date.
 
-- **In a Foundation,** the run lead commits the upgraded Key and code files and the updated `installed` row in the same work commit, then the build log entry with `Kind: change` in its own log-only commit after it, then runs `npm run key:sync`.
+- **In a Foundation,** the run lead runs `npm run key:sync`, then makes the run's one work commit: the upgraded Key and code files, any new migrations, the run brief, the updated `installed` row and `key/knowledge/system.md`. Then the build log entry with `Kind: change` and its `- Entry: <entry id>` line, in its own log-only commit after it.
 - **In a Ninja home,** there is no npm, no `key:sync` and no git required. The scribe writes `key.yaml` directly, adds a `runs` row when a task ran and passed its check, and rebuilds the starter kit.
 
 In a text only chat, ask the owner to paste `key.yaml` and every existing file before you change it, and return each file you create or change whole, one per message, as [the runner](../run.md) describes. `key.yaml` and the starter kit come back whole too.

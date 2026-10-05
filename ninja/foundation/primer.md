@@ -84,4 +84,4 @@ Field types are `text`, `number`, `date`, `select`, `multi_select`, `checkbox`, 
 
 Always run the tools through npm. The build secret is generated before `dev`, `build`, `test` and `typecheck`, and calling the tools directly skips that step and fails.
 
-After every build step: make the work commit, then add a build log entry in its own log-only commit that names the work commit's id, then run `npm run key:sync`. Before you finish: `npm test`, `npm run typecheck` and `npm run build` all pass.
+Before you commit: `npm test`, `npm run typecheck` and `npm run build` all pass. At the close of each run: run `npm run key:sync`, make the run's one work commit, then add a build log entry in its own log-only commit that names the work commit's id and carries the line `- Entry: <entry id>`.

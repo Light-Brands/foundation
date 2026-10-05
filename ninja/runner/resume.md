@@ -10,7 +10,7 @@ In a Foundation, each run brief is one file in `key/runs/`:
 key/runs/<YYYY-MM-DD>-<verb>-<entry with each / as ->.md
 ```
 
-The date is the day the run started. Every `/` in the entry id becomes `-`, so installing `modules/sell/leads` on 6 October 2026 gives `key/runs/2026-10-06-install-modules-sell-leads.md`. The Foundation's Key checks hold every brief to this name and to the front matter below, and the format is in the Foundation's `docs/standards/key.md`.
+The date is the day the run started, in the business's time zone from the context block, or in UTC when none is set. Every `/` in the entry id becomes `-`, so installing `modules/sell/leads` on 6 October 2026 gives `key/runs/2026-10-06-install-modules-sell-leads.md`. The Foundation's Key checks hold every brief to this name and to the front matter below, and the format is in the Foundation's `docs/standards/key.md`.
 
 The brief is drafted at stage 2 and written as the first write of the approved plan at stage 5, because nothing is written before the plan is approved. From then on it is updated as each stage starts. `learn` and `check` write nothing, so they keep no brief.
 
@@ -30,7 +30,7 @@ A Ninja home keeps the shape [its page](../foundation/ninja-home.md) defines, wh
 
 ### Body
 
-The body opens with `# Brief`, as the Foundation's example does, then four sections, each filled in as the run reaches it:
+The body has five parts, each filled in as the run reaches it. It opens with `# Brief`, as the Foundation's example does, then four sections:
 
 - `# Brief`: the request and the answers to the questionnaire, in the owner's words.
 - `## Target`: what will exist when the run is done, from stage 3.
@@ -80,8 +80,10 @@ When the owner says "continue the Capture leads install", or opens a new session
 1. **Find the brief.** Look in `key/runs/` for the newest brief whose `verb` and `entry` match the request. Match the entry the same way the runner does: by id, title, or department and job. When two briefs match, ask which one, naming each by its entry and its start date. When none matches, say so and offer to start the run fresh.
 2. **Orient again.** Run stage 1: the Key, the dictionary version and the environment may have changed since the run stopped. When the dictionary is newer than when the plan was approved, say so and offer to review the plan against the new version before going on.
 3. **Confirm in one line.** "We stopped at stage <n>, <stage name>, with <what is done> done and <what is left> to go. Shall I carry on?"
-4. **Check the plan against the folder.** Every ticked step should be on disk and committed. When the folder and the brief disagree, show the difference and ask the owner which is right before going on.
+4. **Check the plan against the folder.** Every ticked step should be on disk. A run makes its one work commit at the close, so until then its files are on disk and not yet committed, and that is expected. When the folder and the brief disagree, show the difference and ask the owner which is right before going on.
 5. **Carry on at the recorded stage.** Skip every question the brief answers. The consents in the brief still hold for what they cover. Going live is always asked again, at the moment it would happen.
 6. **Keep the brief current.** Set `updated` to today and move `stage` forward as each stage starts.
 
 A brief whose `stage` is 10 is a finished run. Asking to continue it offers the next moves instead.
+
+"Continue installing the Ninja framework" resumes the whole request of Prep, Home and Foundation. [The runner](run.md) says how it works out where the owner is from what exists.

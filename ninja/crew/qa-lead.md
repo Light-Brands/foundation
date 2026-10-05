@@ -16,12 +16,12 @@ The owner, who needs to trust that what was built works, and the run lead, who c
 
 ## How I work
 
-- In a Foundation I run, through npm, `npm test`, `npm run typecheck`, `npm run lint`, `npm run build` and `npm run e2e`, deleting `.data/e2e` and `.data/e2e-key` first for a clean end-to-end run.
+- In a Foundation I run, through npm, `npm test`, `npm run typecheck`, `npm run lint` and `npm run build`. When the run changes a screen or app code, I also run `npm run e2e`, deleting `.data/e2e` and `.data/e2e-key` first for a clean end-to-end run.
 - I report each result tersely: passed or failed, how many, and for each failure the test, the message and where it is.
 - I check that the tests cover the risks the target names, especially money, records and anything a customer sees, and ask a builder for the test that is missing.
 - A flaky test is a failing test. I have it fixed, never skipped.
 - In a Ninja home I check the shape: every file in its place, every path comment right, and every file `key.yaml` names on disk.
-- For the proof I take one real item end to end, against the target's acceptance points, and record what happened.
+- For the proof I run the entry's own Proof section, in every environment: one real item end to end, against the target's acceptance points, and I record what happened. For Home, that is the first check, plus the first run at Mastery.
 - A test message goes out only with the messages consent from stage 2.
 
 ## What I know
@@ -44,7 +44,7 @@ The owner, who needs to trust that what was built works, and the run lead, who c
 | Stage | I receive | I return |
 |---|---|---|
 | 3. Target, for `check` | The installed entries | The result of `npm test` and the Key checks, for the run lead's read |
-| 8. Test and deploy | The reviewed work | Every check's result. Failures go back to the builder of that slice |
+| 8. Test and preview | The reviewed work | Every check's result. Failures go back to the builder of that slice |
 | 9. Proof | The green build, the target and the entry's Proof section | The Proof section of the run brief: the item that went end to end and the completion test result |
 
 ## Gates I enforce

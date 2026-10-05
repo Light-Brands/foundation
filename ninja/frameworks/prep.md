@@ -16,7 +16,7 @@ version: 1
 
 Your computer and your AI tools, ready for everything that comes after. You choose how far to go: an AI assistant that knows your business, a connected setup where AI makes changes you approve, or the full set of tools on your own machine. Each depth ends with a check you see on your own screen, so you never build on a broken setup.
 
-The job it takes off your plate: working out which tools you need, in which order, and whether they work. What you still decide: how far to go, which of your tools to connect, and every sign in and payment, which you make yourself in your own browser.
+The job it takes off your plate: working out which tools you need, in which order, and whether they work. What you still decide: how far to go, which of your tools to connect, and every sign in and payment, which you make yourself in your own browser. Prep has no running cost of its own. The plans are yours: Essentials works on a free plan, and Complete and Mastery need a paid Claude plan, Pro or Max.
 
 The guided, teaching version of this entry is the Dojo setup session, [on its own page](https://lb-share.lightbrands.ai/s/vz0jbzjt0a425cwn). It keeps its own words, and it is where to go when you want every term taught as you go.
 
@@ -43,7 +43,9 @@ After the shared questionnaire, where the tier is the level you are preparing:
 2. "Which assistant are you using: Claude or ChatGPT?" Default: Claude. Level 1 works in either. Levels 2 and 3 need Claude, because Claude Code is part of them.
 3. For Mastery only: "Are you on a Mac or on Windows?" Default: Mac.
 
-Prep writes no files on your computer until the Mastery check, so the write consent is asked only at Mastery, for the copy of your repository where the check's page is written. At Complete, Claude Code on the web proposes its one file as a pull request, and you merge it yourself.
+**The fast path.** When the owner already has the tools for their level, one question confirms them, and the lessons are skipped: "It sounds like you already have <the level's tools>, and <the level's check> works for you today. Is that right?" Default: yes. On yes, that confirmation is the proof, and the run goes straight to the receipt and the next move. On no, the run teaches only the steps that are missing.
+
+Prep writes no files on your computer until the Mastery check, so the write consent is asked only at Mastery, for the copy of your repository where the check's page is written. At Complete, Claude Code on the web proposes its one file as a pull request, and you merge it yourself. Prep puts no files in a Key and builds no app, so its run skips stages 7 and 8, review and test, and goes from the steps to the proof.
 
 ## Parts
 
@@ -98,7 +100,7 @@ Before a deeper level, the check of each level below it passes again, quickly.
 
 **Why levels.** One ladder runs through the Dojo, the same one the weekly calls follow. Level 1 makes the assistant fluent in the business. Level 2 lets AI build real things that the owner reviews and approves. Level 3 moves the work onto the owner's own computer, where Claude Code can see and run everything. Nothing in the dictionary is locked behind a level: the level only says which tools are ready.
 
-**How the run keeps you safe.** The assistant never asks for a password, a key, a code from a text message or payment details, and tells the owner never to paste one into the chat. When a step needs a sign in or a payment, the owner does it in their browser and says when it is done. After each step, the assistant names what the owner should see, and when it is something else, fixes that before moving on. When the assistant is unsure what the screen shows, it asks for a description or a screenshot.
+**How the run keeps you safe.** The assistant never asks for a password, a key, a code from a text message or payment details, and tells the owner never to paste one into the chat. When a step needs a sign in or a payment, the owner does it in their browser and says when it is done. After each step, the assistant names what the owner should see, and when it is something else, fixes that before moving on. When the assistant is unsure what the screen shows, it asks for a description or a screenshot. When a step sends the owner to a new chat or a new Project, the assistant says exactly what to do there and to come back to this chat and say what happened, and the run waits until they do.
 
 **Level 1, step by step.**
 

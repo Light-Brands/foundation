@@ -126,12 +126,13 @@ Always run the tools through npm, because the build secret is made before `dev`,
 
 **Moving the Ninja home in (Complete).** The home moves in without being redone, because a home path is the same path under `key/`.
 
-1. Copy `key.yaml`, `knowledge/context-block.yaml`, `agents/` and `skills/` into `key/`, at the same paths.
-2. In `key/key.yaml`, change `home: folder` to `home: repo`. Keep `roster`, `skills`, `runs`, `installed` and `provenance` as they are, and add `apps: []` and `routines: []`.
-3. A skill file begins with its front matter. A path comment above the opening `---` moves below the front matter.
-4. The owner enters the business facts from the home's context block in Settings, Preferences, and presses Save, because that save is the only writer of the Foundation's context block.
-5. The home's `CLAUDE.md` and starter kit stay with the home folder, because the Foundation has its own `CLAUDE.md` and the kit is a view of the home.
-6. `npm test` reads every file and names anything to fix. Then the commit, its build log entry and `npm run key:sync`.
+1. Copy `key.yaml`, `knowledge/context-block.yaml`, `agents/` and `skills/`, when there is one, into `key/`, at the same paths.
+2. Read the copied `key/knowledge/context-block.yaml` and compare it with the Foundation's fields: `business`, `short_name`, `what_we_do`, `who_we_serve`, `how_we_sound`, `website`, `email`, `phone`, `city`, `timezone`, `owner` (`name`, `first`, `role`), `stated_by` and `recorded`. A home built by the original Ninja framework session holds only `business`, `what_we_do`, `who_we_serve`, `how_we_sound`, `website`, `owner` (`name`, `role`), `stated_by` and `recorded`. Ask for each missing field, one per message, with a default the owner confirms: `short_name` from the business name, `owner.first` from `owner.name`, and the time zone from the city. Then write the full shape, before the save in Settings, Preferences. Every value the old block holds is kept as it is.
+3. In `key/key.yaml`, change `home: folder` to `home: repo`. Keep `roster`, `skills`, `runs`, `installed` and `provenance` as they are, and add `apps: []` and `routines: []`.
+4. A skill file begins with its front matter. A path comment above the opening `---` moves below the front matter.
+5. The owner enters the business facts from the home's context block in Settings, Preferences, and presses Save, because that save is the only writer of the Foundation's context block.
+6. The home's `CLAUDE.md` and starter kit stay with the home folder, because the Foundation has its own `CLAUDE.md` and the kit is a view of the home.
+7. `npm test` reads every file and names anything to fix. Then `npm run key:sync`, the commit and its build log entry.
 
 [The Ninja home](../foundation/ninja-home.md) has the same steps with their reasons.
 
@@ -139,7 +140,7 @@ Always run the tools through npm, because the build secret is made before `dev`,
 
 **Your own address (Mastery).** The owner adds a subdomain such as command.yourbusiness.com in Vercel, Settings, Domains. Vercel shows a DNS record: its type, name and value, read back in plain words. The owner adds it at their domain provider, waits a few minutes, and presses Refresh in Vercel until it shows Valid Configuration.
 
-**The record.** The Deploy path alone leaves no folder on the owner's computer, so it makes no commits and no build log entry. The record starts at Complete, once the repository is cloned: from then on, every step that changes the Foundation ends with a work commit, then a build log entry in `key/log/` in its own commit naming the work commit, with `Kind: setup`, then `npm run key:sync`. This entry adds no row of its own to `installed`: the app and its files ship with the Foundation, and the home's files keep the `installed` row the home already has.
+**The record.** The Deploy path alone leaves no folder on the owner's computer, so it makes no commits and no build log entry. The record starts at Complete, once the repository is cloned: from then on, every step that changes the Foundation ends with `npm run key:sync`, a work commit, then a build log entry in `key/log/` in its own commit naming the work commit, with `Kind: setup`. This entry adds no row of its own to `installed`: the app and its files ship with the Foundation, and the home's files keep the `installed` row the home already has.
 
 **Why the PIN never enters the chat.** A chat keeps everything typed into it. The PIN goes where only the owner types it: Vercel's field, or their own terminal.
 

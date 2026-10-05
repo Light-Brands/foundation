@@ -25,7 +25,7 @@ A skill, which is a procedure an agent follows the same way every time. This one
 
 ## The bar
 
-Every number in the brief is real and comes from the input, and every number that matters in the input is in the brief. It fits in 12 lines. It reads in the voice from your context block. It says plainly what it cannot see yet, and it ends on one useful next step. It never guesses, never rounds a number into a different one, and never pads a quiet week.
+Every number in the brief is real and comes from the input, and every number that matters in the input is in the brief. It fits in 12 lines of text, and the blank lines between sections are free. It sounds like your business, in the words your business profile gives for how you sound. It says plainly what it cannot see yet, and it ends on one useful next step. It never guesses, never rounds a number into a different one, and never pads a quiet week.
 
 ## Depth tiers
 
@@ -45,7 +45,7 @@ Adds: the targets to the Input, one step that marks what is off track, and three
 
 Asked after [the questionnaire](../runner/questionnaire.md).
 
-1. **Who runs it?** "Which of your roles should write the brief? I suggest the role that runs the Monday brief." The skill's row in `key.yaml` names that role as its `agent`.
+1. **Who runs it?** "Which of your roles should write the brief? I suggest your chief of staff." The skill's row in `key.yaml` names that role as its `agent`, and the Foundation's Key checker requires that role to be on the roster. When the roster has no `chief-of-staff` row, say so in one line and offer to install [Chief of staff](../agents/chief-of-staff.md) first, in its own run, with its own `installed` row. The owner can instead choose any role already on the roster. When the [Monday brief](../routines/monday-brief.md) installs this skill as its part, the Chief of staff run comes first, so the role is already there.
 2. **The sections.** "Your brief has four sections: New in the last seven days, Waiting for you, Money, and Not tracked yet. Would you like them as they are?" The default is yes.
 
 ## Parts
@@ -79,13 +79,17 @@ Not part of this entry.
 
 ## Proof
 
-**The seeded data.** The numbers from the Monday brief's proof: one new contact through the public contact page and one card waiting in the Inbox, with nothing else installed.
+### Essentials
+
+**The input.** When the [Monday brief](../routines/monday-brief.md) is already installed, the input is what its brief command prints today, `npm run brief -- numbers`. When this skill is installed before the routine, as it is when the Monday brief installs it as a part, there is no brief command yet, so the input is this sample, stated here: one new contact through the public contact page and one card waiting in the Inbox, with nothing else installed, for the week that starts on Monday, October 5, 2026.
 
 ```json
 {"week": "2026-10-05", "timezone": "America/Los_Angeles", "contacts_added": 1, "inbox_waiting": 1, "apps": []}
 ```
 
-**The result.**
+Name in the proof which input was used.
+
+**The result,** for the sample input.
 
 ```text
 Your week, October 5
@@ -104,7 +108,29 @@ Next: install Capture leads, so every inquiry is counted here.
 
 The Money section is left out, because no installed app has amounts.
 
-**The completion test.** The brief fits in 12 lines, each of its two numbers appears in the input, each number above zero in the input appears in the brief, and `npm test` passes with the skill in `key/skills/`, which runs the Foundation's skill format check on it.
+**The completion test.** The brief fits in 12 lines of text, blank lines aside, each of its numbers appears in the input, each number above zero in the input appears in the brief, and `npm test` passes with the skill in `key/skills/`, which runs the Foundation's skill format check on it.
+
+### Complete
+
+**The input.** When the Monday brief is installed at Complete, what `npm run brief -- numbers --compare` prints today. When last week has no numbers kept yet, `last_week` is empty, and the brief carries no change. When this skill runs before the routine's Complete run, the input is this sample, the Essentials sample with last week beside it:
+
+```json
+{"week": "2026-10-05", "timezone": "America/Los_Angeles", "contacts_added": 1, "inbox_waiting": 1, "apps": [], "last_week": {"contacts_added": 0, "inbox_waiting": 0, "apps": []}}
+```
+
+Name in the proof which input was used.
+
+**The result,** for the sample input, the Essentials brief with the change beside each number:
+
+```text
+New in the last seven days
+- 1 new contact, through your contact page, up 1 since last week.
+
+Waiting for you
+- 1 card in your Inbox, up 1 since last week.
+```
+
+**The completion test.** The Essentials test passes, every change since last week equals this week's number less last week's, and the skill's Check reads as the Complete line in Changing it sets it.
 
 ## Changing it
 
@@ -112,7 +138,7 @@ The Money section is left out, because no installed app has amounts.
 
 **What upgrade adds, tier by tier.** One file, `key/skills/write-the-brief/SKILL.md`, compared three ways against the version this entry published at the installed tier. When the [Monday brief](../routines/monday-brief.md) is upgraded, this skill is upgraded first, to the same tier, in its own run, with its own `installed` row, and its file is listed under that run.
 
-- **To Complete:** Input gains "and last week's numbers, when the input has them". A new step after step 5: "Beside each number, write the change since last week, such as up 2 since last week." Check gains "every change matches the two weeks' numbers". The sections the owner reshaped are kept, because the new step adds a line and edits none.
+- **To Complete:** Input gains "and last week's numbers, when the input has them". A new step after step 5: "Beside each number, write the change since last week, such as up 2 since last week." Check becomes "Every number in the brief appears in the input, or is a change since last week that equals this week's number less last week's, every number above zero in the input appears in the brief, and the brief has at most 12 lines of text, blank lines not counted." The sections the owner reshaped are kept, because the new step adds a line and edits none.
 - **To Mastery:** Input gains "and the target for each number, when the routine lists one". A new step: "Start the line of every number that misses its target with Off track:". The closing "Next:" step becomes "Close with This week and three suggested moves, one line each." Check gains "every Off track mark matches a missed target".
 
 **What remove exports first.** Nothing, because the skill holds no data. Remove lists the Monday brief as an entry that uses it, and asks first.
@@ -128,7 +154,7 @@ description: Turn the week's numbers into a one-screen brief the owner reads in 
 ---
 
 ## Input
-The week's numbers as `npm run brief -- numbers` prints them: the week, the time zone, the contacts added, the Inbox cards waiting, and for each installed app the records added in the last seven days and in all, with counts by status and the total for the last seven days where the app has them.
+The week's numbers, as the brief command prints them: the week, the time zone, the contacts added, the Inbox cards waiting, and for each installed app the records added in the last seven days and in all, with counts by status and the total for the last seven days where the app has them.
 
 ## Steps
 1. Open with one line: "Your week," and the month and day of the week.
@@ -139,15 +165,15 @@ The week's numbers as `npm run brief -- numbers` prints them: the week, the time
 6. Close with one line: "Next:" and the one step that would help most.
 
 ## Output
-The brief as plain text, at most 12 lines, in the voice from the context block.
+The brief as plain text, at most 12 lines of text, with blank lines between sections not counted, in the business's own voice, the words its profile gives for how it sounds.
 
 ## Check
-Every number in the brief appears in the input, every number above zero in the input appears in the brief, and the brief fits in 12 lines.
+Every number in the brief appears in the input, every number above zero in the input appears in the brief, and the brief has at most 12 lines of text, blank lines not counted.
 ```
 
 ### Input
 
-What the agent reads before it writes. Here it is the one line of JSON the brief command prints. Keeping the input to exact numbers is what lets Check prove the brief true, line by line.
+What the agent reads before it writes. Here it is the one line of JSON the brief command, `npm run brief -- numbers`, prints. Keeping the input to exact numbers is what lets Check prove the brief true, line by line.
 
 ### Steps
 
@@ -155,7 +181,7 @@ The procedure, numbered, in the order the agent follows. Steps 2 to 5 are the se
 
 ### Output
 
-What the skill hands back: plain text the routine saves as it is. The 12 line limit is what "one screen" means here.
+What the skill hands back: plain text the routine saves as it is. The 12 line limit is what "one screen" means here. It counts the lines with text in them, so the blank lines that separate sections never push a brief over.
 
 ### Check
 

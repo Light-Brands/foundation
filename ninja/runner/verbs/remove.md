@@ -24,6 +24,6 @@ All ten. Stage 4 involves the roles that built the parts being taken out. Stage 
 
 ## The close
 
-The builders remove the files in the row's `files` and `code`. The scribe removes the entry's row from `installed` and its rows from the other lists in `key.yaml`. In a Foundation, the run lead commits that, followed by the build log entry with `Kind: change` in its own log-only commit, and runs `npm run key:sync`. In a Ninja home, the scribe writes `key.yaml` directly and rebuilds the starter kit. The receipt names what was removed, where the export is, and what was kept. The next moves include a [check](check.md).
+The builders remove the files in the row's `files` and `code`. The scribe removes the entry's row from `installed` and its rows from the other lists in `key.yaml`. In a Foundation, the run lead runs `npm run key:sync`, makes the run's one work commit with the removal, the run brief, `key.yaml` and `key/knowledge/system.md`, then the build log entry with `Kind: change` and its `- Entry: <entry id>` line, in its own log-only commit. In a Ninja home, the scribe writes `key.yaml` directly and rebuilds the starter kit. The receipt names what was removed, where the export is, and what was kept. The next moves include a [check](check.md).
 
 In a text only chat, ask the owner to paste `key.yaml` and every existing file before you change it, and return each file you create or change whole, one per message, as [the runner](../run.md) describes. `key.yaml` and the starter kit come back whole too.

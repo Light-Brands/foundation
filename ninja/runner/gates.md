@@ -27,19 +27,19 @@ The gates are the steering that makes the speed safe. Each one has an owner in t
 
 - **Stage:** 8.
 - **Owner:** the [QA lead](../crew/qa-lead.md).
-- **Passes when:** in a Foundation, `npm test`, `npm run typecheck`, `npm run lint`, `npm run build` and `npm run e2e` all pass on the finished work. In a Ninja home, every file is in its place, every path comment is right, and every file `key.yaml` names is on disk.
+- **Passes when:** in a Foundation, `npm test`, `npm run typecheck`, `npm run lint` and `npm run build` all pass on the finished work, and `npm run e2e` too when the run changes a screen or app code. A run that changes only the Key needs the first four. In a Ninja home, every file is in its place, every path comment is right, and every file `key.yaml` names is on disk. An entry with no Key files and no app, such as Prep, skips this gate and the review gate, because there is nothing to test or review.
 - **When it does not pass:** "One check is still failing: <check>, because <cause in plain words>. I am fixing it now, and nothing goes out until every check is green."
 
 ## Deploy
 
-- **Stage:** 8.
+- **Stage:** 8, for the preview only.
 - **Owner:** the [release engineer](../crew/release-engineer.md).
 - **Passes when:** the test gate has passed and the owner gave the preview consent.
 - **When it does not pass:** without the consent: "Everything is green. Would you like a preview, a separate copy of your command center on its own link, to try it before it goes live?" With checks failing: "The preview waits until every check is green."
 
 ## Production
 
-- **Stage:** 8.
+- **Stage:** 10, after the run's work commit, because production goes out from committed work.
 - **Owner:** the [release engineer](../crew/release-engineer.md).
 - **Passes when:** the owner says yes to going live at that moment, after the preview is checked. An earlier yes, including the preview consent, never counts.
 - **When it does not pass:** "The preview is ready at <link>. When you have tried it and want your customers to see it, say 'go live' and I will put it live."
@@ -48,5 +48,5 @@ The gates are the steering that makes the speed safe. Each one has an owner in t
 
 - **Stage:** 9.
 - **Owner:** the [QA lead](../crew/qa-lead.md).
-- **Passes when:** one real item has gone end to end as the entry's Proof section describes, and its completion test passed. A test message counts only when the messages consent was given. In a Ninja home, one task has run with a real input and passed its check.
+- **Passes when:** one real item has gone end to end as the entry's Proof section describes, and its completion test passed. A test message counts only when the messages consent was given. The proof is the entry's own Proof section, in every environment. For Home, that is the first check, plus the first run at Mastery. For a modify, it is the entry's Proof section at the installed version, or the installed routine's own Check when that proof needs a tool the installed version does not have, as [modify](verbs/modify.md) says.
 - **When it does not pass:** "It is built, and it is not done yet: the proof has not gone through, because <cause>. Let us run one real <item> now. <The one thing the owner does next.>"

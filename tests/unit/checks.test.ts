@@ -139,6 +139,14 @@ describe("the run reads only what the check may read, whatever its declaration s
     expect(await refused("select $a1$'$a1$ as t, version() as junk, true as raise, 'x' as title, '' as body from leads_demo", ["leads_demo"])).toMatch(/calls version/);
     expect(await refused("select $a1$'$a1$ as t, (select count(*) from contacts) as junk, true as raise, 'x' as title, '' as body from leads_demo", ["leads_demo"])).toMatch(/reads public\.contacts/);
   });
+  it("refuses a function whose name only looks like syntax, or hides behind another schema, by its plan", async () => {
+    // Reported allowlist bypass: the plan scan folded case and passed any word Postgres also uses as syntax,
+    // and read x.count( as count(. Both functions here read contacts out of sight of the plan.
+    const body = "language plpgsql as $f$ begin return (select count(*)::int from contacts); end $f$";
+    const prep = `create function partition(int) returns int ${body}; create schema sneaky; create function sneaky.count(int) returns int ${body};`;
+    expect(await refused("select partition(1) >= 0 as raise, 'x' as title, '' as body", ["leads_demo"], prep)).toMatch(/calls partition/);
+    expect(await refused("select sneaky.count(1) >= 0 as raise, 'x' as title, '' as body", ["leads_demo"], prep)).toMatch(/calls sneaky\.count/);
+  });
   it("still runs every allowed function", async () => {
     const sql = "select count(*) >= 0 or bool_or(true) as raise, concat_ws(' ', upper(min(status)), lower(max(status)), btrim(' a '), left('ab', 1), to_char(now(), 'YYYY'), coalesce(null, 'z'), greatest(1, 2)::text, date_trunc('day', $2::timestamptz)::text, age($2::timestamptz, $2::timestamptz)::text, make_interval(days => 1)::text, round(abs(-1.5))::text) as title, string_agg(contact_email, ', ') as body from leads_demo where created_at <= $2::timestamptz and starts_ok(1)";
     expect(await refused(sql.replace(" and starts_ok(1)", ""), ["leads_demo"])).toBe("ran");

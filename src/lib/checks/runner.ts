@@ -1,6 +1,6 @@
 import type { Db, Tx } from "@/lib/db/types";
 import type { KindRegistry } from "@/lib/data/card-kinds";
-import { CHECK_CORE_TABLES, CHECK_FUNCTIONS, CORE_TABLES, SQL_WORDS, normalizeSql, type CheckDecl } from "@/lib/key/declarations";
+import { CHECK_CORE_TABLES, CHECK_FUNCTIONS, CORE_TABLES, type CheckDecl } from "@/lib/key/declarations";
 import { writeCard, CARD_LIMITS } from "@/lib/data/cards";
 import { getPause } from "@/lib/data/pause";
 import { businessDate, businessWeekStart } from "@/lib/time";
@@ -34,18 +34,46 @@ export function planRelations(plan: unknown): { schema: string; name: string }[]
   return out;
 }
 
-// Words Postgres prints before a parenthesis in a plan that are syntax, never a function it calls.
-const PLAN_WORDS: ReadonlySet<string> = new Set([...SQL_WORDS, "array", "coalesce", "greatest", "least", "nullif", "extract", "subplan", "initplan", "partition", "within", "group", "order", "only"]);
+// Syntax Postgres prints in capitals before a parenthesis in a plan's expressions. A function it calls is
+// printed in lower case (or quoted), so a function named like one of these words never passes as syntax.
+const PLAN_SYNTAX: ReadonlySet<string> = new Set([
+  "AND", "OR", "NOT", "IN", "ANY", "ALL", "ARRAY", "ROW", "EXISTS", "COALESCE", "GREATEST", "LEAST", "NULLIF", "EXTRACT",
+  "FILTER", "OVER", "WHERE", "WHEN", "THEN", "ELSE", "CASE", "BY", "AS", "IS", "DISTINCT", "BETWEEN", "WITHIN", "GROUP",
+]);
 // Core tables a check never reads, whatever its declaration says. The outbox is one of them.
 const NEVER_READ: ReadonlySet<string> = new Set(CORE_TABLES.filter((t) => !CHECK_CORE_TABLES.includes(t)));
 
-/** Every function a Postgres verbose JSON plan shows it will call, read from every expression it prints. */
+// A plan expression with its string literals emptied and each quoted name turned into the marker "q",
+// keeping the case and the schema names exactly as Postgres printed them.
+function planText(text: string): string {
+  let out = "";
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === "'" || c === '"') {
+      let j = i + 1;
+      while (j < text.length && !(text[j] === c && text[j + 1] !== c)) j += text[j] === c ? 2 : 1;
+      out += c === "'" ? "''" : '"q"';
+      i = j;
+      continue;
+    }
+    out += c;
+  }
+  // A type name after :: may carry a parenthesis, as in numeric(10,2) or character varying(20).
+  return out.replace(/::\s*[A-Za-z_][A-Za-z0-9_ ]*(\(\s*\d+(\s*,\s*\d+)?\s*\))?(\[\])?/g, " ");
+}
+
+/**
+ * Every function a Postgres verbose JSON plan shows it will call, as Postgres printed it: name, or
+ * schema.name when it is not in pg_catalog, or "q" when Postgres had to quote it. Capitalized syntax is skipped.
+ */
 export function planFunctions(plan: unknown): string[] {
   const found = new Set<string>();
   const scan = (text: string) => {
-    // Literals and quoted names fold away first, then type names after :: (such as numeric(10,2)).
-    const t = normalizeSql(text).text.replace(/::\s*[a-z_][a-z0-9_ ]*(\(\s*\d+(\s*,\s*\d+)?\s*\))?(\[\])?/g, " ");
-    for (const m of t.matchAll(/([a-z_][a-z0-9_$]*)\s*\(/g)) if (!PLAN_WORDS.has(m[1])) found.add(m[1]);
+    for (const m of planText(text).matchAll(/(?:([A-Za-z_][A-Za-z0-9_$]*|"q")\s*\.\s*)?([A-Za-z_][A-Za-z0-9_$]*|"q")\s*\(/g)) {
+      const [, schema, name] = m;
+      if (!schema && PLAN_SYNTAX.has(name)) continue;
+      found.add(schema && schema !== "pg_catalog" ? `${schema}.${name}` : name);
+    }
   };
   const walk = (v: unknown): void => {
     if (typeof v === "string") { scan(v); return; }

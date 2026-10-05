@@ -38,12 +38,14 @@ drop trigger if exists outbox_sent_is_final on outbox;
 create trigger outbox_sent_is_final before update on outbox for each row execute function outbox_sent_is_final();
 
 -- email_hash is an HMAC of the address under FOUNDATION_SECRET (src/lib/email.ts). email is null for a forgotten person.
+-- scope marketing stops marketing email only (the unsubscribe link). scope all stops every email. A scope only widens.
 create table if not exists opt_outs (
   id uuid primary key default gen_random_uuid(),
   email text,
   email_hash text not null,
   at timestamptz not null default now(),
-  source text not null default ''
+  source text not null default '',
+  scope text not null default 'all' check (scope in ('marketing', 'all'))
 );
 create unique index if not exists opt_outs_email on opt_outs (lower(email)) where email is not null;
 create unique index if not exists opt_outs_email_hash on opt_outs (email_hash);

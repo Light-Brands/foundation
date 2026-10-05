@@ -37,6 +37,6 @@ export async function handleUnsubscribe(
   if (!row) return { status: "invalid" };
   const keyHash = await clientHash("unsubscribe", id, deps.secret);
   if (!(await takeFormSlot(deps.db, { form: "unsubscribe", keyHash }, now, UNSUBSCRIBE_LIMITS))) return { status: "limited" };
-  await optOut(deps.db, { email: row.to_email, source: "unsubscribe link" }, now, deps.secret);
+  await optOut(deps.db, { email: row.to_email, source: "unsubscribe link", scope: "marketing" }, now, deps.secret);
   return { status: "done" };
 }

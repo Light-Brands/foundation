@@ -56,7 +56,8 @@ describe("unsubscribing", () => {
     expect(await handleUnsubscribe({ db, secret: SECRET }, { token, method: "GET", contentLength: null }, T0)).toEqual({ status: "confirm" });
     expect(await db.query("select count(*)::int as n from opt_outs")).toEqual([{ n: 0 }]);
     expect(await handleUnsubscribe({ db, secret: SECRET }, post(token), T0)).toEqual({ status: "done" });
-    expect(await db.query("select email, source from opt_outs")).toEqual([{ email: "Jo+News@harbor.example", source: "unsubscribe link" }]);
+    expect(await db.query("select email, source, scope from opt_outs")).toEqual([{ email: "Jo+News@harbor.example", source: "unsubscribe link", scope: "marketing" }]);
+    expect((await draftEmail(db, { ...PROMO, kind: "transactional", sendKey: "booking/after-unsubscribe" })).status).toBe("drafted");
     await db.close();
   });
   it("a marketing email to an address that unsubscribed is cancelled at send time, in any spelling", async () => {

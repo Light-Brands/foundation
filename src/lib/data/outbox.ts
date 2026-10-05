@@ -46,23 +46,43 @@ function keyOf(secret: string | null | undefined): string {
   return s;
 }
 
-/** True when the address, in any spelling the one rule joins, is on the opt-out list, or cannot be read at all. */
-export async function isOptedOut(db: Queryable, email: string, secret?: string | null): Promise<boolean> {
+/** marketing: the person stopped marketing email (the unsubscribe link). all: the person stopped every email. */
+export const OPT_OUT_SCOPES = ["marketing", "all"] as const;
+export type OptOutScope = (typeof OPT_OUT_SCOPES)[number];
+
+/**
+ * True when the address, in any spelling the one rule joins, has an opt-out that covers this kind of email,
+ * or cannot be read at all. An all opt-out covers every kind. A marketing opt-out covers marketing only.
+ */
+export async function isOptedOut(db: Queryable, email: string, kind: OutboxKind, secret?: string | null): Promise<boolean> {
   const key = keyOf(secret);
   if (!parseEmail(email).ok) return true;
-  const rows = await db.query("select 1 as hit from opt_outs where email_hash = $1 limit 1", [emailHash(email, key)]);
+  const rows = await db.query(
+    "select 1 as hit from opt_outs where email_hash = $1 and (scope = 'all' or $2 = 'marketing') limit 1",
+    [emailHash(email, key), kind === "marketing" ? "marketing" : "transactional"],
+  );
   return rows.length > 0;
 }
 
-/** Records an opt-out once. Throws for an address parseEmail refuses, and while FOUNDATION_SECRET is unset. */
-export async function optOut(db: Queryable, input: { email: string; source: string }, now: Date, secret?: string | null): Promise<void> {
+/**
+ * Records an opt-out once, with its scope. A second opt-out for the same person only widens a marketing one to
+ * all, never narrows it. Writes nothing on a clash with any unique index. Throws for an address parseEmail
+ * refuses, for a scope that is not marketing or all, and while FOUNDATION_SECRET is unset.
+ */
+export async function optOut(db: Queryable, input: { email: string; source: string; scope: OptOutScope }, now: Date, secret?: string | null): Promise<void> {
   const key = keyOf(secret);
   const p = parseEmail(input.email);
   if (!p.ok) throw new TypeError(p.error);
-  await db.query(
-    "insert into opt_outs (email, email_hash, at, source) values ($1, $2, $3, $4) on conflict (email_hash) do nothing",
-    [p.send, emailHash(p.send, key), now, input.source.slice(0, 80)],
+  if (!(OPT_OUT_SCOPES as readonly string[]).includes(input.scope)) throw new TypeError("An opt-out is for marketing email or for all email.");
+  const hash = emailHash(p.send, key);
+  // No conflict target, so a clash on any unique index writes nothing instead of throwing.
+  const inserted = await db.query(
+    "insert into opt_outs (email, email_hash, at, source, scope) values ($1, $2, $3, $4, $5) on conflict do nothing returning id",
+    [p.send, hash, now, input.source.slice(0, 80), input.scope],
   );
+  if (inserted.length === 0 && input.scope === "all") {
+    await db.query("update opt_outs set scope = 'all' where email_hash = $1 and scope <> 'all'", [hash]);
+  }
 }
 
 function checkDraft(input: DraftEmail): string | null {
@@ -91,7 +111,7 @@ export async function draftEmail(db: Queryable, input: DraftEmail, secret?: stri
   if (problem) return { status: "invalid", error: problem };
   let optedOut: boolean;
   try {
-    optedOut = await isOptedOut(db, p.send, secret);
+    optedOut = await isOptedOut(db, p.send, input.kind ?? "transactional", secret);
   } catch (err) {
     if (err instanceof MissingSecretError) return { status: "invalid", error: err.message };
     throw err;
@@ -208,7 +228,7 @@ export async function sendApproved(db: Db, send: Sender, now: Date, max = 20, op
     const claimed = await claimNext(db, now, { marketing: base !== null });
     if (!claimed) break;
     const msg = composeEmail(claimed, { postalAddress: facts?.postalAddress ?? "", mailto: facts?.mailto ?? null, unsubscribeUrl: base ? unsubscribeUrl(base, claimed.id, key) : null });
-    if (await isOptedOut(db, msg.to_email, key)) {
+    if (await isOptedOut(db, msg.to_email, msg.kind, key)) {
       await db.query("update outbox set status = 'cancelled', last_error = 'opted_out', updated_at = $2 where id = $1 and status = 'sending'", [msg.id, now]);
       out.refused++;
       continue;

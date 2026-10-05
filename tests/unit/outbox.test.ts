@@ -81,7 +81,7 @@ describe("drafting", () => {
     const id = await approved(db);
     vi.stubEnv("FOUNDATION_SECRET", "");
     expect((await draftEmail(db, { ...MAIL, sendKey: "k2" })).status).toBe("invalid");
-    await expect(optOut(db, { email: MAIL.to, source: "reply" }, T0)).rejects.toThrow(/FOUNDATION_SECRET/);
+    await expect(optOut(db, { email: MAIL.to, source: "reply", scope: "all" }, T0)).rejects.toThrow(/FOUNDATION_SECRET/);
     const send = sender();
     await expect(sendApproved(db, send, T0)).rejects.toThrow(/FOUNDATION_SECRET/);
     expect(send).not.toHaveBeenCalled();
@@ -148,8 +148,8 @@ describe("sending", () => {
   it("an opted-out address is refused, in any spelling", async () => {
     const db = await coreDb();
     await approved(db);
-    await optOut(db, { email: "Jo+Promos@Harbor.Example", source: "reply" }, T0);
-    expect(await isOptedOut(db, " JO@harbor.example")).toBe(true);
+    await optOut(db, { email: "Jo+Promos@Harbor.Example", source: "reply", scope: "all" }, T0);
+    expect(await isOptedOut(db, " JO@harbor.example", "transactional")).toBe(true);
     expect(await draftEmail(db, { ...MAIL, sendKey: "bookings/b2/confirm" })).toEqual({ status: "opted_out" });
     const send = sender();
     expect(await sendApproved(db, send, T0)).toEqual({ sent: 0, failed: 0, refused: 1 });
@@ -159,8 +159,8 @@ describe("sending", () => {
   });
   it("an opt-out is recorded once however often it is asked for", async () => {
     const db = await coreDb();
-    await optOut(db, { email: "jo@harbor.example", source: "reply" }, T0);
-    await optOut(db, { email: "Jo+again@Harbor.Example", source: "link" }, T0);
+    await optOut(db, { email: "jo@harbor.example", source: "reply", scope: "all" }, T0);
+    await optOut(db, { email: "Jo+again@Harbor.Example", source: "link", scope: "all" }, T0);
     expect(await db.query("select count(*)::int as n from opt_outs")).toEqual([{ n: 1 }]);
     await db.close();
   });
@@ -170,6 +170,61 @@ describe("sending", () => {
     const claimed = await claimNext(db, T0);
     await markSent(db, claimed!.id, "msg_1", T0);
     await expect(db.query("update outbox set status = 'approved' where id = $1", [id])).rejects.toThrow(/stays sent/);
+    await db.close();
+  });
+});
+
+describe("opt-out scope", () => {
+  const BASE = { baseUrl: "https://harbor.example" };
+  it("a marketing opt-out stops only marketing mail, in any spelling", async () => {
+    const db = await coreDb();
+    const booking = await approved(db);
+    const promo = await approved(db, { sendKey: "promo/1", kind: "marketing" });
+    await optOut(db, { email: "Jo+Promos@Harbor.Example", source: "link", scope: "marketing" }, T0);
+    expect(await isOptedOut(db, " JO@harbor.example", "marketing")).toBe(true);
+    expect(await isOptedOut(db, " JO@harbor.example", "transactional")).toBe(false);
+    expect((await draftEmail(db, { ...MAIL, sendKey: "promo/2", kind: "marketing" })).status).toBe("opted_out");
+    expect((await draftEmail(db, { ...MAIL, sendKey: "bookings/b2/confirm" })).status).toBe("drafted");
+    const send = sender();
+    expect(await sendApproved(db, send, T0, 20, BASE)).toEqual({ sent: 1, failed: 0, refused: 1 });
+    expect(await statusOf(db, booking)).toBe("sent");
+    expect(await statusOf(db, promo)).toBe("cancelled");
+    await db.close();
+  });
+  it("an all opt-out stops every kind", async () => {
+    const db = await coreDb();
+    await approved(db);
+    await approved(db, { sendKey: "promo/1", kind: "marketing" });
+    await optOut(db, { email: "jo@harbor.example", source: "owner", scope: "all" }, T0);
+    expect(await isOptedOut(db, "JO+x@harbor.example", "transactional")).toBe(true);
+    expect(await isOptedOut(db, "JO+x@harbor.example", "marketing")).toBe(true);
+    const send = sender();
+    expect(await sendApproved(db, send, T0, 20, BASE)).toEqual({ sent: 0, failed: 0, refused: 2 });
+    expect(send).not.toHaveBeenCalled();
+    await db.close();
+  });
+  it("an opt-out only widens", async () => {
+    const db = await coreDb();
+    const scope = async () => (await db.query<{ scope: string }>("select scope from opt_outs")).map((r) => r.scope);
+    await optOut(db, { email: "jo@harbor.example", source: "link", scope: "marketing" }, T0);
+    expect(await scope()).toEqual(["marketing"]);
+    await optOut(db, { email: "Jo+again@harbor.example", source: "owner", scope: "all" }, T0);
+    expect(await scope()).toEqual(["all"]);
+    await optOut(db, { email: "jo@harbor.example", source: "link", scope: "marketing" }, T0);
+    expect(await scope()).toEqual(["all"]);
+    await db.close();
+  });
+  it("requires a scope", async () => {
+    const db = await coreDb();
+    await expect(optOut(db, { email: "jo@harbor.example", source: "x", scope: "everything" as never }, T0)).rejects.toThrow(TypeError);
+    await expect(optOut(db, { email: "jo@harbor.example", source: "x" } as never, T0)).rejects.toThrow(TypeError);
+    expect(await db.query("select count(*)::int as n from opt_outs")).toEqual([{ n: 0 }]);
+    await db.close();
+  });
+  it("never throws on a second unique index, such as the same address kept under an earlier secret", async () => {
+    const db = await coreDb();
+    await optOut(db, { email: "jo@harbor.example", source: "link", scope: "marketing" }, T0, "an-earlier-secret-of-at-least-32-chars");
+    await expect(optOut(db, { email: "jo@harbor.example", source: "owner", scope: "all" }, T0)).resolves.toBeUndefined();
     await db.close();
   });
 });

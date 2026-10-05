@@ -15,7 +15,7 @@ One meaning for each word. If a word has two meanings in the code or a prompt, o
 - **App**: a data app inside the Key, with a definition and its own tables, such as Booking.
 - **The app**: this command center, the Next.js project the owner opens in a browser.
 - **Card**: one item in the Inbox, with a kind, a category, a title and a status.
-- **Inbox**: the list of cards from every part of the business, in Command.
+- **Inbox**: the list of cards from every part of the business. It is where the job "Handle what needs you" (Command center) lives, and Inbox cards land there.
 - **Request**: something a visitor or a member asks for through a form or a Dojo door. A request becomes a card.
 - **Build log**: the monthly files in `key/log/`, one entry for each thing built.
 - **System document**: `key/knowledge/system.md`, the plain-words record of what is running, built from the Key and the build log.

@@ -43,7 +43,7 @@ for (const c of todo) {
     at: `${utc.slice(0, 10)} ${utc.slice(11, 16)}`,
     title: clean(c.subject),
     kind: "change" as const,
-    category: "System",
+    category: "Settings",
     what: clean(c.subject),
     files: c.files,
     commit: c.sha,

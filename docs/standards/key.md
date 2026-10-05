@@ -79,7 +79,7 @@ Install the booking reminders routine.
 
 ## The context block
 
-`key/knowledge/context-block.yaml` is the single source of business facts. The database's `business_profile` table has the same fields under the same names, with `owner` stored as `owner_name`, `owner_first` and `owner_role`. The Settings save is the only writer of this file: it copies the saved row into it with no mapping, and sets `name` in `key.yaml` to the business name. `client` stays as set at setup. `npm run key:sync` rebuilds the inventory in `system.md` and writes neither.
+`key/knowledge/context-block.yaml` is the single source of business facts. The database's `business_profile` table has the same fields under the same names, with `owner` stored as `owner_name`, `owner_first` and `owner_role`. The Preferences save is the only writer of this file: it copies the saved row into it with no mapping, and sets `name` in `key.yaml` to the business name. `client` stays as set at setup. `npm run key:sync` rebuilds the inventory in `system.md` and writes neither.
 
 ```yaml
 business: Harbor Studio
@@ -100,7 +100,7 @@ stated_by: Jo Harbor
 recorded: 2026-10-05
 ```
 
-- **Change a business fact in System, then Settings, and press Save.** Never edit the file by hand. Why: Settings is the only writer, and the next Save rewrites the file from the database row.
+- **Change a business fact in Settings, then Preferences, and press Save.** Never edit the file by hand. Why: the Preferences save is the only writer, and the next Save rewrites the file from the database row.
 
 ## Charter
 

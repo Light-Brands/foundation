@@ -26,7 +26,7 @@ Everything belongs to one of eleven categories (a founder reads them as departme
 
 `key/` holds everything that makes this business's system yours: agents, skills, routines and apps, plus `key/knowledge/` (the context block and `system.md`, the plain-words record of what is built) and `key/log/` (the monthly build log). The build log stays in this repository. `system.md` goes only to your own workspace, when you connect one later. Neither holds customer details, business records or secrets. `docs/standards/key.md` has the formats.
 
-The Settings save is the only writer of `key/knowledge/context-block.yaml`, and it also sets `name` in `key/key.yaml` to the business name. `npm run key:sync` rebuilds the inventory in `system.md` and nothing else. A member upgrading from an earlier version opens System, then Settings, and presses Save once, so the Key holds the business details.
+The Preferences save is the only writer of `key/knowledge/context-block.yaml`, and it also sets `name` in `key/key.yaml` to the business name. `npm run key:sync` rebuilds the inventory in `system.md` and nothing else. A member upgrading from an earlier version opens Settings, then Preferences, and presses Save once, so the Key holds the business details.
 
 ## Standards
 

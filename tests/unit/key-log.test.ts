@@ -59,6 +59,7 @@ describe("log:sync", () => {
     const file = path.join(dir, "key/log", readdirSync(path.join(dir, "key/log")).find((f) => f.endsWith(".md"))!);
     const text = readFileSync(file, "utf8");
     expect(parseLog(text)).toHaveLength(2);
+    expect(text).toContain("- Category: Settings");
     expect(text).not.toMatch(/[–—]/);
     expect(checkLogText("x", text)).toEqual([]);
     expect(run()).toContain("added 0 entries");

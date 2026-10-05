@@ -27,7 +27,7 @@ Write the real value for `Kind` and for `By`, never the list. The heading is the
 - **Add entries only; never rewrite an old one.** Why: the log is the history, and a history that changes is not one.
 - **Use `Kind` from `lesson`, `module`, `connection`, `setup` and `change`.** Use `By` from `claude`, `member` and `light-brands`. Why: the "What you have built" page and the system document read those words.
 - **Run `npm run log:sync` when commits are missing from the log.** It adds an entry for each recent commit with no entry, skips commits that only touch the log, holds back a commit subject that fails the privacy check or names the workspace platform, and writes the time in UTC. Why: a skipped step leaves no gap.
-- **Run `npm run key:sync` after you add an entry or change the Key.** It rebuilds the inventory in the system document from `key.yaml` and writes nothing else. Why: the inventory is the only part of the system document a machine owns, and the Settings save is the only writer of the context block (see `key.md`).
+- **Run `npm run key:sync` after you add an entry or change the Key.** It rebuilds the inventory in the system document from `key.yaml` and writes nothing else. Why: the inventory is the only part of the system document a machine owns, and the Preferences save is the only writer of the context block (see `key.md`).
 
 ## The system document
 
@@ -35,4 +35,4 @@ Write the real value for `Kind` and for `By`, never the list. The heading is the
 
 - **Leave the inventory block to `npm run key:sync`.** It sits between `<!-- inventory:start -->` and `<!-- inventory:end -->` and is rebuilt from `key.yaml` with no judgment. Why: a hand edit there is lost on the next sync, and the sync is always right about what is listed.
 - **Leave the Summary and Recent changes sections to `prompts/update-system-docs.md`.** Claude rewrites them from the log in the member's words at the end of every build session, and whenever the member asks what has been built. Why: a person writes prose, and the machine writes lists.
-- **Show the system document in the app as "What you have built".** It sits in System, Modules, with the log beneath it. Why: the owner should read their own system without opening a file.
+- **Show the system document in the app as "What you have built".** It sits in Settings, then Add capabilities, with the log beneath it. Why: the owner should read their own system without opening a file.

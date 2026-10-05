@@ -48,7 +48,12 @@ export type InboxItem = {
 /** copied: the owner copied it to send by hand, so no sender claims it. */
 export type CardEmail = { id: string; to: string; subject: string; body: string; status: OutboxStatus; kind: OutboxKind; send_after: string | null; note: string; copied: boolean };
 
-export async function listInbox(db: Db | null, limit = 50, opts: { status?: CardStatus } = {}): Promise<InboxItem[]> {
+/**
+ * The Inbox's cards with their drafted email. With no options: the 50 newest, newest first. limit null lists
+ * every card, opts.statuses keeps any of several statuses, and opts.oldestFirst turns the order around, so a job
+ * can list every waiting card with the longest wait first. Every existing caller gets what it got before.
+ */
+export async function listInbox(db: Db | null, limit: number | null = 50, opts: { status?: CardStatus; statuses?: CardStatus[]; oldestFirst?: boolean } = {}): Promise<InboxItem[]> {
   if (!db) return [];
   return db.query<InboxItem>(
     `select i.id, i.kind, i.category, i.subcategory, i.title, i.body, i.status, i.always_human, i.decision,
@@ -62,9 +67,11 @@ export async function listInbox(db: Db | null, limit = 50, opts: { status?: Card
                         from outbox o where o.card_id = i.id), '[]'::json) as emails
        from inbox_items i left join contacts c on c.id = i.contact_id
       where ($2::text is null or i.status = $2)
-      order by i.created_at desc, i.id desc
+        and ($3::text[] is null or i.status = any($3::text[]))
+      order by case when $4::boolean then i.created_at end asc, case when $4::boolean then i.id end asc,
+               i.created_at desc, i.id desc
       limit $1`,
-    [limit, opts.status ?? null],
+    [limit, opts.status ?? null, opts.statuses ?? null, opts.oldestFirst === true],
   );
 }
 

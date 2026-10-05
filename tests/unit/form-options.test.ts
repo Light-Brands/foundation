@@ -70,7 +70,13 @@ describe("options_from in the Key", () => {
     });
   });
   it("refuses an app that is not in the declaring app's uses_apps", async () => {
-    expect((await checkKeyFolder(keyWith({ uses: "" }))).join("\n")).toMatch(/options_from app "offers-demo" must be listed in this app's uses_apps/);
+    expect((await checkKeyFolder(keyWith({ uses: "" }))).join("\n")).toMatch(/options_from app "offers-demo" is another app, so it must be listed in this app's uses_apps/);
+  });
+  it("reads the declaring app's own table without listing it in uses_apps", async () => {
+    const own = "options_from: { app: leads-demo, entity: leads_demo, label: message }";
+    expect(await checkKeyFolder(keyWith({ uses: "", field: `      - { key: offer, label: Which lead, type: select, ${own} }` }))).toEqual([]);
+    expect((await checkKeyFolder(keyWith({ uses: "", field: `      - { key: offer, label: Which offer, type: select, ${OPTIONS_FROM} }` }))).join("\n"))
+      .toMatch(/options_from app "offers-demo" is another app, so it must be listed in this app's uses_apps/);
   });
   it("refuses an unknown entity, an unknown label, a where that is not a checkbox, and options beside it", async () => {
     const bad = async (from: string, extra = "") =>

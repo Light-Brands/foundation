@@ -142,13 +142,13 @@ function words(at: string, name: string, v: unknown, min: number, max: number, b
 
 /** Each installed app's entities, and each entity's fields with their types, as definition.yaml declares them. */
 export type FieldsByApp = Record<string, Record<string, Record<string, string>>>;
-/** What a form's options_from may read: the declaring app's uses_apps and the installed apps' fields. */
+/** What a form's options_from may read: the declaring app itself, its uses_apps, and the installed apps' fields. */
 export type FormContext = { uses: readonly string[]; fieldsByApp: FieldsByApp };
 
 const OPTIONS_FROM_KEYS = ["app", "entity", "label", "where"];
 const LABEL_TYPES = ["text", "select", "email", "url"];
 
-function checkOptionsFrom(v: unknown, ctx: FormContext | undefined, fb: (m: string) => void): OptionsFrom | null {
+function checkOptionsFrom(v: unknown, self: string, ctx: FormContext | undefined, fb: (m: string) => void): OptionsFrom | null {
   let issues = 0;
   const bad = (m: string) => { issues += 1; fb(m); };
   if (!isObj(v)) { bad("options_from must be a mapping with app, entity, label and where"); return null; }
@@ -158,7 +158,7 @@ function checkOptionsFrom(v: unknown, ctx: FormContext | undefined, fb: (m: stri
   const label = str(v.label);
   const where = v.where === undefined || v.where === null ? null : str(v.where);
   if (!SLUG.test(app)) { bad("options_from app must be an app slug"); return null; }
-  if (!ctx || !ctx.uses.includes(app)) { bad(`options_from app "${app}" must be listed in this app's uses_apps`); return null; }
+  if (!ctx || (app !== self && !ctx.uses.includes(app))) { bad(`options_from app "${app}" is another app, so it must be listed in this app's uses_apps`); return null; }
   const entities = ctx.fieldsByApp[app];
   if (!entities) { bad(`options_from app "${app}" is not installed`); return null; }
   const fields = FIELD_KEY.test(entity) && Object.hasOwn(entities, entity) ? entities[entity] : null;
@@ -212,7 +212,7 @@ export function checkForms(src: Pick<DeclSource, "file" | "slug">, raw: unknown,
       if (x.options_from !== undefined) {
         if (t !== "select") fb("options_from is only for a select field");
         else if (x.options !== undefined) fb("a select takes options or options_from, never both");
-        else from = checkOptionsFrom(x.options_from, ctx, fb);
+        else from = checkOptionsFrom(x.options_from, src.slug, ctx, fb);
       } else if (t === "select" && (options.length < 1 || options.length > 30 || options.some((o) => !o || o.length > 80 || !copyOk(o)))) fb("select needs 1 to 30 options, each 1 to 80 characters");
       fields.push({ key: fk, label, type: t, required: x.required === true, max: max as number, options: t === "select" && !from ? options : [], ...(from ? { options_from: from } : {}) });
     });

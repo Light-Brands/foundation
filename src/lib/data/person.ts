@@ -189,8 +189,10 @@ type AppRows = { key: string; tableRefs: PersonRef[]; rows: Row[] };
 /** Every app row that holds the person's address or team member id, as stored, by app table. */
 async function findAppRows(db: Queryable, refs: PersonRef[], n: string, team: string[]): Promise<AppRows[]> {
   const out: AppRows[] = [];
-  for (const key of [...new Set(refs.map((r) => `${r.app}/${r.table}`))]) {
-    const tableRefs = refs.filter((r) => `${r.app}/${r.table}` === key);
+  // A name field never finds a row: only an address or a team member id does.
+  const finding = refs.filter((r) => r.how !== "name");
+  for (const key of [...new Set(finding.map((r) => `${r.app}/${r.table}`))]) {
+    const tableRefs = finding.filter((r) => `${r.app}/${r.table}` === key);
     const params: unknown[] = [];
     const where = tableRefs.map((r) => {
       params.push(r.how === "email" ? n : team);
@@ -377,6 +379,12 @@ async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: 
     const mark = (into: Record<string, Set<string>>, key: string, rows: { id: unknown }[]) => { for (const r of rows) (into[key] ??= new Set()).add(String(r.id)); };
     for (const r of refs.filter((x) => x.how === "team_id")) {
       mark(linked, `${r.app}/${r.table}`, await tx.query<{ id: unknown }>(`update ${table(r.table)} set ${column(r.column)} = '' where ${column(r.column)} = any($1::text[]) returning id`, [team]));
+    }
+    // A field marked person: name is blanked on every row that holds the person's address, before that address goes.
+    for (const r of refs.filter((x) => x.how === "name")) {
+      for (const e of refs.filter((x) => x.how === "email" && x.app === r.app && x.table === r.table)) {
+        mark(about, `${r.app}/${r.table}`, await tx.query<{ id: unknown }>(`update ${table(r.table)} set ${column(r.column)} = '' where ${N(column(e.column))} = $1 returning id`, [n]));
+      }
     }
     const deleted: Record<string, string[]> = {};
     for (const r of refs.filter((x) => x.how === "email")) {

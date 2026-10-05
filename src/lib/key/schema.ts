@@ -208,10 +208,13 @@ export function rlsProblems(file: string, migrationsSql: string[]): string[] {
 
 // Who a record is about. A person's address is a field of type email or named contact_email. A team
 // member is a person_id, owner_id or manager_id holding an id from the people table. Phones live on
-// the contact. Forget and export (scripts/person.ts) find people through these names only.
+// the contact. A text field holding a person's name says person: name. Forget and export (scripts/person.ts) find
+// people through the address and id fields only. On a row that holds the person's address, forget also blanks
+// every field marked person: name. forget: blank clears these declared fields only: any other text that names
+// the person, such as a note, stays.
 
 export const TEAM_ID_FIELDS = ["person_id", "owner_id", "manager_id"] as const;
-export type PersonRef = { app: string; table: string; column: string; how: "email" | "team_id"; forget: "delete" | "blank" };
+export type PersonRef = { app: string; table: string; column: string; how: "email" | "team_id" | "name"; forget: "delete" | "blank" };
 
 const entitiesOf = (definition: unknown): Obj[] =>
   isObj(definition) && Array.isArray(definition.entities) ? (definition.entities.filter(isObj) as Obj[]) : [];
@@ -226,6 +229,7 @@ export function personFields(definition: unknown, app: string): PersonRef[] {
       if (typeof f.key !== "string") continue;
       if (f.type === "email" || f.key === "contact_email") refs.push({ app, table: e.key, column: f.key, how: "email", forget });
       else if ((TEAM_ID_FIELDS as readonly string[]).includes(f.key)) refs.push({ app, table: e.key, column: f.key, how: "team_id", forget });
+      else if (f.person === "name") refs.push({ app, table: e.key, column: f.key, how: "name", forget });
     }
   }
   return refs;
@@ -302,6 +306,8 @@ export function personFieldProblems(file: string, definition: unknown): string[]
       if (t === "user" || t === "multi_user") problems.push(`${at} names a person with type ${t}. Use person_id, owner_id or manager_id holding a team member's id`);
       if (TEAMISH_ID.test(k) && !(TEAM_ID_FIELDS as readonly string[]).includes(k)) problems.push(`${at} names a team member. Call it person_id, owner_id or manager_id`);
       if ((TEAM_ID_FIELDS as readonly string[]).includes(k) && t !== "text") problems.push(`${at} holds a team member's id, so its type must be text`);
+      if (f.person !== undefined && f.person !== "name") problems.push(`${at}: person must be name`);
+      if (f.person === "name" && t !== "text") problems.push(`${at} holds a person's name, so its type must be text`);
     }
   }
   return problems;

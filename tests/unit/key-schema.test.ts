@@ -256,6 +256,17 @@ describe("person fields", () => {
     const core = Object.keys(tablesFromSql(sql));
     for (const t of core) expect(CORE_TABLES).toContain(t);
   });
+  it("finds a field marked person: name, and refuses a marker it cannot use", () => {
+    const d = def([{ key: "contact_email", type: "email" }, { key: "full_name", type: "text", person: "name" }], { forget: "blank" });
+    expect(personFields(d, "x")).toEqual([
+      { app: "x", table: "things", column: "contact_email", how: "email", forget: "blank" },
+      { app: "x", table: "things", column: "full_name", how: "name", forget: "blank" },
+    ]);
+    const out = (fields: unknown[]) => personFieldProblems("d.yaml", def(fields)).join("\n");
+    expect(out([{ key: "full_name", type: "text", person: "nickname" }])).toMatch(/field "full_name": person must be name/);
+    expect(out([{ key: "full_name", type: "number", person: "name" }])).toMatch(/field "full_name" holds a person's name, so its type must be text/);
+    expect(out([{ key: "full_name", type: "text", person: "name" }])).toBe("");
+  });
   it("fails the Key checker on a text field with email inside its name", async () => {
     const dir = mkdtempSync(path.join(tmpdir(), "person-email-"));
     cpSync(path.join(root, "tests/fixtures/key-ext"), dir, { recursive: true });

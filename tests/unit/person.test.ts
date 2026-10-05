@@ -51,6 +51,8 @@ entities:
     forget: blank
     fields:
       - { key: contact_email, name: Contact email, type: email }
+      - { key: billed_to, name: Billed to, type: text, person: name }
+      - { key: note, name: Note, type: text }
       - { key: total, name: Total, type: number }
 migrations: migrations/
 `;
@@ -58,7 +60,7 @@ const TEAM_SQL = [
   "people (id uuid primary key default gen_random_uuid(), name text, manager_id text, work_email text",
   "chores (id uuid primary key default gen_random_uuid(), title text, owner_id text",
   "review_inputs (id uuid primary key default gen_random_uuid(), person_id text, owner_id text, words text",
-  "invoices_demo (id uuid primary key default gen_random_uuid(), contact_email text, total numeric",
+  "invoices_demo (id uuid primary key default gen_random_uuid(), contact_email text, billed_to text, note text, total numeric",
 ].map((t) => `create table if not exists ${t}, created_at timestamptz not null default now(), updated_at timestamptz not null default now());\nalter table ${t.split(" ")[0]} enable row level security;`).join("\n");
 
 function personRoot(): string {
@@ -88,7 +90,7 @@ async function seeded(): Promise<Seeded> {
     const [p] = await db.query<{ id: string }>("insert into people (name, work_email) values ($1, $2) returning id", [who.name, who.email]);
     ids[who.name] = p.id;
     await db.query("insert into chores (title, owner_id) values ($1, $2)", [`chore ${who.name}`, p.id]);
-    await db.query("insert into invoices_demo (contact_email, total) values ($1, 120)", [who.email]);
+    await db.query("insert into invoices_demo (contact_email, billed_to, note, total) values ($1, $2, $3, 120)", [who.email, `${who.name} Lee`, `Paid by ${who.name}`]);
   }
   // Bo reports to Ada, and each wrote a review of the other.
   await db.query("update people set manager_id = $1 where id = $2", [ids.Ada, ids.Bo]);
@@ -377,6 +379,17 @@ describe("forget", () => {
     expect(await count(db, "invoices_demo")).toBe(2);
     expect(await count(db, "review_inputs")).toBe(2);
     await db.close();
+  });
+  it("blanks a field marked person: name on a kept row, and leaves other name text alone", async () => {
+    const x = await seeded();
+    await approvedForget(x);
+    await forgetPerson(x.db, x.kinds, x.refs, "ada@harbor.example", NOW, OWNER);
+    expect(await x.db.query("select contact_email, billed_to, note from invoices_demo order by contact_email")).toEqual([
+      // forget: blank clears declared person fields only. Free text that names the person stays, as documented.
+      { contact_email: "", billed_to: "", note: "Paid by Ada" },
+      { contact_email: "bo@harbor.example", billed_to: "Bo Lee", note: "Paid by Bo" },
+    ]);
+    await x.db.close();
   });
   it("finds a team member through their work email alone", async () => {
     const { db, kinds, refs } = await seeded();

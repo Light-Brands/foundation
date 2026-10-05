@@ -28,6 +28,12 @@ export default async function SetupPage() {
             {s.status === "next" && s.prompt && (
               <div className="mt-4"><PromptBox name={s.prompt} title={`Do it with Claude: ${s.label}`} /></div>
             )}
+            {s.status === "later" && s.prompt && (
+              <details className="mt-4">
+                <summary className="cursor-pointer text-sm text-mist">Show the prompt</summary>
+                <div className="mt-3"><PromptBox name={s.prompt} title={`Do it with Claude: ${s.label}`} /></div>
+              </details>
+            )}
             {s.status !== "done" && s.custom && (
               <a className="btn-quiet mt-4" href={customHref("system", `setup-${s.id}`)} target="_blank" rel="noreferrer">Have Light Brands set it up</a>
             )}

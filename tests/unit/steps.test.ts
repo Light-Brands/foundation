@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { stackStatus } from "@/lib/setup/steps";
+import { readPrompt } from "@/lib/prompts";
 
 const ids = (s: ReturnType<typeof stackStatus>) => s.map((x) => `${x.id}:${x.status}`);
 
@@ -23,9 +24,15 @@ describe("stackStatus", () => {
       expect(stackStatus(env, { storage: "pglite" }).filter((s) => s.status === "next")).toHaveLength(1);
     }
   });
-  it("gives every step that a member can do now a prompt", () => {
-    for (const s of stackStatus({}, { storage: "pglite" })) {
-      if (s.status !== "later") expect(s.prompt).toBeDefined();
+  it("points every prompt at a real prompt file", async () => {
+    const all = [...stackStatus({}, { storage: "pglite" }), ...stackStatus({ VERCEL: "1" }, { storage: "preview" })];
+    for (const step of all) {
+      if (step.prompt) expect(await readPrompt(step.prompt)).toContain("Paste this into");
+    }
+  });
+  it("offers Light Brands setup on every not-done step of a fresh Vercel deploy", () => {
+    for (const s of stackStatus({ VERCEL: "1" }, { storage: "preview" })) {
+      if (s.status !== "done") expect(s.custom).toBe(true);
     }
   });
 });

@@ -73,7 +73,7 @@ export type OptOutScope = (typeof OPT_OUT_SCOPES)[number];
  * FOUNDATION_SECRET still refuses. $hash, $send and $match are parameter placeholders, kind is a SQL expression
  * that gives 'marketing' or 'transactional'.
  */
-function optOutCovers(hash: string, send: string, match: string, kind: string): string {
+export function optOutCovers(hash: string, send: string, match: string, kind: string): string {
   return `exists (select 1 from opt_outs o
                    where (o.email_hash = ${hash}
                           or (o.email is not null and (lower(o.email) = lower(${send}) or ${normalizedEmailSql("o.email")} = ${match})))

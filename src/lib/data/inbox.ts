@@ -16,17 +16,17 @@ export type InboxItem = {
 
 export async function submitContact(db: Db, c: ContactInput): Promise<string> {
   // One statement, so the contact and its message land together or not at all.
-  // On an email match the stored name is kept: a public form never renames a contact.
+  // On an email match the stored name and phone are kept: a public form never rewrites a contact.
   const [item] = await db.query<{ id: string }>(
     `with c as (
-       insert into contacts (name, email) values ($1, $2)
+       insert into contacts (name, email, phone) values ($1, $2, $5)
        on conflict ((lower(email))) do update set email = contacts.email
        returning id
      )
      insert into inbox_items (kind, category, subcategory, title, body, contact_id)
      select 'contact', 'command', 'inbox', $3, $4, c.id from c
      returning id`,
-    [c.name, c.email, `${c.name} sent a message`, c.message],
+    [c.name, c.email, `${c.name} sent a message`, c.message, c.phone],
   );
   return item.id;
 }

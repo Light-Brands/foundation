@@ -32,17 +32,32 @@ export function validateProfile(input: Record<string, unknown>):
   return Object.keys(errors).length ? { ok: false, errors } : { ok: true, value };
 }
 
-export type ContactInput = { name: string; email: string; message: string };
+export const PHONE_MAX = 40;
+
+// A phone is optional. When given it keeps the person's own formatting, with runs of spaces made one.
+export function cleanPhone(raw: unknown): { ok: true; value: string } | { ok: false; error: string } {
+  const value = (typeof raw === "string" ? raw : "").trim().replace(/\s+/g, " ");
+  if (value === "") return { ok: true, value };
+  const digits = value.replace(/\D/g, "").length;
+  if (value.length > PHONE_MAX || !/^\+?[0-9 ().-]+$/.test(value) || digits < 7 || digits > 15) {
+    return { ok: false, error: "Add a phone number with 7 to 15 digits, or leave it blank." };
+  }
+  return { ok: true, value };
+}
+
+export type ContactInput = { name: string; email: string; phone: string; message: string };
 
 export function validateContact(input: Record<string, unknown>):
   | { ok: true; value: ContactInput }
   | { ok: false; errors: Partial<Record<keyof ContactInput | "website", string>> } {
   const str = (k: string) => (typeof input[k] === "string" ? (input[k] as string).trim() : "");
-  const value = { name: str("name"), email: str("email"), message: str("message") };
+  const phone = cleanPhone(input.phone);
+  const value = { name: str("name"), email: str("email"), phone: phone.ok ? phone.value : "", message: str("message") };
   const errors: Partial<Record<keyof ContactInput | "website", string>> = {};
   if (str("website")) errors.website = "Something went wrong. Please try again.";
   if (!value.name || value.name.length > 120) errors.name = "Add your name (up to 120 characters).";
   if (!EMAIL.test(value.email) || value.email.length > 254) errors.email = "Add an email we can reply to.";
+  if (!phone.ok) errors.phone = phone.error;
   if (!value.message || value.message.length > 4000) errors.message = "Add a message (up to 4,000 characters).";
   return Object.keys(errors).length ? { ok: false, errors } : { ok: true, value };
 }

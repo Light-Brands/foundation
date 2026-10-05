@@ -19,7 +19,9 @@ describe("selectDriver", () => {
 describe("migrate", () => {
   it("applies every migration once and records it", async () => {
     const db = await openPglite();
-    expect(await migrate(db, MIGRATIONS, "core")).toEqual(["core/0001_core.sql", "core/0002_core_profile_shape.sql"]);
+    const onDisk = fs.readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort().map((f) => `core/${f}`);
+    expect(await migrate(db, MIGRATIONS, "core")).toEqual(onDisk);
+    expect(onDisk.slice(0, 3)).toEqual(["core/0001_core.sql", "core/0002_core_profile_shape.sql", "core/0003_core_contacts_phone.sql"]);
     expect(await migrate(db, MIGRATIONS, "core")).toEqual([]);
     const tables = await db.query<{ table_name: string }>(
       "select table_name from information_schema.tables where table_schema = 'public' order by table_name",

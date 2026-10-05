@@ -10,7 +10,7 @@ export async function contactAction(_prev: ContactResult | null, form: FormData)
   const raw = Object.fromEntries(form);
   const result = validateContact(raw);
   const s = (k: string) => (typeof raw[k] === "string" ? (raw[k] as string) : "");
-  const typed = { name: s("name"), email: s("email"), message: s("message") };
+  const typed = { name: s("name"), email: s("email"), phone: s("phone"), message: s("message") };
   if (!result.ok) {
     return { ok: false, message: "A few details need a look.", errors: result.errors, values: typed };
   }

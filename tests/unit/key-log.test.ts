@@ -93,4 +93,29 @@ describe("log:sync", () => {
     const nov = readFileSync(path.join(dir, "key/log/2026-11.md"), "utf8");
     expect(nov).toContain("## 2026-11-01 06:30 \u00b7 late");
   }, 60000);
+
+  it("a work commit followed by a log-only commit naming it is not reported missing", () => {
+    const dir = repo("work: add reminders");
+    const git = (...a: string[]) => execFileSync("git", a, { cwd: dir, encoding: "utf8", stdio: "pipe" });
+    const work = git("rev-parse", "--short", "HEAD").trim();
+    sync(dir); // back-fills the first commit and the work commit
+    // Start the log over: only the entry for the work commit, written the way a member does it.
+    const logFile = path.join(dir, "key/log", readdirSync(path.join(dir, "key/log")).find((f) => f.endsWith(".md"))!);
+    const first = git("rev-list", "--max-parents=0", "HEAD").trim().slice(0, 7);
+    writeFileSync(logFile, formatEntry({ ...entry, commit: first, title: "First" }) + "\n" + formatEntry({ ...entry, commit: work, title: "Reminders" }));
+    git("add", "key/log");
+    git("commit", "-qm", "log: reminders entry");
+    const out = sync(dir);
+    expect(out).toContain("added 0 entries");
+    expect(parseLog(readFileSync(logFile, "utf8")).map((e) => e.commit)).toEqual([first, work]);
+  }, 60000);
+
+  it("withholds a commit subject that names the platform", () => {
+    const NAME = ["k", "y", "l", "o", "n"].join("");
+    const dir = repo(`wire the ${NAME} bridge`);
+    sync(dir);
+    const text = allLog(dir);
+    expect(text.toLowerCase()).not.toContain(NAME);
+    expect(parseLog(text)).toHaveLength(2);
+  }, 60000);
 });

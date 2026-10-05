@@ -31,6 +31,8 @@ for (const line of raw.split("\n")) {
   else if (line.trim() && commits.length) commits[commits.length - 1].files.push(line.trim());
 }
 
+// The platform name is never written anywhere in the repository, so it is built at runtime.
+const PLATFORM = ["k", "y", "l", "o", "n"].join("");
 const clean = (s: string) => s.replace(/[–—]/g, ",");
 let added = 0;
 // oldest first so each month file stays in time order
@@ -48,7 +50,10 @@ for (const c of todo) {
     checked: "Not recorded at the time",
     by: "member" as const,
   };
-  const ok = (e: typeof entry) => checkLogText("entry", formatEntry(e)).length === 0;
+  const ok = (e: typeof entry) => {
+    const text = formatEntry(e);
+    return checkLogText("entry", text).length === 0 && !text.toLowerCase().includes(PLATFORM);
+  };
   let final = entry;
   if (!ok(final)) final = { ...entry, title: "Commit summary withheld", what: "Summary withheld by the log check" };
   if (!ok(final)) final = { ...final, files: [] };

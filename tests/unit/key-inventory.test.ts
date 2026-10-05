@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, cpSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, cpSync, readFileSync, writeFileSync, utimesSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { buildInventory, replaceInventory } from "@/lib/key/inventory";
@@ -52,5 +52,19 @@ describe("key:sync", () => {
     expect(readFileSync(path.join(dir, "key/knowledge/system.md"), "utf8")).toBe(first);
     expect(first).toContain("App: booking");
     expect(first).toContain("## Recent changes");
+  }, 60000);
+
+  it("says no change and leaves the file alone when nothing differs", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "keysync-"));
+    mkdirSync(path.join(dir, "key/knowledge"), { recursive: true });
+    cpSync("key/knowledge/system.md", path.join(dir, "key/knowledge/system.md"));
+    writeFileSync(path.join(dir, "key/key.yaml"), keyYaml);
+    const run = () => execFileSync("npx", ["tsx", path.resolve("scripts/key-sync.ts"), "--root", dir], { stdio: "pipe" }).toString();
+    expect(run()).toContain("key:sync updated key/knowledge/system.md");
+    const f = path.join(dir, "key/knowledge/system.md");
+    const t = new Date(2020, 0, 1);
+    utimesSync(f, t, t);
+    expect(run()).toContain("No change to key/knowledge/system.md");
+    expect(statSync(f).mtimeMs).toBe(t.getTime());
   }, 60000);
 });

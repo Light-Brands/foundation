@@ -5,7 +5,7 @@ import { saveProfile, PREVIEW_MESSAGE } from "@/lib/data/profile";
 import { validateProfile, PROFILE_FIELDS, type Profile } from "@/lib/validate";
 import { hasSession } from "@/lib/auth/session";
 import { contextBlockFromProfile } from "@/lib/key/context-block";
-import { writeContextBlock, keyRoot } from "@/lib/key/write";
+import { writeContextBlock, writeKeyName, keyRoot } from "@/lib/key/write";
 
 export type ActionResult = { ok: boolean; message: string; errors?: Record<string, string>; values?: Profile };
 
@@ -28,10 +28,12 @@ export async function saveProfileAction(_prev: ActionResult | null, form: FormDa
     if (storageMode() === "pglite") {
       try {
         const today = new Date().toISOString().slice(0, 10);
-        await writeContextBlock(keyRoot(), contextBlockFromProfile(result.value, result.value.owner_name, today));
+        const root = keyRoot();
+        await writeContextBlock(root, contextBlockFromProfile(result.value, result.value.owner_name, today));
+        await writeKeyName(root, result.value.business);
       } catch (err) {
         console.error("context block write failed", err);
-        return { ok: true, message: "Saved. Your business notes could not be updated this time; they update on your next save." };
+        return { ok: true, message: "Saved. Your business notes could not be updated this time. They update on your next save." };
       }
     }
     return { ok: true, message: "Saved." };

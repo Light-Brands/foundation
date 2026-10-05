@@ -3,9 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const getDb = vi.fn();
 const storageMode = vi.fn(() => "local");
 const writeContextBlock = vi.fn(async () => {});
+const writeKeyName = vi.fn(async () => {});
 const saveProfile = vi.fn(async () => {});
 vi.mock("@/lib/db", () => ({ getDb: (...a: unknown[]) => getDb(...a), storageMode: () => storageMode() }));
-vi.mock("@/lib/key/write", () => ({ keyRoot: () => "/key-root", writeContextBlock: (...a: unknown[]) => (writeContextBlock as (...x: unknown[]) => unknown)(...a) }));
+vi.mock("@/lib/key/write", () => ({ keyRoot: () => "/key-root", writeContextBlock: (...a: unknown[]) => (writeContextBlock as (...x: unknown[]) => unknown)(...a), writeKeyName: (...a: unknown[]) => (writeKeyName as (...x: unknown[]) => unknown)(...a) }));
 vi.mock("@/lib/data/profile", () => ({
   saveProfile: (...a: unknown[]) => (saveProfile as (...x: unknown[]) => unknown)(...a),
   PREVIEW_MESSAGE: "preview",
@@ -41,6 +42,7 @@ describe("saveProfileAction context block", () => {
   beforeEach(() => {
     getDb.mockReset().mockResolvedValue({});
     writeContextBlock.mockClear();
+    writeKeyName.mockClear();
     revalidatePath.mockClear();
     saveProfile.mockClear();
     hasSession.mockResolvedValue(true);
@@ -60,6 +62,21 @@ describe("saveProfileAction context block", () => {
     const r = await saveProfileAction(null, form({ business: "Harbor" }));
     expect(r.ok).toBe(true);
     expect(writeContextBlock).not.toHaveBeenCalled();
+    expect(writeKeyName).not.toHaveBeenCalled();
+  });
+  it("also updates the Key name to the business name in pglite mode", async () => {
+    storageMode.mockReturnValue("pglite");
+    await saveProfileAction(null, form({ business: "Harbor Studio" }));
+    expect(writeKeyName).toHaveBeenCalledTimes(1);
+    expect(writeKeyName.mock.calls[0]).toEqual(["/key-root", "Harbor Studio"]);
+  });
+  it("reports the notes message when the Key name write fails", async () => {
+    storageMode.mockReturnValue("pglite");
+    writeKeyName.mockRejectedValueOnce(new Error("disk"));
+    const r = await saveProfileAction(null, form({ business: "Harbor" }));
+    expect(r.ok).toBe(true);
+    expect(r.message).toContain("could not be updated this time");
+    expect(saveProfile).toHaveBeenCalledTimes(1);
   });
   it("uses the key root for the write", async () => {
     storageMode.mockReturnValue("pglite");
@@ -71,7 +88,7 @@ describe("saveProfileAction context block", () => {
     writeContextBlock.mockRejectedValueOnce(new Error("disk"));
     const r = await saveProfileAction(null, form({ business: "Harbor" }));
     expect(r.ok).toBe(true);
-    expect(r.message).toBe("Saved. Your business notes could not be updated this time; they update on your next save.");
+    expect(r.message).toBe("Saved. Your business notes could not be updated this time. They update on your next save.");
     expect(saveProfile).toHaveBeenCalledTimes(1);
     expect(revalidatePath).toHaveBeenCalled();
   });

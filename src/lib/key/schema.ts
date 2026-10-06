@@ -241,7 +241,7 @@ export function personFields(definition: unknown, app: string): PersonRef[] {
  * to the tables the core migrations create.
  */
 export const CORE_TABLES = [
-  "_migrations", "accounts", "business_profile", "check_runs", "connections", "contacts", "core_settings", "form_counts",
+  "_migrations", "accounts", "business_profile", "check_runs", "connections", "contacts", "core_accounts", "core_settings", "form_counts",
   "form_hits", "inbox_items", "opt_outs", "outbox", "pause", "webhook_events",
 ] as const;
 const isCoreTable = (t: string) => (CORE_TABLES as readonly string[]).includes(t) || t.startsWith("_") || t.startsWith("pg_");

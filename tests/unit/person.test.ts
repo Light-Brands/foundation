@@ -444,13 +444,11 @@ describe("forget", () => {
   });
   it("never forgets someone who still has an account", async () => {
     const { db, kinds, refs } = await seeded();
-    // The accounts table arrives with the hosted database (K1). Its shape, as K1 creates it:
-    await db.query(`create table accounts (id uuid primary key default gen_random_uuid(), user_id uuid, email text not null,
-      role text not null, departments text[] not null default '{}', added_at timestamptz not null default now(), removed_at timestamptz)`);
-    await db.query("insert into accounts (email, role) values ('Ada@harbor.example', 'team')");
+    // Accounts arrive with the hosted database (K1). The core migrations create the table and the accounts view.
+    await db.query("insert into core_accounts (email, role) values ('Ada@harbor.example', 'team')");
     expect(await forgetPerson(db, kinds, refs, "ada+x@harbor.example", NOW, OWNER)).toEqual({ status: "has_account" });
     expect(await count(db, "inbox_items where kind = 'person-forget'")).toBe(0);
-    await db.query("update accounts set removed_at = $1", [NOW]);
+    await db.query("update core_accounts set removed_at = $1", [NOW]);
     expect(await forgetPerson(db, kinds, refs, "ada@harbor.example", NOW, OWNER)).toMatchObject({ status: "card_raised" });
     await db.close();
   });

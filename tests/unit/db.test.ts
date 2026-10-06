@@ -71,7 +71,7 @@ describe("migrate", () => {
     const tables = await db.query<{ table_name: string }>(
       "select table_name from information_schema.tables where table_schema = 'public' order by table_name",
     );
-    expect(tables.map((t) => t.table_name)).toEqual(["_migrations", "business_profile", "check_runs", "connections", "contacts", "core_settings", "form_counts", "form_hits", "inbox_items", "opt_outs", "outbox", "pause", "webhook_events"]);
+    expect(tables.map((t) => t.table_name)).toEqual(["_migrations", "accounts", "business_profile", "check_runs", "connections", "contacts", "core_accounts", "core_settings", "form_counts", "form_hits", "inbox_items", "opt_outs", "outbox", "pause", "webhook_events"]);
     await db.close();
   });
 

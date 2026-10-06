@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createLimiter } from "@/lib/auth/limit";
+import { createLimiter, clientKeyFromHeaders } from "@/lib/auth/limit";
 
 const MIN = 60_000;
 
@@ -45,5 +45,19 @@ describe("wrong PIN limiter", () => {
     const l = createLimiter(m);
     l.fail("a", 0);
     expect(m.size).toBe(1);
+  });
+});
+
+describe("clientKeyFromHeaders", () => {
+  it("reads the first forwarded address, or local", () => {
+    expect(clientKeyFromHeaders(new Headers({ "x-forwarded-for": " 203.0.113.9 , 10.0.0.1" }))).toBe("203.0.113.9");
+    expect(clientKeyFromHeaders(new Headers())).toBe("local");
+  });
+  it("prefers the address Vercel set, then x-real-ip, then the first x-forwarded-for entry", () => {
+    const all = { "x-vercel-forwarded-for": "198.51.100.7", "x-real-ip": "192.0.2.4", "x-forwarded-for": "203.0.113.9, 10.0.0.1" };
+    expect(clientKeyFromHeaders(new Headers(all))).toBe("198.51.100.7");
+    expect(clientKeyFromHeaders(new Headers({ ...all, "x-vercel-forwarded-for": " " }))).toBe("192.0.2.4");
+    expect(clientKeyFromHeaders(new Headers({ "x-real-ip": " 192.0.2.4 ", "x-forwarded-for": "203.0.113.9" }))).toBe("192.0.2.4");
+    expect(clientKeyFromHeaders(new Headers({ "x-forwarded-for": "203.0.113.9, 10.0.0.1" }))).toBe("203.0.113.9");
   });
 });

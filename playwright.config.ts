@@ -12,10 +12,17 @@ export default defineConfig({
     gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },
     env: {
       FOUNDATION_PIN: "246810",
-      FOUNDATION_SECRET: "e2e-only-secret",
+      FOUNDATION_SECRET: "e2e-only-secret-of-at-least-32-characters",
       FOUNDATION_BUSINESS_NAME: "Harbor Studio",
       FOUNDATION_DATA_DIR: ".data/e2e",
       FOUNDATION_KEY_ROOT: ".data/e2e-key",
+      // The inbound webhook test signs with this. It is a test value, never a real secret.
+      E2E_HOOK_SECRET: "e2e-hook-secret",
+      // A developer's shell or .env.local may hold hosted settings. Process settings win over .env.local,
+      // so these blanks keep every end-to-end run on the local database with the PIN.
+      FOUNDATION_DATABASE_URL: "",
+      FOUNDATION_SUPABASE_URL: "",
+      FOUNDATION_SUPABASE_SECRET_KEY: "",
     },
   },
 });

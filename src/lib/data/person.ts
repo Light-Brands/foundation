@@ -1,0 +1,466 @@
+import { closeSync, constants, fchmodSync, lstatSync, mkdirSync, openSync, writeSync } from "node:fs";
+import { readdir, readFile } from "node:fs/promises";
+import path from "node:path";
+import type { Db, Queryable } from "@/lib/db/types";
+import type { KindRegistry } from "@/lib/data/card-kinds";
+import { writeCard } from "@/lib/data/cards";
+import { readEnv } from "@/lib/env";
+import { emailHash, InvalidEmailError, MissingSecretError, normalizeEmail, normalizedEmailSql as N } from "@/lib/email";
+import { ownedPersonRefs, type InstalledApp, type PersonRef } from "@/lib/key/schema";
+import { readSources } from "@/lib/key/declarations";
+import { allows, type Actor } from "@/lib/auth/roles";
+import { checkSecretFingerprint, SecretMismatchError } from "@/lib/data/secret-check";
+
+// Seeing or removing what the business holds about one person. A person is found by their address, read by the
+// one strict parser in src/lib/email.ts and matched in every spelling its rule joins, and by their team member id,
+// read from the people rows their address finds. Forget is always-human: the first run raises a card, and nothing
+// changes until the owner approves it. Afterwards only the address's hash, keyed by FOUNDATION_SECRET, stays in
+// opt_outs with scope all, so no email of any kind reaches the person again.
+// Only the owner may look: anyone else is refused before any lookup, so nobody else learns who is held.
+// An export holds only this person: a row or card that also names someone else is cut down to what is about this
+// person, and says so. No error, refusal or card ever carries the address or anything found.
+
+const OWNER_ONLY = "Only the owner can see or remove a person's records.";
+export class OwnerOnlyError extends Error {
+  constructor() {
+    super(OWNER_ONLY);
+    this.name = "OwnerOnlyError";
+  }
+}
+export type PersonOptions = { actor: Actor | null; secret?: string | null };
+const isOwner = (o: PersonOptions | undefined) => !!o && allows(o.actor, "owner");
+
+/**
+ * Our own refusals pass through. Anything else, such as a database error that could quote a value, becomes one
+ * plain line with no cause attached, so nothing that logs or serializes the error can reach the original.
+ */
+async function plainErrors<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err instanceof InvalidEmailError || err instanceof MissingSecretError || err instanceof OwnerOnlyError || err instanceof SecretMismatchError) throw err;
+    throw new Error("The person command could not finish, and nothing was changed.");
+  }
+}
+
+const IDENT = /^[a-z][a-z0-9_]*$/;
+/** A checked table name, quoted. Column names are checked here too and passed bare, as N() requires. */
+const table = (name: string) => {
+  if (!IDENT.test(name)) throw new TypeError(`"${name}" is not a table name`);
+  return `"${name}"`;
+};
+const column = (name: string) => {
+  if (!IDENT.test(name)) throw new TypeError(`"${name}" is not a column name`);
+  return name;
+};
+
+/** The secret the opt-out list is keyed by: the caller's, else FOUNDATION_SECRET. emailHash refuses one too short. */
+const secretOf = (secret: string | null | undefined) => (secret === undefined ? readEnv().fixedSecret : secret);
+
+/** Who is asked about: the matching form of the address, its keyed hash and the secret that keyed it. Throws for anything but one plain address. */
+function whoOf(email: string, secret: string | null | undefined): { n: string; hash: string; key: string } {
+  const n = normalizeEmail(email);
+  const key = secretOf(secret);
+  const hash = emailHash(n, key);
+  return { n, hash, key: key as string };
+}
+
+/**
+ * The person fields of every installed app, each only on a table that app's own migrations create (ownedPersonRefs
+ * in src/lib/key/schema.ts), so no declaration can point forget or export at a core table, another app's table or
+ * a system column. Read from the app's migrations folder beside its definition, as the Key checker reads it.
+ */
+export async function installedPersonRefs(root: string): Promise<PersonRef[]> {
+  const { sources } = await readSources(root);
+  const apps: InstalledApp[] = [];
+  for (const s of sources) {
+    if (s.type !== "app") continue;
+    const dir = path.join(root, path.dirname(s.file), "migrations");
+    let names: string[] = [];
+    try { names = (await readdir(dir)).filter((f) => f.endsWith(".sql")).sort(); } catch { /* no migrations: no tables of its own */ }
+    apps.push({ slug: s.slug, file: s.file, definition: s.data, migrationsSql: await Promise.all(names.map((f) => readFile(path.join(dir, f), "utf8"))) });
+  }
+  return ownedPersonRefs(apps).refs;
+}
+
+const CARDS_ABOUT = "kind <> 'person-forget' and (contact_id = any($1::uuid[]) or title ~* $2 or body ~* $2 or meta::text ~* $2 or run_key ~* $2 or source_id ~* $2)";
+/** What a forgotten card keeps: its kind and dates. A run key that names the person goes, and the source with it. $2 is the address pattern. */
+const BLANK_CARD = "contact_id = null, title = 'A forgotten person', body = '', meta = '{}'::jsonb, source_id = null, run_key = case when run_key ~* $2 then null else run_key end";
+/** Cards raised from an app row that forget deletes, given the placeholders of the app and of the row ids. */
+const CARDS_FROM = (app: string, ids: string) => `kind <> 'person-forget' and source_app = ${app} and source_id = any(${ids}::text[])`;
+const OUTBOX_TO = (n: string, ids: string) => `(${N("to_email")} = ${n} or contact_id = any(${ids}::uuid[]))`;
+/** An opt-out row is this person's by today's hash, or by the address it keeps (one kept under an earlier secret). */
+const OPT_OUT_OF = `(email_hash = $1 or (email is not null and ${N("email")} = $2))`;
+
+const OTHER_ADDRESS = /[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g;
+/** Text with every address that is not this person's replaced. */
+const redactOthers = (text: string, n: string) => text.replace(OTHER_ADDRESS, (m) => (whoMatches(m, n) ? m : "[another address]"));
+const CARD_WITHHELD = "This card names the person in its text, which may name others too, so only that it exists is exported.";
+const ROW_WITHHELD = "This record also names someone else, so only the parts about this person are exported.";
+
+/** Core rows for an export: cards found only through their text, and email to another address, are cut down. */
+function coreForExport(core: Record<string, unknown[]>, ids: string[], n: string): Record<string, unknown[]> {
+  const contactIds = new Set(ids);
+  const cards = (core.inbox_items as Row[]).map((c) => {
+    if (!contactIds.has(String(c.contact_id))) return { id: c.id, kind: c.kind, created_at: c.created_at, withheld: CARD_WITHHELD };
+    const meta = JSON.parse(redactOthers(JSON.stringify(c.meta ?? {}), n)) as unknown;
+    return { ...c, title: redactOthers(String(c.title ?? ""), n), body: redactOthers(String(c.body ?? ""), n), meta };
+  });
+  const outbox = (core.outbox as Row[]).map((o) => (whoMatches(String(o.to_email ?? ""), n) ? o : { withheld: ROW_WITHHELD }));
+  return { ...core, inbox_items: cards, outbox };
+}
+
+async function findCore(db: Queryable, n: string, hash: string): Promise<{ ids: string[]; core: Record<string, unknown[]> }> {
+  const contacts = await db.query<Record<string, unknown> & { id: string }>(`select * from contacts where ${N("email")} = $1`, [n]);
+  const ids = contacts.map((c) => c.id);
+  return {
+    ids,
+    core: {
+      contacts,
+      inbox_items: await db.query(`select * from inbox_items where ${CARDS_ABOUT} order by created_at, id`, [ids, addressPattern(n)]),
+      outbox: await db.query(`select * from outbox where ${OUTBOX_TO("$1", "$2")} order by created_at, id`, [n, ids]),
+      opt_outs: await db.query(`select * from opt_outs where ${OPT_OUT_OF}`, [hash, n]),
+    },
+  };
+}
+
+/** By app, the ids of the rows forget deletes: those holding the address in an entity that does not say forget: blank. */
+async function rowsToDelete(db: Queryable, refs: PersonRef[], n: string): Promise<Record<string, string[]>> {
+  const out: Record<string, string[]> = {};
+  for (const r of refs.filter((x) => x.how === "email" && x.forget === "delete")) {
+    const rows = await db.query<{ id: string }>(`select id::text as id from ${table(r.table)} where ${N(column(r.column))} = $1`, [n]);
+    if (rows.length) (out[r.app] ??= []).push(...rows.map((x) => x.id));
+  }
+  return out;
+}
+
+async function contactIds(db: Queryable, n: string): Promise<string[]> {
+  return (await db.query<{ id: string }>(`select id from contacts where ${N("email")} = $1`, [n])).map((c) => c.id);
+}
+
+/** The person's ids as a team member: the ids of the people rows whose email field is theirs. */
+async function teamIds(db: Queryable, refs: PersonRef[], n: string): Promise<string[]> {
+  const ids = new Set<string>();
+  for (const r of refs.filter((x) => x.how === "email" && x.table === "people")) {
+    const rows = await db.query<{ id: string }>(`select id::text as id from ${table(r.table)} where ${N(column(r.column))} = $1`, [n]);
+    for (const x of rows) ids.add(x.id);
+  }
+  return [...ids];
+}
+
+type Row = Record<string, unknown> & { id?: unknown };
+
+/**
+ * One app table's row that holds the person. The person's own record (a row holding their address) is exported
+ * whole, with any other person's address or team member id in it left out. A row that names this person only by
+ * id is exported whole when it names no one else. A row that also names someone else, such as a review one person
+ * wrote about another or the roster row of someone they manage, gives only the columns that name this
+ * person, and says so, because its other columns may be about the other person.
+ */
+function forExport(row: Row, tableRefs: PersonRef[], n: string, team: Set<string>): Row {
+  const emails = tableRefs.filter((r) => r.how === "email").map((r) => r.column);
+  const ids = tableRefs.filter((r) => r.how === "team_id").map((r) => r.column);
+  const filled = (c: string) => row[c] != null && row[c] !== "";
+  const mineEmail = (c: string) => typeof row[c] === "string" && whoMatches(row[c] as string, n);
+  const otherEmail = (c: string) => filled(c) && !mineEmail(c);
+  // owner_id may hold "owner", the business owner, who is not another team member.
+  const otherId = (c: string) => filled(c) && row[c] !== "owner" && !team.has(String(row[c]));
+  if (emails.some(mineEmail)) {
+    const out: Row = { ...row };
+    for (const c of emails) if (otherEmail(c)) out[c] = null;
+    for (const c of ids) if (otherId(c)) out[c] = null;
+    return out;
+  }
+  if (!emails.some(otherEmail) && !ids.some(otherId)) return row;
+  // Not even the row's id: on a roster row it is the other person's own id.
+  const out: Row = {};
+  for (const c of ids) if (team.has(String(row[c]))) out[c] = row[c];
+  out.withheld = ROW_WITHHELD;
+  return out;
+}
+
+/** The one email rule, in code: whether a stored address is this person's matching form. */
+function whoMatches(stored: string, n: string): boolean {
+  try { return normalizeEmail(stored) === n; } catch { return stored.trim().toLowerCase().replace(/^([^+@]+)\+[^@]*@/, "$1@") === n; }
+}
+
+type AppRows = { key: string; tableRefs: PersonRef[]; rows: Row[] };
+
+/** Every app row that holds the person's address or team member id, as stored, by app table. */
+async function findAppRows(db: Queryable, refs: PersonRef[], n: string, team: string[]): Promise<AppRows[]> {
+  const out: AppRows[] = [];
+  // A name field never finds a row: only an address or a team member id does.
+  const finding = refs.filter((r) => r.how !== "name");
+  for (const key of [...new Set(finding.map((r) => `${r.app}/${r.table}`))]) {
+    const tableRefs = finding.filter((r) => `${r.app}/${r.table}` === key);
+    const params: unknown[] = [];
+    const where = tableRefs.map((r) => {
+      params.push(r.how === "email" ? n : team);
+      return r.how === "email" ? `${N(column(r.column))} = $${params.length}` : `${column(r.column)} = any($${params.length}::text[])`;
+    });
+    out.push({ key, tableRefs, rows: await db.query<Row>(`select * from ${table(tableRefs[0].table)} where ${where.join(" or ")} order by created_at, id`, params) });
+  }
+  return out;
+}
+
+/** Whether an app row is about the person, holding their address, rather than someone else's that points at them. */
+const holdsAddress = (row: Row, tableRefs: PersonRef[], n: string) =>
+  tableRefs.some((r) => r.how === "email" && typeof row[r.column] === "string" && whoMatches(row[r.column] as string, n));
+
+async function findApps(db: Queryable, refs: PersonRef[], n: string): Promise<Record<string, unknown[]>> {
+  const team = await teamIds(db, refs, n);
+  const teamSet = new Set(team);
+  const apps: Record<string, unknown[]> = {};
+  for (const { key, tableRefs, rows } of await findAppRows(db, refs, n, team)) apps[key] = rows.map((row) => forExport(row, tableRefs, n, teamSet));
+  return apps;
+}
+
+export type PersonExport = { generated_at: string; email_hash: string; core: Record<string, unknown[]>; apps: Record<string, unknown[]> };
+
+/** Everything held about one person, in core tables, in card text and in every installed app. Reads only. */
+export async function exportPerson(db: Db, refs: PersonRef[], email: string, now: Date, opts: PersonOptions): Promise<PersonExport> {
+  if (!isOwner(opts)) throw new OwnerOnlyError();
+  const { n, hash, key } = whoOf(email, opts.secret);
+  return plainErrors(async () => {
+    await checkSecretFingerprint(db, key);
+    const { ids, core } = await findCore(db, n, hash);
+    return { generated_at: now.toISOString(), email_hash: hash, core: coreForExport(core, ids, n), apps: await findApps(db, refs, n) };
+  });
+}
+
+/**
+ * By table. about: the person's own records, removed or blanked. linked: other people's records that pointed at
+ * the person through a team member id, which keep everything except that link.
+ */
+export type ForgetCounts = { about: Record<string, number>; linked: Record<string, number> };
+
+/**
+ * What a forget would remove or blank, by table. An opt-out counts only while it still keeps the address,
+ * because forget replaces it with the hash alone.
+ */
+export async function planForget(db: Db, refs: PersonRef[], email: string, opts: PersonOptions): Promise<ForgetCounts> {
+  if (!isOwner(opts)) throw new OwnerOnlyError();
+  const { n, hash, key } = whoOf(email, opts.secret);
+  return plainErrors(() => planFor(db, refs, n, hash, key));
+}
+
+async function planFor(db: Db, refs: PersonRef[], n: string, hash: string, key: string): Promise<ForgetCounts> {
+  await checkSecretFingerprint(db, key);
+  const { core } = await findCore(db, n, hash);
+  const counts: ForgetCounts = { about: {}, linked: {} };
+  const cards = new Set((core.inbox_items as Row[]).map((c) => String(c.id)));
+  for (const [app, ids] of Object.entries(await rowsToDelete(db, refs, n))) {
+    for (const c of await db.query<{ id: string }>(`select id from inbox_items where ${CARDS_FROM("$1", "$2")}`, [app, ids])) cards.add(c.id);
+  }
+  core.inbox_items = [...cards];
+  for (const [k, v] of Object.entries(core)) {
+    const held = k === "opt_outs" ? (v as { email: string | null }[]).filter((o) => o.email !== null) : v;
+    if (held.length) counts.about[k] = held.length;
+  }
+  for (const { key, tableRefs, rows } of await findAppRows(db, refs, n, await teamIds(db, refs, n))) {
+    const about = rows.filter((r) => holdsAddress(r, tableRefs, n)).length;
+    if (about) counts.about[key] = about;
+    if (rows.length - about) counts.linked[key] = rows.length - about;
+  }
+  return counts;
+}
+
+const isEmpty = (c: ForgetCounts) => Object.keys(c.about).length === 0 && Object.keys(c.linked).length === 0;
+const listed = (by: Record<string, number>) => Object.entries(by).map(([k, v]) => `${v} ${k}`).join(", ");
+
+/** The line for the build log: what went, never who. */
+export function forgetSummary(counts: ForgetCounts): string {
+  const about = listed(counts.about);
+  const linked = listed(counts.linked);
+  return `Forgot one person: ${about || "nothing held"}.${linked ? ` Cleared the link to them in other people's records: ${linked}.` : ""}`;
+}
+
+export type ForgetOutcome =
+  | { status: "owner_only" } | { status: "nothing" } | { status: "has_account" }
+  | { status: "card_raised"; cardId: string; previous: "none" | "declined" | "closed" | "forgotten" }
+  | { status: "waiting" } | { status: "sending" } | { status: "done_before" } | { status: "forgotten"; counts: ForgetCounts };
+
+const reEscape = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Every spelling the one email rule joins, as a case-insensitive Postgres regex for free text. */
+export function addressPattern(email: string): string {
+  const [local, domain] = normalizeEmail(email).split("@");
+  return `(^|[^a-z0-9._%+-])${reEscape(local)}(\\+[^@\\s]*)?@${reEscape(domain)}($|[^a-z0-9.-])`;
+}
+
+async function hasAccount(db: Queryable, n: string): Promise<boolean> {
+  // Accounts arrive with the hosted database. Before then no one has one.
+  const [t] = await db.query<{ present: boolean }>("select to_regclass('accounts') is not null as present");
+  if (!t?.present) return false;
+  return (await db.query(`select 1 as hit from accounts where removed_at is null and ${N("email")} = $1 limit 1`, [n])).length > 0;
+}
+
+type Previous = "none" | "declined" | "closed" | "forgotten";
+
+async function raiseForgetCard(db: Db, kinds: KindRegistry, refs: PersonRef[], email: string, runKey: string, previous: Previous, now: Date, opts: PersonOptions): Promise<ForgetOutcome> {
+  const counts = await planForget(db, refs, email, opts);
+  if (isEmpty(counts)) return previous === "forgotten" ? { status: "done_before" } : { status: "nothing" };
+  const lines = (by: Record<string, number>) => Object.entries(by).map(([k, v]) => `${v} in ${k}`);
+  const linked = lines(counts.linked);
+  const r = await writeCard(db, kinds, {
+    kind: "person-forget",
+    title: "Forget one person on request",
+    runKey,
+    body: [
+      "When you approve, these records about the person are removed, or kept with the person's details blanked where the app keeps them:",
+      ...lines(counts.about),
+      ...(linked.length ? ["Other people's records that point to this person keep everything else. Only the link is cleared:", ...linked] : []),
+      "Only a scrambled fingerprint of the address stays, so this person is never emailed again.",
+      "Forget does not read notes or messages inside your apps, or find someone mentioned only by name. Check those by hand first.",
+    ].join("\n"),
+  }, now);
+  return r.status === "written" ? { status: "card_raised", cardId: r.id, previous } : { status: "waiting" };
+}
+
+/**
+ * Forgets one person, always after the owner's yes. Each request is its own person-forget card under the run key
+ * forget:<first 16 of the hash>:<n>. With no card, or after a declined card, a card closed without a decision, or a
+ * finished forget followed by fresh records, it raises the next card. While the newest card waits it does nothing.
+ * Once that card is approved it removes or blanks every reference in one transaction, keeps only the hash in
+ * opt_outs with scope all, and completes the card. Someone with an active account is never forgotten.
+ */
+export async function forgetPerson(db: Db, kinds: KindRegistry, refs: PersonRef[], email: string, now: Date, opts: PersonOptions): Promise<ForgetOutcome> {
+  if (!isOwner(opts)) return { status: "owner_only" };
+  const { n, hash, key } = whoOf(email, opts.secret);
+  return plainErrors(() => forgetFor(db, kinds, refs, email, n, hash, key, now, opts));
+}
+
+async function forgetFor(db: Db, kinds: KindRegistry, refs: PersonRef[], email: string, n: string, hash: string, key: string, now: Date, opts: PersonOptions): Promise<ForgetOutcome> {
+  // Under another secret the hash written below would not match, and an earlier hash-only opt-out would be missed.
+  await checkSecretFingerprint(db, key);
+  if (await hasAccount(db, n)) return { status: "has_account" };
+  const prefix = `forget:${hash.slice(0, 16)}:`;
+  const cards = await db.query<{ id: string; status: string; decision: string | null; run_key: string }>(
+    "select id, status, decision, run_key from inbox_items where kind = 'person-forget' and starts_with(run_key, $1)",
+    [prefix],
+  );
+  const seqOf = (key: string) => Number(key.slice(prefix.length)) || 0;
+  const seq = cards.reduce((m, c) => Math.max(m, seqOf(c.run_key)), 0);
+  const nextKey = `${prefix}${seq + 1}`;
+  const card = cards.find((c) => seqOf(c.run_key) === seq);
+  if (!card) return raiseForgetCard(db, kinds, refs, email, nextKey, "none", now, opts);
+  if (card.status === "new") return { status: "waiting" };
+  if (card.decision === "decline") return raiseForgetCard(db, kinds, refs, email, nextKey, "declined", now, opts);
+  if (card.decision === null) return raiseForgetCard(db, kinds, refs, email, nextKey, "closed", now, opts);
+  if (card.status === "done") return raiseForgetCard(db, kinds, refs, email, nextKey, "forgotten", now, opts);
+  // Approved and not yet carried out: do it now, in one transaction.
+  const pattern = addressPattern(n);
+  const counts = await db.transaction(async (tx): Promise<ForgetCounts | null> => {
+    const c: ForgetCounts = { about: {}, linked: {} };
+    const bump = (k: string, by: number) => { if (by) c.about[k] = (c.about[k] ?? 0) + by; };
+    await checkSecretFingerprint(tx, key);
+    // A sender holding an email to the person right now would mark it sent with the address still on it. Lock the
+    // person's rows, so no sender takes one meanwhile, and wait while any is sending.
+    const held = await tx.query<{ status: string }>(`select status from outbox where ${OUTBOX_TO("$1", "$2")} for update`, [n, await contactIds(tx, n)]);
+    if (held.some((o) => o.status === "sending")) return null;
+    const { ids } = await findCore(tx, n, hash);
+    // Team ids are read before the people rows go.
+    const team = await teamIds(tx, refs, n);
+    const cards = new Set((await tx.query<{ id: string }>(`update inbox_items set ${BLANK_CARD} where ${CARDS_ABOUT} returning id`, [ids, pattern])).map((x) => x.id));
+    // A sent email is a record that stays, with every detail blanked. Its send key becomes forgotten:<id>, because
+    // send keys are unique and the old one may name the person.
+    bump("outbox", (await tx.query(`delete from outbox where ${OUTBOX_TO("$1", "$2")} and status <> 'sent' returning id`, [n, ids])).length);
+    bump("outbox", (await tx.query(
+      `update outbox set to_email = '', subject = '', body = '', send_key = 'forgotten:' || id::text, last_error = '', provider_ref = null, source_id = null
+        where ${OUTBOX_TO("$1", "$2")} and status = 'sent' returning id`,
+      [n, ids],
+    )).length);
+    // App rows: the person's team member id is blanked wherever it appears, and a row that holds their address is
+    // deleted, or kept with the address blanked where its entity says forget: blank. One row counts once per table.
+    // A row that held the address is about the person. One that only held their team member id is someone else's,
+    // pointing at them, and keeps everything but that link.
+    const about: Record<string, Set<string>> = {};
+    const linked: Record<string, Set<string>> = {};
+    const mark = (into: Record<string, Set<string>>, key: string, rows: { id: unknown }[]) => { for (const r of rows) (into[key] ??= new Set()).add(String(r.id)); };
+    for (const r of refs.filter((x) => x.how === "team_id")) {
+      mark(linked, `${r.app}/${r.table}`, await tx.query<{ id: unknown }>(`update ${table(r.table)} set ${column(r.column)} = '' where ${column(r.column)} = any($1::text[]) returning id`, [team]));
+    }
+    // A field marked person: name is blanked on every row that holds the person's address, before that address goes.
+    for (const r of refs.filter((x) => x.how === "name")) {
+      for (const e of refs.filter((x) => x.how === "email" && x.app === r.app && x.table === r.table)) {
+        mark(about, `${r.app}/${r.table}`, await tx.query<{ id: unknown }>(`update ${table(r.table)} set ${column(r.column)} = '' where ${N(column(e.column))} = $1 returning id`, [n]));
+      }
+    }
+    const deleted: Record<string, string[]> = {};
+    for (const r of refs.filter((x) => x.how === "email")) {
+      const sql = r.forget === "blank"
+        ? `update ${table(r.table)} set ${column(r.column)} = '' where ${N(column(r.column))} = $1 returning id`
+        : `delete from ${table(r.table)} where ${N(column(r.column))} = $1 returning id`;
+      const rows = await tx.query<{ id: unknown }>(sql, [n]);
+      mark(about, `${r.app}/${r.table}`, rows);
+      if (r.forget === "delete" && rows.length) (deleted[r.app] ??= []).push(...rows.map((x) => String(x.id)));
+    }
+    // A card raised from a row that is now gone would be the only trace of it, so it is blanked too.
+    for (const [app, rowIds] of Object.entries(deleted)) {
+      for (const x of await tx.query<{ id: string }>(`update inbox_items set ${BLANK_CARD} where ${CARDS_FROM("$1", "$3")} returning id`, [app, pattern, rowIds])) cards.add(x.id);
+    }
+    bump("inbox_items", cards.size);
+    for (const [k, v] of Object.entries(about)) bump(k, v.size);
+    for (const [k, v] of Object.entries(linked)) {
+      const n2 = [...v].filter((id) => !about[k]?.has(id)).length;
+      if (n2) c.linked[k] = n2;
+    }
+    // Only the hash stays, as an opt-out from every email. Any earlier row for this person, including one that
+    // kept the address under an earlier secret, is replaced.
+    bump("opt_outs", (await tx.query<{ id: string }>(`delete from opt_outs where ${OPT_OUT_OF} and email is not null returning id`, [hash, n])).length);
+    await tx.query(`delete from opt_outs where ${OPT_OUT_OF}`, [hash, n]);
+    await tx.query("insert into opt_outs (email, email_hash, at, source, scope) values (null, $1, $2, 'forget', 'all')", [hash, now]);
+    bump("contacts", (await tx.query("delete from contacts where id = any($1::uuid[]) returning id", [ids])).length);
+    const closed = await tx.query("update inbox_items set status = 'done' where id = $1 and status = 'decided' and decision = 'approve' returning id", [card.id]);
+    if (closed.length !== 1) throw new Error("The forget card changed while forgetting. Nothing was removed.");
+    return c;
+  });
+  return counts === null ? { status: "sending" } : { status: "forgotten", counts };
+}
+
+/**
+ * Where an export goes: .data/exports/ by default, or a folder the owner names inside .data/, which git ignores.
+ * The name holds the first 12 characters of the keyed hash and the date, never the address.
+ */
+export function exportTarget(root: string, out: string | null, emailHashHex: string, date: string): string {
+  if (!/^[0-9a-f]{64}$/.test(emailHashHex)) throw new TypeError("An export is named by the address's hash.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new TypeError("An export's date is YYYY-MM-DD.");
+  const name = `person-${emailHashHex.slice(0, 12)}-${date}.json`;
+  const base = path.resolve(root);
+  const dir = out ? path.resolve(base, out) : path.join(base, ".data", "exports");
+  const rel = path.relative(path.join(base, ".data"), dir);
+  if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) throw new Error("Save exports in a folder inside .data, such as .data/exports.");
+  return path.join(dir, name);
+}
+
+export const EXPORT_LINK = "Exports are never written through a link. Choose a folder inside .data that holds no links.";
+
+const isLink = (p: string) => {
+  try { return lstatSync(p).isSymbolicLink(); } catch { return false; }
+};
+
+/**
+ * Writes an export readable only by the owner (mode 0600). The folder and the file are each checked with lstat
+ * first, and refused when either is a link, so an export can never land outside the folder it names. The file
+ * is then opened with O_NOFOLLOW, so a link made between the check and the write is refused too.
+ */
+export function writeExport(file: string, text: string): void {
+  const dir = path.dirname(file);
+  if (isLink(dir)) throw new Error(EXPORT_LINK);
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  if (isLink(dir) || isLink(file)) throw new Error(EXPORT_LINK);
+  let fd: number;
+  try {
+    fd = openSync(file, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW, 0o600);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ELOOP") throw new Error(EXPORT_LINK);
+    throw err;
+  }
+  try {
+    // Narrow first, so a file already there is never written while others can read it.
+    fchmodSync(fd, 0o600);
+    writeSync(fd, text);
+  } finally {
+    closeSync(fd);
+  }
+}

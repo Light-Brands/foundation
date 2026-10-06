@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
-import { isMap, parse, parseDocument, stringify } from "yaml";
+import { Document, isMap, isScalar, parse, parseDocument, stringify } from "yaml";
 import type { ContextBlock } from "./context-block";
 
 /** Write a temp file in the same folder, then rename it into place, so a reader never sees half a file. */
@@ -19,7 +19,13 @@ async function writeAtomic(file: string, text: string): Promise<void> {
 export async function writeContextBlock(root: string, block: ContextBlock): Promise<void> {
   const dir = path.join(root, "key", "knowledge");
   await mkdir(dir, { recursive: true });
-  await writeAtomic(path.join(dir, "context-block.yaml"), stringify(block));
+  // Quote the clock times so a YAML 1.1 reader never takes 09:00 for a number.
+  const doc = new Document(block);
+  for (const k of ["work_start", "work_end"]) {
+    const node = doc.get(k, true);
+    if (isScalar(node)) node.type = "QUOTE_DOUBLE";
+  }
+  await writeAtomic(path.join(dir, "context-block.yaml"), doc.toString());
 }
 
 /** Set `name` in key/key.yaml to the business name. `client` is the identity set once at setup and stays. */

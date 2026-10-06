@@ -6,3 +6,4 @@ create table bookings (
   created_at timestamptz,
   updated_at timestamptz
 );
+alter table bookings enable row level security;

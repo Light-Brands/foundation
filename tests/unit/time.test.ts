@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { businessTimeZone, formatCardTime } from "@/lib/time";
+import { businessTimeZone, formatCardTime, businessDate, businessWeekday, businessWeekStart, businessClock, isOpenAt, workingHours } from "@/lib/time";
 
 // 06:30 UTC on a Monday is still Sunday evening in Los Angeles: the card must show the business's day.
 const AT = "2026-10-05 06:30:00.123456+00";
@@ -29,5 +29,86 @@ describe("card times", () => {
     expect(formatCardTime("2026-10-05 06:30:00+00", "UTC")).toBe("Oct 5, 2026, 6:30 AM UTC");
     expect(formatCardTime("2026-10-05 06:30:00-07", "UTC")).toBe("Oct 5, 2026, 1:30 PM UTC");
     expect(formatCardTime("not a time", "UTC")).toBe("not a time");
+  });
+});
+
+describe("the business's clock", () => {
+  // 2026-10-05T06:30:00Z is 23:30 on Sunday, October 4 in Portland.
+  const lateSunday = new Date("2026-10-05T06:30:00Z");
+  it("dates and weeks follow the business's zone", () => {
+    expect(businessDate("America/Los_Angeles", lateSunday)).toBe("2026-10-04");
+    expect(businessWeekday("America/Los_Angeles", lateSunday)).toBe("sun");
+    expect(businessWeekStart("America/Los_Angeles", lateSunday)).toBe("2026-09-28");
+    expect(businessWeekStart("UTC", lateSunday)).toBe("2026-10-05");
+    expect(businessClock("America/Los_Angeles", lateSunday)).toBe("23:30");
+  });
+  it("falls back to UTC for an empty or unknown zone", () => {
+    expect(businessDate("", lateSunday)).toBe("2026-10-05");
+    expect(businessDate("Mars/Base", lateSunday)).toBe("2026-10-05");
+  });
+  it("reads midnight as 00:00", () => {
+    expect(businessClock("UTC", new Date("2026-10-05T00:00:00Z"))).toBe("00:00");
+  });
+});
+
+describe("isOpenAt", () => {
+  const hours = workingHours({ work_days: "mon,tue,wed,thu,fri", work_start: "09:00", work_end: "17:00" });
+  const tz = "America/Los_Angeles";
+  it("is open on a working day inside the hours, with the end excluded", () => {
+    expect(isOpenAt(hours, tz, new Date("2026-10-05T16:00:00Z"))).toBe(true); // Monday 09:00
+    expect(isOpenAt(hours, tz, new Date("2026-10-05T23:59:00Z"))).toBe(true); // Monday 16:59
+    expect(isOpenAt(hours, tz, new Date("2026-10-06T00:00:00Z"))).toBe(false); // Monday 17:00
+  });
+  it("is closed on a day off", () => {
+    expect(isOpenAt(hours, tz, new Date("2026-10-04T18:00:00Z"))).toBe(false); // Sunday 11:00
+  });
+  it("is always open when no hours are set", () => {
+    expect(workingHours({ work_days: "", work_start: "", work_end: "" })).toBeNull();
+    expect(isOpenAt(null, tz, new Date("2026-10-04T18:00:00Z"))).toBe(true);
+  });
+});
+
+describe("daylight saving and week edges", () => {
+  const LA = "America/Los_Angeles";
+  it("spring forward: 2026-03-08 02:00 does not exist, the clock jumps from 01:59 PST to 03:00 PDT", () => {
+    expect(businessClock(LA, new Date("2026-03-08T09:59:00Z"))).toBe("01:59");
+    expect(businessClock(LA, new Date("2026-03-08T10:00:00Z"))).toBe("03:00");
+    expect(businessDate(LA, new Date("2026-03-08T10:00:00Z"))).toBe("2026-03-08");
+    expect(businessWeekday(LA, new Date("2026-03-08T10:00:00Z"))).toBe("sun");
+    expect(businessWeekStart(LA, new Date("2026-03-08T10:00:00Z"))).toBe("2026-03-02");
+  });
+  it("fall back: 2026-11-01 01:30 happens twice and the date stays put", () => {
+    expect(businessClock(LA, new Date("2026-11-01T08:30:00Z"))).toBe("01:30"); // PDT
+    expect(businessClock(LA, new Date("2026-11-01T09:30:00Z"))).toBe("01:30"); // PST
+    expect(businessDate(LA, new Date("2026-11-01T09:30:00Z"))).toBe("2026-11-01");
+    expect(businessClock(LA, new Date("2026-11-01T10:00:00Z"))).toBe("02:00");
+    expect(businessWeekStart(LA, new Date("2026-11-01T09:30:00Z"))).toBe("2026-10-26");
+  });
+  it("a zone without daylight saving keeps one offset all year", () => {
+    expect(businessClock("Asia/Kolkata", new Date("2026-03-08T10:00:00Z"))).toBe("15:30");
+    expect(businessClock("Asia/Kolkata", new Date("2026-11-01T10:00:00Z"))).toBe("15:30");
+    expect(businessClock("UTC", new Date("2026-03-08T10:00:00Z"))).toBe("10:00");
+    expect(businessClock("UTC", new Date("2026-11-01T10:00:00Z"))).toBe("10:00");
+  });
+  it("the week turns over between Sunday 23:59 and Monday 00:00", () => {
+    const sun = new Date("2026-10-04T23:59:00Z");
+    const mon = new Date("2026-10-05T00:00:00Z");
+    expect(businessWeekday("UTC", sun)).toBe("sun");
+    expect(businessWeekStart("UTC", sun)).toBe("2026-09-28");
+    expect(businessWeekday("UTC", mon)).toBe("mon");
+    expect(businessWeekStart("UTC", mon)).toBe("2026-10-05");
+  });
+  it("isOpenAt reads an invalid zone as UTC and includes the exact opening minute", () => {
+    const hours = workingHours({ work_days: "mon,tue,wed,thu,fri", work_start: "09:00", work_end: "17:00" });
+    expect(isOpenAt(hours, "Mars/Base", new Date("2026-10-05T09:00:00Z"))).toBe(true);
+    expect(isOpenAt(hours, "Mars/Base", new Date("2026-10-05T08:59:00Z"))).toBe(false);
+    expect(isOpenAt(hours, "UTC", new Date("2026-10-05T09:00:00Z"))).toBe(true);
+    expect(isOpenAt(hours, LA, new Date("2026-10-05T16:00:00Z"))).toBe(true);
+    expect(isOpenAt(hours, LA, new Date("2026-10-05T15:59:00Z"))).toBe(false);
+  });
+  it("workingHours keeps only real weekdays from a bad stored value", () => {
+    const h = workingHours({ work_days: "mon,funday,fri,", work_start: "09:00", work_end: "17:00" });
+    expect(h?.days).toEqual(["mon", "fri"]);
+    expect(workingHours({ work_days: "nope", work_start: "09:00", work_end: "17:00" })).toBeNull();
   });
 });

@@ -2,9 +2,12 @@ import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { parse } from "yaml";
 import { CATEGORIES } from "@/lib/layout/categories";
-import { compareDefinition } from "@/lib/key/schema";
+import { parseFrontMatter, SLUG } from "./frontmatter";
+import { CORE_TABLES, readDeclarations } from "./declarations";
+import { checkWebhook } from "@/lib/hooks/declaration";
+import { checkSender, SENDER_FILE } from "@/lib/outbox/sender";
+import { compareDefinition, ownedPersonRefs, personFieldProblems, rlsProblems, type InstalledApp } from "@/lib/key/schema";
 
-export const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export const COMMIT_ID = /^[0-9a-f]{40}$/;
 export const CHARTER_HEADINGS = ["Role", "Who I serve", "How I work", "What I know", "What I never do", "Tasks", "Skills", "Memory"];
 export const SKILL_SECTIONS = ["Input", "Steps", "Output", "Check"];
@@ -17,8 +20,11 @@ const IDENTIFIER = /^[a-z][a-z0-9_]*$/;
 const SYSTEM_COLUMNS = ["id", "created_at", "updated_at"];
 const MEMORY_TYPES = ["preference", "feedback", "reference", "context"];
 const CATEGORY_IDS: string[] = CATEGORIES.map((c) => c.id);
+export { parseFrontMatter, SLUG };
 // A slug that would collide with the core migration names.
 const RESERVED_APP_SLUGS = ["core"];
+// Core tables live in the same database as every app. No entity may take one of their names.
+export { CORE_TABLES } from "./declarations";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -30,18 +36,6 @@ function loadYaml(file: string, text: string, problems: string[]): unknown {
     problems.push(`${file}: not valid YAML (${(e as Error).message.split("\n")[0]})`);
     return undefined;
   }
-}
-
-export function parseFrontMatter(md: string): { data: Record<string, unknown>; body: string } | null {
-  const lines = md.replace(/\r\n/g, "\n").split("\n");
-  if (lines[0]?.trim() !== "---") return null;
-  const end = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
-  if (end < 0) return null;
-  let data: unknown;
-  try { data = parse(lines.slice(1, end).join("\n")); } catch { return null; }
-  if (data == null) data = {};
-  if (!isObj(data)) return null;
-  return { data, body: lines.slice(end + 1).join("\n") };
 }
 
 function h2(md: string): string[] {
@@ -246,6 +240,7 @@ export function checkDefinition(file: string, text: string, routineSlugs: string
     const ek = isObj(e) ? str(e.key) : "";
     if (!IDENTIFIER.test(ek)) bad(`entities[${ei}] entity key "${ek}" must be lowercase letters, digits and underscores, starting with a letter`);
     else if (entityKeys.has(ek)) bad(`entities[${ei}] entity key "${ek}" repeats`);
+    else if (CORE_TABLES.includes(ek)) bad(`entities[${ei}] entity key "${ek}" is a core table name. Name the entity after this app's own records`);
     entityKeys.add(ek);
     const seen = new Set<string>();
     list(isObj(e) ? e.fields : undefined).forEach((f, i) => {
@@ -331,12 +326,19 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
     if (fm && str(fm.data.trigger) === "record_change") recordChange.push({ file: rel(f), entity: str(fm.data.entity) });
   }
   const entities = new Set<string>();
+  const installed: InstalledApp[] = [];
   for (const f of await files(path.join(key, "apps"), "definition.yaml")) {
     const text = await read(f);
     problems.push(...checkDefinition(rel(f), text, slugs));
     const migrations = await files(path.join(path.dirname(f), "migrations"), ".sql");
     const sql = await Promise.all(migrations.map(read));
     problems.push(...compareDefinition(rel(f), text, sql));
+    problems.push(...rlsProblems(rel(f), sql));
+    try {
+      const parsed: unknown = parse(text);
+      problems.push(...personFieldProblems(rel(f), parsed));
+      installed.push({ slug: path.basename(path.dirname(f)), file: rel(f), definition: parsed, migrationsSql: sql });
+    } catch { /* checkDefinition reports invalid YAML */ }
     let def: unknown;
     try { def = parse(text); } catch { def = undefined; }
     if (isObj(def)) {
@@ -345,6 +347,8 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
       for (const e of list(def.entities)) if (isObj(e) && str(e.key)) entities.add(str(e.key));
     }
   }
+  // Person fields only on the declaring app's own tables, the same rule installedPersonRefs applies at load.
+  problems.push(...ownedPersonRefs(installed).problems);
   for (const r of recordChange) {
     if (!entities.has(r.entity)) problems.push(`${r.file}: record_change entity "${r.entity}" is not defined by any app`);
   }
@@ -384,6 +388,29 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
     try { folders = (await readdir(path.join(key, "apps"), { withFileTypes: true })).filter((d) => d.isDirectory()).map((d) => d.name); } catch { /* no apps folder */ }
     for (const folder of folders.sort()) {
       if (!listed.has(folder)) problems.push(`${rel(path.join(key, "apps", folder))}: app folder is not listed in key.yaml`);
+    }
+  }
+  const unreadable = / could not be read as YAML$/;
+  for (const d of (await readDeclarations(root)).problems) {
+    // checkKeyYaml and checkDefinition already say a file is not valid YAML, so say it once.
+    if (unreadable.test(d) && problems.some((x) => x.startsWith(d.split(":")[0] + ":"))) continue;
+    problems.push(d);
+  }
+  for (const f of await files(path.join(key, "connections"), ".yaml")) {
+    const name = path.basename(f, ".yaml");
+    if (path.dirname(f) !== path.join(key, "connections")) continue;
+    if (!SLUG.test(name)) { problems.push(`${rel(f)}: a connection file is named with a lowercase hyphenated slug`); continue; }
+    let data: unknown;
+    try { data = parse(await read(f)); } catch { problems.push(`${rel(f)}: could not be read as YAML`); continue; }
+    const hook = checkWebhook(rel(f), name, data);
+    problems.push(...hook.problems);
+    if (hook.decl && !(await exists(path.join(key, "connections", name, hook.decl.verifier)))) {
+      problems.push(`${rel(f)}: webhook verifier ${hook.decl.verifier} is not in key/connections/${name}/`);
+    }
+    const sender = checkSender(rel(f), name, data);
+    problems.push(...sender.problems);
+    if (sender.decl && !(await exists(path.join(key, "connections", name, SENDER_FILE)))) {
+      problems.push(`${rel(f)}: sender ${SENDER_FILE} is not in key/connections/${name}/`);
     }
   }
   for (const f of await files(path.join(key, "runs"), ".md")) problems.push(...checkRunBrief(rel(f), await read(f)));

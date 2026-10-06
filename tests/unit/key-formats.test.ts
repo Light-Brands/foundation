@@ -6,6 +6,8 @@ import {
   checkKeyFolder, checkKeyYaml, checkCharter, checkSkill, checkRoutine, checkDefinition, checkLogText, parseFrontMatter, checkInstalled, checkRunBrief, codePathOk,
 } from "@/lib/key/formats";
 import { parse } from "yaml";
+import { checkCardKinds, checkChecks, checkDraftBlock, checkForms } from "@/lib/key/declarations";
+import { checkWebhook } from "@/lib/hooks/declaration";
 import { contextBlockFromProfile } from "@/lib/key/context-block";
 import { PROFILE_FIELDS, type Profile } from "@/lib/validate";
 
@@ -100,7 +102,7 @@ function keyRoot(over: Record<string, string | null> = {}): string {
     "key/routines/nightly-follow-up.md": routine,
     "key/apps/clients/definition.yaml": definition,
     "key/apps/clients/migrations/0001_clients_create.sql":
-      "create table clients (id uuid primary key, created_at timestamptz, updated_at timestamptz, stage text, notes text);",
+      "create table clients (id uuid primary key, created_at timestamptz, updated_at timestamptz, stage text, notes text);\nalter table clients enable row level security;",
   };
   for (const [f, text] of Object.entries({ ...files, ...over })) {
     if (text === null) continue;
@@ -268,6 +270,11 @@ ${fields}
 ${extra}migrations: migrations/
 `;
   it("passes the real shape", () => expect(checkDefinition("d.yaml", definition, ["nightly-follow-up"])).toEqual([]));
+  it("refuses an entity named like a core table", () => {
+    for (const t of ["contacts", "inbox_items", "outbox", "accounts"]) {
+      expect(checkDefinition("d.yaml", definition.replace("key: clients", `key: ${t}`), ["nightly-follow-up"]).join(), t).toMatch(/is a core table name/);
+    }
+  });
   it("rejects an unknown field type", () => {
     expect(checkDefinition("d.yaml", def("      - { key: n, name: N, type: json }"), []).join("\n")).toMatch(/type "json"/);
   });
@@ -301,7 +308,7 @@ describe("checkKeyFolder cross-checks", () => {
   });
   it("fails an app folder that key.yaml does not list", async () => {
     const other = definition.replace("app: clients", "app: extra");
-    const p = (await checkKeyFolder(keyRoot({ "key/apps/extra/definition.yaml": other, "key/apps/extra/migrations/0001_extra_create.sql": "create table clients (id uuid primary key, created_at timestamptz, updated_at timestamptz, stage text, notes text);" }))).join("\n");
+    const p = (await checkKeyFolder(keyRoot({ "key/apps/extra/definition.yaml": other, "key/apps/extra/migrations/0001_extra_create.sql": "create table clients (id uuid primary key, created_at timestamptz, updated_at timestamptz, stage text, notes text);\nalter table clients enable row level security;" }))).join("\n");
     expect(p).toMatch(/apps\/extra: app folder is not listed in key\.yaml/);
   });
   it("fails when the folder name and the definition app differ", async () => {
@@ -444,6 +451,28 @@ describe("the examples in docs/standards/key.md", () => {
   it("the skill passes checkSkill", () => expect(checkSkill("key.md", section("Skill", "markdown"))).toEqual([]));
   it("the routine passes checkRoutine", () => expect(checkRoutine("key.md", section("Routine", "markdown"))).toEqual([]));
   it("the app definition passes checkDefinition", () => expect(checkDefinition("key.md", section("App definition", "yaml"), ["booking-reminders"])).toEqual([]));
+  it("the card kinds example passes checkCardKinds", () => {
+    const decl = parse(section("Card kinds", "yaml")) as { card_kinds: unknown };
+    expect(checkCardKinds({ file: "key.md", category: "deliver", slug: "bookings" }, decl.card_kinds).problems).toEqual([]);
+  });
+  it("the public forms example passes checkForms", () => {
+    const decl = parse(section("Public forms", "yaml")) as { forms: unknown };
+    expect(checkForms({ file: "key.md", slug: "bookings" }, decl.forms, new Set(["booking-request"])).problems).toEqual([]);
+  });
+  it("the webhooks example passes checkWebhook", () => {
+    expect(checkWebhook("key/connections/stripe.yaml", "stripe", parse(section("Webhooks", "yaml")))).toEqual({
+      decl: { connection: "stripe", verifier: "verify.ts", secretSetting: "STRIPE_WEBHOOK_SECRET" }, problems: [],
+    });
+  });
+  it("the checks example passes checkChecks", () => {
+    const decl = parse(section("Checks", "yaml")) as { checks: unknown };
+    const src = { file: "key.md", slug: "bookings", type: "app" as const, app: "bookings", uses: [] as string[] };
+    expect(checkChecks(src, decl.checks, { kindNames: new Set(["requests-waiting"]), tablesByApp: { bookings: ["bookings"] } }).problems).toEqual([]);
+  });
+  it("the drafting example passes checkDraftBlock", () => {
+    const fm = parseFrontMatter(section("Drafting commands", "markdown"));
+    expect(checkDraftBlock({ file: "key.md", slug: "review-ask" }, fm?.data.draft, () => true).problems).toEqual([]);
+  });
   it("the context block has exactly the context block fields", () => {
     const block = parse(section("The context block", "yaml")) as Record<string, unknown>;
     expect(Object.keys(block).sort()).toEqual(Object.keys(contextBlockFromProfile(emptyProfile, "", "")).sort());

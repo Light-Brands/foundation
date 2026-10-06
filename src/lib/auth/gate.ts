@@ -1,10 +1,32 @@
 import type { FoundationEnv } from "@/lib/env";
 import { pinMatches, signSession } from "@/lib/auth/pin-token";
 
-const PUBLIC = [/^\/gate$/, /^\/api\/gate$/, /^\/contact$/, /^\/_next\//, /^\/favicon\.ico$/];
+const PUBLIC = [/^\/gate$/, /^\/api\/gate$/, /^\/contact$/, /^\/f\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/api\/hooks\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/u\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}$/, /^\/_next\//, /^\/favicon\.ico$/];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC.some((re) => re.test(pathname));
+}
+
+// The host's schedule. Public only to a request carrying Authorization: Bearer <CRON_SECRET>.
+export const CRON_PATHS: readonly string[] = ["/api/cron/checks"];
+
+// Compares in time that does not depend on where the texts differ, once their lengths match.
+function sameText(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/** True only when a secret is set and the header is exactly Bearer <secret>. No secret set means no one. */
+export function cronAuthorized(authorization: string | null, cronSecret: string | null): boolean {
+  if (!cronSecret || !authorization) return false;
+  return sameText(authorization, `Bearer ${cronSecret}`);
+}
+
+export function isPublicRequest(pathname: string, authorization: string | null, cronSecret: string | null): boolean {
+  if (isPublicPath(pathname)) return true;
+  return CRON_PATHS.includes(pathname) && cronAuthorized(authorization, cronSecret);
 }
 
 const ORIGIN = "http://gate.local";

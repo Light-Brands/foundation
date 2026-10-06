@@ -1,4 +1,5 @@
 import type { DriverKind } from "@/lib/db/driver";
+import type { ConnectionStatus } from "@/lib/data/connections";
 
 export type StepStatus = "done" | "next" | "later";
 export type StackStep = {
@@ -10,7 +11,7 @@ export type StackStep = {
   custom: boolean;
 };
 
-export function stackStatus(env: Record<string, string | undefined>, facts: { storage: DriverKind }): StackStep[] {
+export function stackStatus(env: Record<string, string | undefined>, facts: { storage: DriverKind; connections?: Record<string, ConnectionStatus>; emailSending?: boolean }): StackStep[] {
   const onVercel = env.VERCEL === "1";
   const prod = env.VERCEL_PROJECT_PRODUCTION_URL ?? "";
   const doneIds = new Set<StackStep["id"]>();
@@ -18,6 +19,10 @@ export function stackStatus(env: Record<string, string | undefined>, facts: { st
   if (onVercel) doneIds.add("vercel");
   if (onVercel && prod !== "" && !prod.endsWith(".vercel.app")) doneIds.add("domain");
   if (!onVercel && facts.storage === "pglite") doneIds.add("claude");
+  const conn = facts.connections ?? {};
+  if (conn["hosted-database"] === "connected") doneIds.add("supabase");
+  // emailSending is emailSendingActive(db), the one rule for whether email sends on its own.
+  if (facts.emailSending) doneIds.add("email");
 
   const base: Omit<StackStep, "status">[] = [
     { id: "github", label: "GitHub", unlocks: "Your code, its history, and updates from Light Brands.", custom: true, prompt: "setup/deploy" },

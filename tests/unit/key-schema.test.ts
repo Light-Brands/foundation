@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, cpSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, cpSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { FIELD_TYPES, checkKeyFolder } from "@/lib/key/formats";
-import { SQL_TYPE, tablesFromSql, compareDefinition } from "@/lib/key/schema";
+import { SQL_TYPE, tablesFromSql, compareDefinition, rlsProblems, personFields, personFieldProblems, ownedPersonRefs, CORE_TABLES } from "@/lib/key/schema";
+import { openPglite } from "@/lib/db/pglite";
+import { migrate } from "@/lib/db/migrate";
 
 const root = process.cwd();
 const appDir = (name: string) => path.join(root, "tests/fixtures/key-apps", name);
@@ -107,5 +109,183 @@ describe("every app under key/ matches its definition", () => {
     expect(existsSync(path.join(tmp, "key/apps/drifted-app/definition.yaml"))).toBe(true);
     const problems = await checkKeyFolder(tmp);
     expect(problems.filter((m) => m.includes("drifted-app/definition.yaml") && m.includes("entity \"bookings\""))).toHaveLength(3);
+  });
+});
+
+const TABLE = "create table if not exists notes (id uuid primary key default gen_random_uuid(), created_at timestamptz not null default now(), updated_at timestamptz not null default now());";
+
+describe("row level security in app migrations", () => {
+  it("passes a migration that turns it on", () => {
+    expect(rlsProblems("m", [`${TABLE}\nalter table notes enable row level security;`])).toEqual([]);
+  });
+  it("fails a table without it, naming the line to add", () => {
+    expect(rlsProblems("m", [TABLE])).toEqual([
+      'm: table "notes" needs row level security. Add "alter table notes enable row level security" to a migration in this app.',
+    ]);
+  });
+  it("accepts it in a later migration file of the same app", () => {
+    expect(rlsProblems("m", [TABLE, "alter table if exists only notes enable row level security;"])).toEqual([]);
+  });
+  it("fails a policy for anon, for public, or with no role", () => {
+    for (const p of [
+      "create policy open on notes for select to anon using (true);",
+      'create policy "open" on notes to public using (true);',
+      "create policy open on notes using (true);",
+    ]) {
+      const out = rlsProblems("m", [`${TABLE} alter table notes enable row level security; ${p}`]);
+      expect(out.join(), p).toMatch(/opens it to anonymous visitors/);
+    }
+  });
+  it("accepts a policy for a signed in role", () => {
+    expect(rlsProblems("m", [`${TABLE} alter table notes enable row level security; create policy mine on notes for select to authenticated using (true);`])).toEqual([]);
+  });
+  it("fails a grant to anon and turning it off", () => {
+    expect(rlsProblems("m", [`${TABLE} alter table notes enable row level security; grant select on notes to anon;`]).join()).toMatch(/grant to anon or public/);
+    expect(rlsProblems("m", [`${TABLE} alter table notes enable row level security; alter table notes disable row level security;`]).join()).toMatch(/turns row level security off/);
+  });
+  it("fails alter policy to anon or public, in any case and spacing", () => {
+    for (const p of [
+      "alter policy mine on notes to anon;",
+      "ALTER   POLICY\n mine ON notes\tTO  Public;",
+      'alter policy "mine" on notes to authenticated, anon;',
+    ]) {
+      const out = rlsProblems("m", [`${TABLE} alter table notes enable row level security; ${p}`]);
+      expect(out.join(), p).toMatch(/opens it to anonymous visitors/);
+    }
+    expect(rlsProblems("m", [`${TABLE} alter table notes enable row level security; alter policy mine on notes to authenticated;`])).toEqual([]);
+    expect(rlsProblems("m", [`${TABLE} alter table notes enable row level security; alter policy mine on notes rename to yours;`])).toEqual([]);
+  });
+  it("fails alter default privileges that grant to anon or public", () => {
+    for (const p of [
+      "alter default privileges in schema public grant select on tables to anon;",
+      "ALTER  DEFAULT\nPRIVILEGES grant all on tables TO  PUBLIC;",
+    ]) {
+      const out = rlsProblems("m", [`${TABLE} alter table notes enable row level security; ${p}`]);
+      expect(out.join(), p).toMatch(/grant to anon or public/);
+    }
+    expect(rlsProblems("m", [`${TABLE} alter table notes enable row level security; alter default privileges in schema public grant select on tables to authenticated;`])).toEqual([]);
+  });
+  it("ignores the words inside comments and strings", () => {
+    expect(rlsProblems("m", [`${TABLE} -- create table ghosts (x int);\nalter table notes enable row level security; select 'create table ghost (x int)';`])).toEqual([]);
+  });
+});
+
+describe("checkKeyFolder and row level security", () => {
+  it("fails an installed app whose table lacks it", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "rls-"));
+    mkdirSync(path.join(root, "key/apps/notes/migrations"), { recursive: true });
+    writeFileSync(path.join(root, "key/key.yaml"), "key: 1\nclient: harbor-studio\nstage: systems\nhome: repo\nroster: []\nskills: []\napps:\n  - slug: notes\n    definition: apps/notes/definition.yaml\n    category: command\nroutines: []\n");
+    writeFileSync(path.join(root, "key/apps/notes/definition.yaml"), "app: notes\nname: Notes\ncategory: command\nruntime: custom_app\nentities:\n  - key: notes\n    name: Note\n    fields: []\nmigrations: migrations/\n");
+    writeFileSync(path.join(root, "key/apps/notes/migrations/0001_notes_create.sql"), TABLE);
+    expect((await checkKeyFolder(root)).join("\n")).toMatch(/table "notes" needs row level security/);
+  });
+});
+
+describe("an app with row level security still works on this computer", () => {
+  it("reads and writes its own table", async () => {
+    const db = await openPglite();
+    await migrate(db, path.join(process.cwd(), "tests/fixtures/key-apps/good/migrations"), "bookings-app");
+    await db.query("insert into bookings (client_email) values ('ada@example.com')");
+    const rows = await db.query<{ client_email: string }>("select client_email from bookings");
+    expect(rows).toEqual([{ client_email: "ada@example.com" }]);
+    await db.close();
+  });
+});
+
+describe("person fields", () => {
+  const def = (fields: unknown[], extra: Record<string, unknown> = {}) => ({ app: "x", entities: [{ key: "things", fields, ...extra }] });
+  it("finds every address and team member id", () => {
+    const d = def([
+      { key: "contact_email", type: "email" }, { key: "billing_email", type: "email" }, { key: "owner_id", type: "text" },
+      { key: "title", type: "text" },
+    ], { forget: "blank" });
+    expect(personFields(d, "x")).toEqual([
+      { app: "x", table: "things", column: "contact_email", how: "email", forget: "blank" },
+      { app: "x", table: "things", column: "billing_email", how: "email", forget: "blank" },
+      { app: "x", table: "things", column: "owner_id", how: "team_id", forget: "blank" },
+    ]);
+  });
+  it("finds a roster's work email and every team member id, deleting by default", () => {
+    const d = { app: "team", entities: [
+      { key: "people", fields: [{ key: "name", type: "text" }, { key: "manager_id", type: "text" }, { key: "work_email", type: "email" }] },
+      { key: "review_inputs", forget: "blank", fields: [{ key: "person_id", type: "text" }, { key: "owner_id", type: "text" }, { key: "words", type: "text" }] },
+    ] };
+    expect(personFields(d, "team")).toEqual([
+      { app: "team", table: "people", column: "manager_id", how: "team_id", forget: "delete" },
+      { app: "team", table: "people", column: "work_email", how: "email", forget: "delete" },
+      { app: "team", table: "review_inputs", column: "person_id", how: "team_id", forget: "blank" },
+      { app: "team", table: "review_inputs", column: "owner_id", how: "team_id", forget: "blank" },
+    ]);
+  });
+  it("refuses a person field outside the naming rule", () => {
+    const out = (fields: unknown[]) => personFieldProblems("d.yaml", def(fields)).join("\n");
+    expect(out([{ key: "customer_email", type: "text" }])).toMatch(/holds an email, so its type must be email/);
+    expect(out([{ key: "mobile_phone", type: "text" }])).toMatch(/Phones live on the contact/);
+    expect(out([{ key: "assignee", type: "user" }])).toMatch(/Use person_id, owner_id or manager_id/);
+    expect(out([{ key: "staff_id", type: "text" }])).toMatch(/Call it person_id, owner_id or manager_id/);
+    expect(out([{ key: "owner_id", type: "number" }])).toMatch(/holds a team member's id, so its type must be text/);
+    expect(personFieldProblems("d.yaml", def([], { forget: "archive" })).join()).toMatch(/forget must be delete or blank/);
+    expect(out([{ key: "work_email", type: "email" }, { key: "manager_id", type: "text" }])).toBe("");
+    // Like the phone rule, an address hides anywhere in a text field's name.
+    for (const key of ["email_address", "emailaddr", "backup_email_2", "personalemail"]) {
+      expect(out([{ key, type: "text" }])).toMatch(new RegExp(`field "${key}" holds an email, so its type must be email`));
+    }
+    expect(out([{ key: "email_opt_in", type: "checkbox" }])).toBe("");
+  });
+  it("keeps person fields to the declaring app's own tables", () => {
+    const app = (slug: string, entities: unknown[], sql: string) => ({ slug, file: `key/apps/${slug}/definition.yaml`, definition: { app: slug, entities }, migrationsSql: [sql] });
+    const mine = "create table things (id uuid primary key, contact_email text, created_at timestamptz, updated_at timestamptz)";
+    const { refs, problems } = ownedPersonRefs([
+      app("a", [{ key: "things", fields: [{ key: "contact_email", type: "email" }] }, { key: "opt_outs", fields: [{ key: "email", type: "email" }] }], mine),
+      app("b", [{ key: "things", fields: [{ key: "contact_email", type: "email" }] }, { key: "own", fields: [{ key: "id", type: "email" }] }],
+        "alter table things add column x text; create table own (id text primary key)"),
+    ]);
+    expect(refs.map((r) => `${r.app}:${r.table}.${r.column}`)).toEqual(["a:things.contact_email"]);
+    const text = problems.join("\n");
+    expect(text).toMatch(/entity "opt_outs": field "email" is on a core table/);
+    expect(text).toMatch(/b\/definition.yaml: entity "things": field "contact_email" is on a table this app's migrations do not create/);
+    expect(text).toMatch(/entity "own": field "id" is a system column/);
+    // Two apps creating one table: neither may use it.
+    const both = ownedPersonRefs([app("a", [{ key: "things", fields: [{ key: "contact_email", type: "email" }] }], mine), app("b", [{ key: "things", fields: [{ key: "contact_email", type: "email" }] }], mine)]);
+    expect(both.refs).toEqual([]);
+    expect(both.problems.join()).toMatch(/a and b both create/);
+  });
+  it("lists every core table as off limits", async () => {
+    const dir = path.join(root, "core/db/migrations");
+    const sql = readdirSync(dir).filter((f) => f.endsWith(".sql")).map((f) => readFileSync(path.join(dir, f), "utf8")).join("\n;\n");
+    const core = Object.keys(tablesFromSql(sql));
+    for (const t of core) expect(CORE_TABLES).toContain(t);
+  });
+  it("finds a field marked person: name, and refuses a marker it cannot use", () => {
+    const d = def([{ key: "contact_email", type: "email" }, { key: "full_name", type: "text", person: "name" }], { forget: "blank" });
+    expect(personFields(d, "x")).toEqual([
+      { app: "x", table: "things", column: "contact_email", how: "email", forget: "blank" },
+      { app: "x", table: "things", column: "full_name", how: "name", forget: "blank" },
+    ]);
+    const out = (fields: unknown[]) => personFieldProblems("d.yaml", def(fields)).join("\n");
+    expect(out([{ key: "full_name", type: "text", person: "nickname" }])).toMatch(/field "full_name": person must be name/);
+    expect(out([{ key: "full_name", type: "number", person: "name" }])).toMatch(/field "full_name" holds a person's name, so its type must be text/);
+    expect(out([{ key: "full_name", type: "text", person: "name" }])).toBe("");
+  });
+  it("fails the Key checker on a text field with email inside its name", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "person-email-"));
+    cpSync(path.join(root, "tests/fixtures/key-ext"), dir, { recursive: true });
+    const f = path.join(dir, "key/apps/leads-demo/definition.yaml");
+    writeFileSync(f, readFileSync(f, "utf8").replace("{ key: message, name: Message, type: text }", "{ key: message, name: Message, type: text }\n      - { key: email_address, name: Email address, type: text }"));
+    expect((await checkKeyFolder(dir)).join("\n")).toMatch(/field "email_address" holds an email, so its type must be email/);
+  });
+  it("fails the Key checker on an app that declares a person field on a core table", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "person-own-"));
+    cpSync(path.join(root, "tests/fixtures/key-ext"), dir, { recursive: true });
+    const f = path.join(dir, "key/apps/leads-demo/definition.yaml");
+    writeFileSync(f, readFileSync(f, "utf8").replace("entities:\n", "entities:\n  - key: opt_outs\n    name: Opt out\n    fields:\n      - { key: email, name: Email, type: email }\n"));
+    expect((await checkKeyFolder(dir)).join("\n")).toMatch(/entity "opt_outs": field "email" is on a core table/);
+  });
+  it("fails the Key checker on an installed app with a person field outside the rule", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "person-rule-"));
+    cpSync(path.join(root, "tests/fixtures/key-ext"), dir, { recursive: true });
+    const f = path.join(dir, "key/apps/leads-demo/definition.yaml");
+    writeFileSync(f, readFileSync(f, "utf8").replace("{ key: contact_email, name: Contact email, type: email }", "{ key: contact_email, name: Contact email, type: text }"));
+    expect((await checkKeyFolder(dir)).join("\n")).toMatch(/field "contact_email" holds an email, so its type must be email/);
   });
 });

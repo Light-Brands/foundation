@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { safeNext, isPublicPath, handleGatePost } from "@/lib/auth/gate";
+import { safeNext, isPublicPath, handleGatePost, cronAuthorized, isPublicRequest } from "@/lib/auth/gate";
 import { readEnv } from "@/lib/env";
 import { verifySession } from "@/lib/auth/pin-token";
 
@@ -34,12 +34,20 @@ describe("isPublicPath", () => {
 });
 
 describe("handleGatePost", () => {
-  const env = readEnv({ FOUNDATION_PIN: "246810", FOUNDATION_SECRET: "s" });
+  const SECRET = "s".repeat(32);
+  const env = readEnv({ FOUNDATION_PIN: "246810", FOUNDATION_SECRET: SECRET });
 
   it("signs a session for the right PIN", async () => {
     const r = await handleGatePost({ pin: "246810" }, env, 0);
     expect(r.status).toBe(200);
-    expect(await verifySession(r.token, "246810", "s", 1)).toBe(true);
+    expect(await verifySession(r.token, "246810", SECRET, 1)).toBe(true);
+  });
+  it("never signs a session with a FOUNDATION_SECRET under 32 characters", async () => {
+    const short = "s".repeat(31);
+    const r = await handleGatePost({ pin: "246810" }, readEnv({ FOUNDATION_PIN: "246810", FOUNDATION_SECRET: short }, "b".repeat(64)), 0);
+    expect(r.status).toBe(200);
+    expect(await verifySession(r.token, "246810", short, 1)).toBe(false);
+    expect(await verifySession(r.token, "246810", "b".repeat(64), 1)).toBe(true);
   });
   it("refuses a wrong PIN", async () => {
     const r = await handleGatePost({ pin: "000000" }, env, 0);
@@ -55,5 +63,28 @@ describe("handleGatePost", () => {
     const r = await handleGatePost({ pin: "" }, readEnv({}), 0);
     expect(r.status).toBe(503);
     expect(r.token).toBeUndefined();
+  });
+});
+
+describe("the public form route", () => {
+  it("lets every declared form address through, and nothing else under /f", () => {
+    for (const p of ["/f/get-in-touch", "/f/apply"]) expect(isPublicPath(p), p).toBe(true);
+    for (const p of ["/f", "/f/", "/f/Get-In-Touch", "/f/a/b", "/f/a_b", "/forms/a"]) expect(isPublicPath(p), p).toBe(false);
+  });
+});
+
+describe("the cron route", () => {
+  const secret = "c".repeat(32);
+  it("the cron route is public only with its secret", () => {
+    expect(isPublicRequest("/api/cron/checks", `Bearer ${secret}`, secret)).toBe(true);
+    expect(isPublicRequest("/api/cron/checks", null, secret)).toBe(false);
+    expect(isPublicRequest("/api/cron/checks", `Bearer ${secret}x`, secret)).toBe(false);
+    expect(isPublicRequest("/api/cron/checks", "Bearer ", null)).toBe(false);
+    expect(isPublicRequest("/api/cron/other", `Bearer ${secret}`, secret)).toBe(false);
+    expect(isPublicRequest("/contact", null, null)).toBe(true);
+  });
+  it("never accepts an empty secret", () => {
+    expect(cronAuthorized("Bearer ", "")).toBe(false);
+    expect(cronAuthorized("Bearer null", null)).toBe(false);
   });
 });

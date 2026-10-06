@@ -98,6 +98,10 @@ email: hello@harborstudio.example
 phone: 503 555 0100
 city: Portland
 timezone: America/Los_Angeles
+work_days: tue,wed,thu,fri,sat
+work_start: "09:00"
+work_end: "17:00"
+postal_address: 12 Harbor Way, Portland, OR 97201
 owner:
   name: Jo Harbor
   first: Jo
@@ -105,6 +109,8 @@ owner:
 stated_by: Jo Harbor
 recorded: 2026-10-05
 ```
+
+`work_days` lists the days the business is open in week order, and `work_start` and `work_end` are its hours on a 24 hour clock in its own time zone. All three are empty when the owner has not set them, and every routine then treats the business as always open. `postal_address` is one line, and marketing email carries it in its footer when it is set. A job reads it from the profile when it sends and never keeps its own copy.
 
 - **Change a business fact in Settings, then Preferences, and press Save.** Never edit the file by hand. Commit the files the save changed, `key/key.yaml` and `key/knowledge/context-block.yaml`, by name as one commit named `chore: business facts`. The first session's setup commit, `chore: set up <business>`, holds any save made before it. Why: the Preferences save is the only writer, and the next Save rewrites the file from the database row. One commit name for every save makes the history of business facts easy to find.
 
@@ -206,9 +212,186 @@ A test booking produces exactly one reminder at the right time.
 Ask Jo in the Inbox and change nothing.
 ```
 
+## Card kinds
+
+An app's `definition.yaml` or a routine's front matter declares the kinds of card it writes, under `card_kinds`. The category is the app's or the routine's own. `src/lib/key/declarations.ts` checks every declaration, and the running app loads the same list from `key/`.
+
+```yaml
+card_kinds:
+  - kind: booking-request
+    subcategory: booking
+    label: Booking request
+    decide: approve
+    expires_days: 3
+    on_lapse: raised_again
+  - kind: refund-ask
+    subcategory: booking
+    label: Refund request
+    decide: approve
+    always_human: true
+```
+
+- **Declare every card kind a job writes, once, in the Key.** `kind` is a slug no other app, routine or core kind uses (`contact`, `check-failed`, `brief`, `brief-blocked` are core), `subcategory` is a job in the declaring category, and `label` is 1 to 60 characters in plain words. Why: the card writer refuses a kind nobody declared, so every card has an owner and a place.
+- **Set `routable: true` only on a `mail-in` kind, the one Key kind the Inbox may move to a job.** The routable kinds are `contact` (core) and `mail-in` (`ROUTABLE_KINDS` in `src/lib/key/core-kinds.ts`). A routable kind is `decide: done`, and the checker refuses `routable` on any other kind. The Inbox offers Move to on a new card of a routable kind, toward any job kind marked `decide: done`. Why: a message read by a person may belong to any job, and moving it must never stand in for a decision.
+- **Set `decide` to `approve` when the card waits for a yes or no, and `always_human: true` when only the owner may give it.** Money, signing, people and deleting records are always the owner's: the checker refuses a `decide: approve` kind without `always_human: true` in any Finance job, in Sign contracts, in Manage your team and in Hire. Why: the Inbox shows Approve and Decline only where a decision is wanted, and a team member can never decide what belongs to the owner.
+- **Give a card that goes stale an `expires_days` and an `on_lapse` rule.** `stays` keeps it, `closes` marks it done, and `raised_again` brings it back to the top. Why: an Inbox full of old cards hides the ones that matter.
+- **Restart the app after a run adds a routine or a card kind in production.** In production the app reads the Key's declarations once and keeps them for the life of the process. Why: a deployed app never changes its Key, so reading once is safe, and a restart is how a new declaration shows up.
+
+## Public forms
+
+An app's `definition.yaml` declares the public forms its job takes in, under `forms`. The Foundation serves each one at `/f/<key>` and writes every answer as a card of the declared kind, through the same helper `/contact` uses.
+
+```yaml
+forms:
+  - key: request-a-session
+    title: Request a session
+    intro: Pick a day that suits you and we will confirm by email.
+    card_kind: booking-request
+    submit: Send request
+    thanks: Thank you. We will confirm your time by email.
+    fields:
+      - { key: name, label: Your name, type: text, required: true, max: 120 }
+      - { key: email, label: Email, type: email, required: true }
+      - { key: phone, label: Phone, type: phone }
+      - { key: day, label: Preferred day, type: date }
+      - { key: service, label: Session, type: select, options: [Mobility, Recovery] }
+      - { key: notes, label: Anything we should know, type: long_text, max: 2000 }
+```
+
+`key` is a slug no other form uses, and never `contact`. `title` is 1 to 80 characters, `intro` up to 300, `submit` 1 to 30 (default Send) and `thanks` 1 to 200. A form has 2 to 20 fields. Field `type` is one of `text`, `long_text`, `email`, `phone`, `date`, `number`, `select`, `checkbox` and `url`, a `select` needs 1 to 30 `options` or one `options_from` (below), and `max` is a whole number from 1 to 4000. A `url` field takes one `https://` link with no user name or password in it, at most 2000 characters (its default and its limit), and refuses anything else. `contact` is `true` unless the form says `contact: false`. No file upload in 1.0.
+
+- **Declare a public form in its app's `definition.yaml`, under `forms`, and never build a public page by hand.** The Foundation serves every declared form at `/f/<key>`, refuses any form the Key does not declare, and saves through one helper that only inserts. Why: one route with one set of protections is safer than a new public page per job.
+- **Give every form a required `name` text field and a required `email` field, and a `phone` field of type `phone` when you ask for one.** Those three create or reuse the contact, and every other answer lands on the card. A form whose people are not yet customers, such as a job application, says `contact: false`: it creates no core contact, and the card carries the name, email and phone as lines of its body. Why: a person's details live once, on the contact, and never in an app's own table, and a person who only applied is not a contact.
+- **Read a select's options from an app table with `options_from`, from the declaring app or an app listed in its `uses_apps`.** Write `{ key: event, label: Event, type: select, options_from: { app: events, entity: events, label: title, where: open } }` in place of `options`. `app` is the declaring app or one in its `uses_apps`, and installed, `entity` one of its tables, `label` a `text`, `select`, `email` or `url` field of that table, and `where`, when given, a `checkbox` field: only rows where it is true are choices. The page lists up to 200 choices by label, valued by the row's `id`. The save reads the table again and refuses any value that is not the id of a row that is a choice now, then puts the label on the card and the id in the card's `meta.picked`. Every label of a row that is a choice is shown to any visitor. An `options_from` app must be installed: one marked `optional: true` in `uses_apps` that is not installed makes the Key checker refuse the form, so `/f/<key>` answers not found until the app arrives, and the rest of the app still loads. When a required `options_from` select has no choice it can show (no open rows, the table cannot be read, or no database), the page shows "This form is not ready yet." in place of its fields. Why: the choices change with the business, a visitor can send any value, and only the database knows which rows are open now.
+- **Write only the keys this section names.** A form holds `key`, `title`, `intro`, `submit`, `thanks`, `card_kind`, `fields` and `contact`, and a field holds `key`, `label`, `type`, `required`, `max`, `options` and `options_from`. The checker refuses any other key and names it, and the form is not served. Why: a Key written for a newer Foundation must never install quietly on an older one that would ignore a key, such as `contact: false`, that keeps applicants out of the contacts.
+- **Keep the reserved field keys out of a form:** `website`, `_form`, `source`, `utm_source`, `utm_medium`, `utm_campaign`, `utm_content` and `referrer`. Why: the helper uses them for its honeypot and for where the visitor came from.
+- **Count a visit as a referral only when it came from someone else's site.** `captureSource` in `src/lib/forms/source.ts` drops a referring page on the business's own hosts (the host the form was served from and the website in the profile), so the source reads `direct`, and it caps each value at 200 characters on whole characters, never splitting an emoji. Why: a visitor who moved from the business's own page to its form was not sent by anyone, and half a character is not text.
+
+## Webhooks
+
+A connection takes inbound provider deliveries at `/api/hooks/<connection>` when its file `key/connections/<connection>.yaml` declares a `webhook` block. The verifier is code in the connection's own folder, `key/connections/<connection>/`, and the secret is the name of a setting, never its value.
+
+```yaml
+connection: stripe
+name: Stripe
+webhook:
+  verifier: verify.ts
+  secret_setting: STRIPE_WEBHOOK_SECRET
+```
+
+The verifier module exports `verify`, and may export `eventId` and `handle`:
+
+```ts
+type VerifyContext = { bytes: Uint8Array; now: Date; toleranceMs: number };
+export function verify(req: Request, rawBody: string, secret: string, ctx: VerifyContext): boolean | Promise<boolean>;
+export function eventId(rawBody: string, req: Request): string;
+export function handle(event: unknown): void | Promise<void>;
+```
+
+`receiveWebhook` in `src/lib/hooks/receive.ts` reads the body once, up to 1 MB, then calls `verify` with the body decoded as UTF-8 (`rawBody`), the setting's value (`secret`), and `ctx`: the exact bytes received, the time now, and `toleranceMs`, which is 300000 (5 minutes). Only a `verify` that returns exactly `true` lets the delivery in. Then the event id is `eventId(rawBody, req)` when it returns 1 to 200 visible ASCII characters, else the body's top-level JSON `id`, else a SHA-256 hash of the body. The first record of that id in `webhook_events` wins, and `handle` runs with the parsed JSON body (or the text when it is not JSON) only on that first record. The fixture verifier `tests/fixtures/key-ext/key/connections/demo-pay/verify.ts` follows every rule below.
+
+- **Declare a webhook with `verifier` and `secret_setting`, and keep the verifier file in the connection's own folder.** `verifier` is a `.ts` path inside `key/connections/<connection>/`, and the Key checker reports a declared file that does not exist. The app loads it only when the real paths of the folder and the file stay inside `key/`, and a verifier that fails to import answers 404 with one line in the log. `secret_setting` is a setting name in capitals that never starts with `NEXT_PUBLIC_`, `FOUNDATION_`, `VERCEL` or `SUPABASE_` and is never `CRON_SECRET` or `DATABASE_URL`. Why: code reached by a public address must come only from the Key's own folder, and the Foundation's own settings must never be handed to a Key's code.
+- **Compare the signature in constant time, after a length check.** Return false when the lengths differ, then compare with `timingSafeEqual` from `node:crypto`. Why: a plain `===` can reveal through its timing how much of a forged signature matched, and `timingSafeEqual` throws on different lengths instead of answering false.
+- **Refuse a delivery whose signed timestamp is more than 5 minutes from `ctx.now`, in either direction.** Use the provider's signed timestamp, never one the signature does not cover, and compare it with `ctx.now` and `ctx.toleranceMs`, never with the computer's clock. Why: `webhook_events` forgets an event when the owner prunes it, so without freshness a delivery captured once could be replayed after that and act again.
+- **Sign over `ctx.bytes` when the provider signs the exact bytes it sent.** `rawBody` is the same bytes decoded as UTF-8, which is enough for providers that send JSON. Why: decoding replaces bytes that are not valid UTF-8, so a signature checked over text can refuse a genuine delivery.
+- **Read the delivery only through `rawBody` and `ctx.bytes`, and use `req` only for its headers and address.** Why: the body of `req` is already read when `verify` runs, so `req.text()` or `req.json()` throws, and the capped copy is the only one there is.
+- **Export `eventId` when the provider's event id is not the body's top-level `id`.** Why: the event id is how a retry or a replay is recognized, and a hash of the body changes whenever the provider resends anything in it differently.
+- **Make `handle` idempotent.** When `handle` throws, the record is deleted and the provider gets 500, so its retry runs `handle` again on the same event, after whatever the first attempt already wrote. Why: a failed attempt that half wrote must not leave two records or two charges when it runs again.
+- **Write verifiers in TypeScript that Node's type stripping supports, and import only `node:` built-ins.** Type annotations and `type` declarations are fine. Never use `enum`, `namespace`, parameter properties or the `@/` alias. Why: the running server imports the file as it is, with no build step, and anything type stripping cannot erase fails to import.
+
+## Email sender
+
+The email-sending connection gives core its sender. `key/connections/email-sending.yaml` declares a `sender` block naming the setting that holds the provider's key, and the code is `key/connections/email-sending/send.ts`.
+
+```yaml
+connection: email-sending
+name: Email sending
+sender:
+  secret_setting: RESEND_API_KEY
+```
+
+```ts
+type SenderContext = { secret: string; now: Date };
+export function send(email: OutgoingEmail, ctx: SenderContext): Promise<{ providerRef: string }>;
+export function lookup(ref: string, ctx: SenderContext): Promise<"sent" | "unknown">;
+export function bounces(ctx: SenderContext & { events: { eventId: string; receivedAt: string }[] }): Promise<{ email: string; kind: "bounce" | "complaint" }[]>;
+```
+
+`drainOutbox` in `src/lib/outbox/drain.ts` runs from the host's schedule (after the checks, behind `CRON_SECRET`) and from `npm run outbox:send` on the owner's computer. It runs only while `emailSendingActive` says the connection is `connected` and the pause switch is off. It loads `send.ts`, hands `bounces` the kept webhook events for email-sending that no earlier call read (up to 500), records each address it returns as an opt-out from all email and marks those events handled, then resolves rows left in sending with `lookup` (given the provider's reference when one was recorded, else the row's `send_key`), then sends approved rows. `ctx.secret` is the value of the named setting. An install marks the connection with `npm run connection:set -- email-sending connected`, or `failing` with `--note <text>`. After a test that worked, `connected --tested` also stamps `tested_on` with today's date in the business's time zone. The fixture sender `tests/fixtures/key-ext/key/connections/email-sending/send.ts` follows every rule below.
+
+- **Declare the sender only on email-sending, with `secret_setting`, and keep `send.ts` in `key/connections/email-sending/`.** The Key checker reports a sender on any other connection, a missing `send.ts`, and a setting that is not a name in capitals or is a public or core one. The app loads `send.ts` only when the real paths of the folder and the file stay inside `key/connections/`, and one that is missing, outside or fails to import is skipped with one line in the log. Why: code that sends from the business's own address must come only from the Key's own folder, and the Foundation's own settings must never be handed to a Key's code.
+- **Pass the row's `send_key` to the provider as its idempotency key, and give up well under 15 minutes.** Why: a send the outbox cannot confirm is resolved by `lookup`, and only the idempotency key lets the provider say whether it took the email.
+- **Never put `ctx.secret` in an error message.** The drain also removes it from every line it logs and every note it stores. Why: an error message is shown to the owner on the row and written to the log.
+- **Write `send.ts` in TypeScript that Node's type stripping supports, and import only `node:` built-ins.** Why: the running server imports the file as it is, with no build step.
+
+## Connection tests
+
+Any connection may keep its own test at `key/connections/<service>/test.ts`. Connect your tools shows Test now on a connection that has one, and only the owner can run it.
+
+```ts
+type TestContext = { secret: string; now: Date; signal: AbortSignal };
+export function test(ctx: TestContext): Promise<{ ok: boolean; note: string }>;
+```
+
+`runConnectionTest` in `src/lib/connections/tester.ts` loads `test.ts` with the same loader as the email sender (`loadConnectionModule` in `src/lib/connections/module.ts`), hands it the value of the setting the connection's row names in `key_setting` as `ctx.secret`, and writes the answer through the registry's own validator: `connected` when `ok` is true, `failing` otherwise, `tested_on` today in the business's time zone, and the note. The fixture test `tests/fixtures/key-ext/key/connections/demo-pay/test.ts` follows every rule below.
+
+- **Pass `ctx.signal` to every outside request the test makes.** The runner aborts the signal when the 30 seconds are up, so a request that hangs is cancelled and not left running. Why: the runner can stop waiting for a test but cannot stop its code, and a call left running holds the key's session open after the owner was told the test failed.
+- **Make one cheap, read-only call to the provider, and answer `{ ok, note }` with a one-line note for the owner.** A test that throws, answers anything else or takes longer than 30 seconds is recorded as failing with a plain note. A note longer than 200 characters is cut, and one that looks like a key is replaced. Why: the test runs while the owner waits, and its note is shown on Connect your tools.
+- **Never put `ctx.secret` in the note or an error message.** The runner also removes the value from the note before it is stored. Why: the note is stored on the connection and shown on screen.
+- **Keep `test.ts` in its connection's folder, in TypeScript that Node's type stripping supports, importing only `node:` built-ins.** The runner loads it only when the real paths of the folder and the file stay inside `key/connections/` (a connection folder that is a link to elsewhere in `key/` is refused too), never hands it a Foundation setting (`FOUNDATION_`, `SUPABASE_`, `NEXT_PUBLIC_` and the like), and records nothing when the file is missing or outside, the row is missing, or the setting holds no value. Why: code run with a service's key must come only from the Key's own folder.
+
+## Checks
+
+An app's `definition.yaml` or a routine's front matter declares its checks, under `checks`. A check is SQL the Foundation runs read-only, at most once per period, raising at most one card. A routine that declares checks names the app it acts for with a top-level `app: <slug>`. A check that reads another app's table names that app in a top-level `uses_apps` in the same file. The install writes `uses_apps` from the entry's `uses`, and the Key checker refuses an app there that is not installed. An app written `{app: <slug>, optional: true}` may be absent: while it is, a check that reads its tables is skipped each period with a record in `check_runs` and no card, and once it is installed the check runs like any other.
+
+```yaml
+checks:
+  - key: requests-waiting
+    name: Booking requests waiting
+    period: day
+    card_kind: requests-waiting
+    reads: [bookings]
+    sql: |
+      select count(*) > 0 as raise,
+             count(*)::text || ' booking requests are waiting' as title,
+             coalesce(string_agg(client_email, ', '), '') as body
+        from bookings
+       where status = 'new' and starts <= $1::date + 2
+```
+
+`key` is a slug, unique in its app or routine, and the check's full slug is `<app or routine slug>/<key>`. `name` is 1 to 80 characters and titles the card when the check cannot run. `period` is `day` or `week`, in the business's time zone. `card_kind` is a kind declared in the Key, never a core kind. `reads` lists every table the SQL reads.
+
+The SQL is one `select` (or `with ... select`) statement. It returns zero rows (nothing to raise) or one row with `raise` (boolean), `title` (text, used when `raise` is true) and `body` (text or null). It may use two parameters, written `$1::date` (today in the business's time zone) and `$2::timestamptz` (now). It may use escape strings such as `E'\n'`. It never names a schema, never quotes an identifier, never uses dollar quoting, never reads `pg_` or `information_schema` objects, and calls only these functions: `count`, `sum`, `min`, `max`, `avg`, `coalesce`, `nullif`, `greatest`, `least`, `lower`, `upper`, `trim`, `btrim`, `ltrim`, `rtrim`, `length`, `char_length`, `concat`, `concat_ws`, `format`, `left`, `right`, `substr`, `position`, `replace`, `split_part`, `string_agg`, `array_agg`, `array_to_string`, `array_length`, `cardinality`, `to_char`, `date_trunc`, `date_part`, `make_interval`, `age`, `now`, `abs`, `round`, `floor`, `ceil`, `ceiling`, `bool_or`, `bool_and`, `jsonb_build_object`, `jsonb_agg`. It may convert a time with `at time zone`, the zone written as text, a column or a subquery. The outbox is never readable by a check, because it holds customers' message bodies.
+
+Three layers hold a check to reading, and the run itself is the boundary: the Key checker is the early warning that tells the builder at once. The Key checker reads comments, strings, quoted names and dollar quotes the way Postgres does, then refuses any writing word, unknown function, schema name, catalog read or table outside `reads`. At run time the runner asks Postgres for the statement's plan and fails the check when the plan touches any relation that is not a `public` table in `reads` and in its file's allowed tables, or calls any function off the list. The plan check and the read-only transaction are the boundary, because Postgres itself has parsed the statement. Then it runs the statement as one parameterized statement inside a read-only transaction with a five second limit, wrapped in an outer select, so a data-modifying statement cannot even be parsed, and it always rolls that transaction back. Only the runner writes: one row in `check_runs` and at most one card.
+
+- **Write a check as one read-only select that returns raise, title and body, and list every table it reads.** It reads only its own app's tables, the tables of the apps listed in its file's `uses_apps` (written at install from the entry's `uses`, each one installed unless marked optional), and the core tables `contacts`, `inbox_items`, `business_profile`, `check_runs` and `connections`, and uses `$1::date` for today and `$2::timestamptz` for now. Why: the Key checker, the plan check and a read-only transaction all hold a check to reading, and one result row means at most one card.
+- **Mark an app in `uses_apps` as `{app: <slug>, optional: true}` when the check must keep working while that app is absent.** The checker accepts an optional app that is not installed, and the runner skips, with a record and no card, any check that reads its tables until it is. A table the core or an installed app holds is never excused this way. Each table a check waits for is named in a note (`checks[i] waits for table "x" from an app that is not installed`), logged once when the Key loads and never a problem, so a mistyped name shows before the app arrives. Why: one register's removal must not stop every other register's card.
+
+## Drafting commands
+
+A drafting routine runs on the owner's computer through one command, `npm run draft -- <routine> <step>`. It declares its handler and its steps in its front matter, under `draft`.
+
+```markdown
+---
+name: Review ask
+agent: front-desk
+category: keep
+trigger: cron
+cron: "0 10 * * 1"
+draft:
+  handler: src/lib/drafts/review-ask.ts
+  subcommands: [list, save, check, blocked]
+---
+```
+
+`handler` is a `.ts` file under `src/` or `modules/`, written from the top of the repository. `subcommands` lists 1 to 12 slugs. The command refuses an unknown routine, an unknown step or a missing handler file with exit code 2, holds one drafting lock (`.data/draft.lock`), reads the pause switch, then runs the handler with the step and its flags. A handler prints machine output as one JSON object per line, reads drafted text from standard input, writes cards only through `writeCard`, and exits 0 when done, 1 with a plain message when it fails and 2 for a step it does not know. New handlers use `runHandler` from `src/lib/drafts/handler.ts`, which does all of that. An installed `monday-brief` without a `draft` block runs its existing `src/lib/data/briefs-command.ts`.
+
+- **Give a drafting routine a `draft` block naming its handler and its steps, and run it with `npm run draft -- <routine> <step>`.** The handler is a `.ts` file under `src/` or `modules/`. The pause switch is read twice: `npm run draft` writes one `runner/draft` skipped row and exits 3 when paused, and every handler (through `runHandler`, or by hand for an older handler) does the same when started directly. Why: every drafting routine runs the same way, under one lock, with the pause switch read first.
+
 ## App definition
 
-`key/apps/<app>/definition.yaml` registers the app and describes its tables. Field types are limited to `text`, `number`, `date`, `select`, `multi_select`, `checkbox`, `user`, `multi_user`, `url`, `email` and `attachment`. A `select` or `multi_select` field needs `options`. An automation names a routine that exists. `migrations` is always `migrations/`. The SQL for each type is in `data.md`.
+`key/apps/<app>/definition.yaml` registers the app and describes its tables. Field types are limited to `text`, `number`, `date`, `select`, `multi_select`, `checkbox`, `user`, `multi_user`, `url`, `email` and `attachment`. A `select` or `multi_select` field needs `options`. An automation names a routine that exists. `migrations` is always `migrations/`. Every table the migrations create turns on row level security (see `data.md`). The SQL for each type is in `data.md`.
 
 ```yaml
 app: bookings

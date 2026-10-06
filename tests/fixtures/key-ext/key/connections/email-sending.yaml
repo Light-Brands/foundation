@@ -1,0 +1,4 @@
+connection: email-sending
+name: Email sending
+sender:
+  secret_setting: DEMO_MAIL_API_KEY

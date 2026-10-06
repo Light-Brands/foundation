@@ -4,15 +4,30 @@ import { getProfile } from "@/lib/data/profile";
 import { listInbox } from "@/lib/data/inbox";
 import { buildNav } from "@/lib/layout/registry";
 import { stackStatus } from "@/lib/setup/steps";
+import { connectionStatuses, emailSendingActive } from "@/lib/data/connections";
 import { readEnv } from "@/lib/env";
 import { ICONS } from "@/components/shell/icons";
 import { formatCardTime } from "@/lib/time";
+import { after } from "next/server";
+import { checkDeps } from "@/lib/checks/deps";
+import { runChecksIfDue } from "@/lib/checks/runner";
+import { RunChecksButton } from "./RunChecksButton";
 
 export default async function Home() {
   const db = await getDb();
+  if (db) {
+    // Due checks run after the page is sent, at most once per 15 minutes however often it opens.
+    after(async () => {
+      try {
+        await runChecksIfDue(await checkDeps(db), new Date());
+      } catch (err) {
+        console.error("home checks failed", err);
+      }
+    });
+  }
   const profile = await getProfile(db, readEnv().businessName);
-  const latest = await listInbox(db, 3);
-  const steps = stackStatus(process.env, { storage: storageMode() });
+  const latest = await listInbox(db, 3, { status: "new" });
+  const steps = stackStatus(process.env, { storage: storageMode(), connections: await connectionStatuses(db), emailSending: await emailSendingActive(db) });
   const done = steps.filter((s) => s.status === "done").length;
   const nav = buildNav().filter((g) => g.id !== "command" && g.id !== "system");
   return (
@@ -53,6 +68,7 @@ export default async function Home() {
           </Link>
         )}
       </section>
+      {storageMode() !== "preview" && <RunChecksButton />}
 
       <section>
         <p className="kicker">Your business, laid out</p>

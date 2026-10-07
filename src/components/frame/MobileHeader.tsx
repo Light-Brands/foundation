@@ -8,7 +8,7 @@ export function MobileHeader({ sections, settings }: { sections: NavSection[]; s
   const pathname = usePathname();
   const { title, back } = mobileBar(pathname, sections, settings);
   return (
-    <header className="sticky top-0 z-20 flex h-12 items-center gap-1 border-b border-admin-line bg-admin-surface/95 px-2 pt-[env(safe-area-inset-top)] backdrop-blur-md md:hidden">
+    <header className="sticky top-0 z-20 flex min-h-12 items-center gap-1 border-b border-admin-line bg-admin-surface/95 px-2 pt-[env(safe-area-inset-top)] backdrop-blur-md md:hidden">
       {back ? (
         <Link href={back} aria-label="Back" className="flex h-11 w-11 items-center justify-center rounded-control text-accent">
           <ChevronLeft size={22} aria-hidden />

@@ -16,6 +16,9 @@ export type BrandTokens = {
   logoLightUrl: string | null;
 };
 
+// The admin's own canvas (the --color-admin-canvas value in globals.css), for places CSS variables cannot reach, such as the app manifest.
+export const ADMIN_CANVAS = "#f8fafc";
+
 // The Foundation's own brand: warm canvas, deep green, terracotta and gold, after the Transformational Epicenter.
 export const DEFAULT_BRAND: BrandTokens = {
   colors: {

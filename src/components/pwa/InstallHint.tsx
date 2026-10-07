@@ -42,14 +42,23 @@ export function InstallHint() {
     }
   };
   return (
-    <div className="surface mb-6 flex items-start gap-4 p-4" data-install-hint>
+    <div className="surface flex items-start gap-4 p-4" data-install-hint>
       <div className="flex-1">
         <p className="font-medium text-admin-ink">Put your command center on your home screen</p>
         <p className="mt-1 text-sm text-admin-muted">
           {ios ? "Tap Share, then Add to Home Screen. It opens like an app." : "Install it and it opens like an app, full screen."}
         </p>
         {deferred && (
-          <button type="button" className="btn-primary mt-3" onClick={async () => { await deferred.prompt(); dismiss(); }}>
+          <button type="button" className="btn-primary mt-3" onClick={async () => {
+              try {
+                await deferred.prompt();
+                const { outcome } = await deferred.userChoice;
+                if (outcome === "accepted") dismiss();
+                else setDeferred(null);
+              } catch {
+                setDeferred(null);
+              }
+            }}>
             Install the app
           </button>
         )}

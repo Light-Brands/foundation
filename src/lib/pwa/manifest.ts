@@ -13,7 +13,7 @@ export function shortNameFor(business: string, shortName: string): string {
   return chosen.length <= 15 ? chosen : chosen.slice(0, 12).trimEnd();
 }
 
-export function buildManifest(input: { business: string; shortName: string; description: string; accent: string }): MetadataRoute.Manifest {
+export function buildManifest(input: { business: string; shortName: string; description: string; accent: string; background: string }): MetadataRoute.Manifest {
   return {
     name: input.business,
     short_name: input.shortName,
@@ -22,7 +22,7 @@ export function buildManifest(input: { business: string; shortName: string; desc
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#f8fafc",
+    background_color: input.background,
     theme_color: input.accent,
     icons: [
       { src: "/pwa/icon-192.png", sizes: "192x192", type: "image/png" },

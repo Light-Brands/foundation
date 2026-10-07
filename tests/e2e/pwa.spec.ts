@@ -32,4 +32,23 @@ test("a phone sees the install hint and the worker never caches the admin", asyn
   });
   expect(cached.filter((u) => u.startsWith("/admin"))).toEqual([]);
   expect(cached).toContain("/offline");
+
+  // With the worker in control, a phone that loses its connection meets the offline page, not a browser error.
+  await page.reload();
+  await page.context().setOffline(true);
+  await page.goto("/admin").catch(() => {});
+  await expect(page.getByRole("heading", { name: "You are offline" })).toBeVisible();
+  await page.context().setOffline(false);
+});
+
+test("a signed-out phone with the worker installed still meets the chamber", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 375, height: 812 } });
+  const page = await context.newPage();
+  await page.goto("/admin");
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  await page.goto("/admin");
+  await expect(page.getByLabel("Your PIN")).toBeVisible();
+  await expect(page.locator("[data-today]")).toHaveCount(0);
+  await context.close();
 });

@@ -2,6 +2,15 @@
 // when there is no connection. It never caches pages, API responses or business data.
 const VERSION = "foundation-v1";
 const OFFLINE = "/offline";
+const MAX_STATIC = 200;
+
+// Old builds' chunks never come back, so the oldest entries go once the cache passes its cap.
+async function trim(cache) {
+  const keys = await cache.keys();
+  await Promise.all(keys.filter((r) => new URL(r.url).pathname !== OFFLINE).slice(0, Math.max(0, keys.length - MAX_STATIC)).map((r) => cache.delete(r)));
+}
+
+const OFFLINE_REPLY = () => new Response("You are offline", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(VERSION).then((c) => c.add(OFFLINE)).then(() => self.skipWaiting()));
@@ -26,13 +35,16 @@ self.addEventListener("fetch", (event) => {
         const hit = await cache.match(req);
         if (hit) return hit;
         const res = await fetch(req);
-        if (res.ok) cache.put(req, res.clone());
+        if (res.ok) {
+          await cache.put(req, res.clone());
+          await trim(cache);
+        }
         return res;
       }),
     );
     return;
   }
   if (req.mode === "navigate") {
-    event.respondWith(fetch(req).catch(() => caches.match(OFFLINE)));
+    event.respondWith(fetch(req).catch(async () => (await caches.match(OFFLINE)) ?? OFFLINE_REPLY()));
   }
 });

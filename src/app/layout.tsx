@@ -2,27 +2,10 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { FONT_VARIABLES } from "@/lib/brand/fonts";
 import { brandCss } from "@/lib/brand/css";
-import { getBrand } from "@/lib/data/brand";
-import { getDb } from "@/lib/db";
-import { DEFAULT_BRAND } from "@/lib/brand/tokens";
-import { RegisterServiceWorker } from "@/components/pwa/RegisterServiceWorker";
-import { getProfile } from "@/lib/data/profile";
-import { readEnv } from "@/lib/env";
-
-
-async function loadBrand() {
-  try {
-    return await getBrand(await getDb());
-  } catch (err) {
-    // A database that cannot be reached never blanks the page; the default brand paints it.
-    console.error("brand: falling back to the default brand", err);
-    return DEFAULT_BRAND;
-  }
-}
+import { loadBrand, loadProfile } from "@/lib/data/safe";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const db = await getDb().catch(() => null);
-  const profile = await getProfile(db, readEnv().businessName);
+  const profile = await loadProfile();
   return {
     title: "Command center",
     robots: { index: false },
@@ -44,7 +27,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <style id="brand" dangerouslySetInnerHTML={{ __html: brandCss(brand) }} />
       </head>
-      <body>{children}<RegisterServiceWorker /></body>
+      <body>{children}</body>
     </html>
   );
 }

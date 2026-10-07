@@ -1,8 +1,8 @@
 import { ImageResponse } from "next/og";
-import { getDb } from "@/lib/db";
-import { getProfile } from "@/lib/data/profile";
-import { getBrand } from "@/lib/data/brand";
-import { readEnv } from "@/lib/env";
+import path from "node:path";
+import { loadBrand, loadProfile } from "@/lib/data/safe";
+import { publicBaseUrl } from "@/lib/email-links";
+import { loadLogo } from "@/lib/pwa/logo";
 import { onColor } from "@/lib/brand/tokens";
 import { PWA_ICONS } from "@/lib/pwa/manifest";
 
@@ -12,16 +12,16 @@ function monogram(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "C";
 }
 
-export async function GET(req: Request, { params }: { params: Promise<{ icon: string }> }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ icon: string }> }) {
   const { icon } = await params;
   const spec = PWA_ICONS[icon];
   if (!spec) return new Response("Not found", { status: 404 });
-  const db = await getDb().catch(() => null);
-  const [profile, brand] = await Promise.all([getProfile(db, readEnv().businessName), getBrand(db)]);
+  const [profile, brand] = await Promise.all([loadProfile(), loadBrand()]);
   const size = spec.size;
   const inner = Math.round(size * (spec.maskable ? 0.6 : 0.76));
   const fill = brand.colors.accent;
-  const logo = brand.logoUrl ? new URL(brand.logoUrl, req.url).toString() : null;
+  // The logo is found from the site's own configured address or from public/, never from the request's Host.
+  const logo = await loadLogo(brand.logoUrl, { base: publicBaseUrl(), publicDir: path.join(process.cwd(), "public") });
   return new ImageResponse(
     (
       <div style={{ width: size, height: size, display: "flex", alignItems: "center", justifyContent: "center", background: fill }}>

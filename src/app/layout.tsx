@@ -1,17 +1,29 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, DM_Sans, JetBrains_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
-
-const display = Space_Grotesk({ subsets: ["latin"], variable: "--font-display-face", display: "swap" });
-const sans = DM_Sans({ subsets: ["latin"], variable: "--font-sans-face", display: "swap" });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono-face", display: "swap" });
-const serif = Fraunces({ subsets: ["latin"], variable: "--font-serif-face", display: "swap", axes: ["opsz"] });
+import { FONT_VARIABLES } from "@/lib/brand/fonts";
+import { brandCss } from "@/lib/brand/css";
+import { getBrand } from "@/lib/data/brand";
+import { getDb } from "@/lib/db";
+import { DEFAULT_BRAND } from "@/lib/brand/tokens";
 
 export const metadata: Metadata = { title: "Command center", robots: { index: false } };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+async function loadBrand() {
+  try {
+    return await getBrand(await getDb());
+  } catch {
+    // A database that cannot be reached never blanks the page; the default brand paints it.
+    return DEFAULT_BRAND;
+  }
+}
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const brand = await loadBrand();
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable} ${serif.variable}`}>
+    <html lang="en" className={FONT_VARIABLES}>
+      <head>
+        <style id="brand" dangerouslySetInnerHTML={{ __html: brandCss(brand) }} />
+      </head>
       <body>{children}</body>
     </html>
   );

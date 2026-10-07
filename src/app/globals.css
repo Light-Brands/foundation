@@ -1,43 +1,69 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ink: #0a0a0f;
-  --color-ink-50: #13131b;
-  --color-ink-100: #191922;
-  --color-ink-200: #22222e;
-  --color-ink-300: #2e2e3d;
-  --color-violet: #8b7cf6;
-  --color-violet-soft: #a99bf9;
-  --color-violet-deep: #6d5de0;
-  --color-mist: #9a9aae;
-  --font-display: var(--font-display-face), system-ui, sans-serif;
-  --font-sans: var(--font-sans-face), system-ui, sans-serif;
-  --font-mono: var(--font-mono-face), ui-monospace, monospace;
-  --font-serif: var(--font-serif-face), Georgia, serif;
+  /* The brand, written per request by the root layout. */
+  --color-canvas: var(--brand-canvas);
+  --color-canvas-muted: var(--brand-canvas-muted);
+  --color-ink: var(--brand-ink);
+  --color-ink-muted: var(--brand-ink-muted);
+  --color-hairline: var(--brand-hairline);
+  --color-primary: var(--brand-primary);
+  --color-primary-deep: var(--brand-primary-deep);
+  --color-accent: var(--brand-accent);
+  --color-on-accent: var(--brand-on-accent);
+  --color-highlight: var(--brand-highlight);
+  --color-on-highlight: var(--brand-on-highlight);
+  --color-glow: var(--brand-glow);
+
+  /* The admin frame: a fixed, calm neutral scale, so any brand still gives a quiet console. */
+  --color-admin-canvas: #f8fafc;
+  --color-admin-surface: #ffffff;
+  --color-admin-ink: #1e293b;
+  --color-admin-muted: #475569;
+  --color-admin-faint: #94a3b8;
+  --color-admin-line: #f1f5f9;
+  --color-admin-line-strong: #e2e8f0;
+  --color-admin-hover: #f1f5f9;
+
+  /* Status. */
+  --color-good: #15803d;
+  --color-good-soft: #f0fdf4;
+  --color-warn: #b45309;
+  --color-warn-soft: #fffbeb;
+  --color-bad: #b91c1c;
+  --color-bad-soft: #fef2f2;
+
+  --font-display: var(--brand-font-display);
+  --font-heading: var(--brand-font-heading);
+  --font-sans: var(--brand-font-body);
+  --font-label: var(--brand-font-label);
+  --font-mono: var(--brand-font-numeric);
+
+  --radius-card: var(--brand-radius-card);
+  --radius-control: var(--brand-radius-control);
+
   --ease-breath: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-html { color-scheme: dark; }
+html { color-scheme: light; }
 
 body {
-  background-color: var(--color-ink);
-  color: #e4e4e7;
+  background-color: var(--color-admin-canvas);
+  color: var(--color-admin-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  background-image:
-    radial-gradient(1200px 600px at 70% -10%, rgba(139, 124, 246, 0.10), transparent 60%),
-    radial-gradient(900px 500px at 0% 100%, rgba(109, 93, 224, 0.07), transparent 55%);
-  background-attachment: fixed;
 }
 
-h1, h2, h3, h4 { font-family: var(--font-display); }
+h1, h2, h3, h4 { font-family: var(--font-heading); }
 
-:focus-visible { outline: 2px solid rgb(139 124 246 / 0.6); outline-offset: 2px; }
+:focus-visible { outline: 2px solid color-mix(in oklch, var(--color-accent) 60%, transparent); outline-offset: 2px; }
 
 @layer components {
-  .surface { @apply rounded-2xl border border-white/10 bg-ink-100/70 backdrop-blur-sm; }
-  .kicker { @apply font-mono text-[11px] uppercase tracking-[0.18em] text-mist; }
-  .chip { @apply inline-flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-0.5 text-xs text-mist; }
-  .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-violet px-4 py-2 text-sm font-medium text-white transition-all duration-200 ease-breath hover:bg-violet-soft; }
-  .btn-quiet { @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-zinc-200 transition-all duration-200 ease-breath hover:border-white/20; }
+  .surface { @apply rounded-card border border-admin-line-strong bg-admin-surface shadow-[0_1px_2px_rgb(15_23_42/0.04)]; }
+  .kicker { @apply font-label text-[10px] font-semibold uppercase tracking-wider text-admin-faint; }
+  .chip { @apply inline-flex items-center gap-1 rounded-full border border-admin-line-strong px-2.5 py-0.5 text-xs text-admin-muted; }
+  .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-control bg-accent px-4 py-2 text-sm font-medium text-on-accent shadow-sm transition-all duration-200 ease-breath hover:opacity-90 disabled:opacity-40; }
+  .btn-quiet { @apply inline-flex items-center justify-center gap-2 rounded-control border border-admin-line-strong bg-admin-surface px-4 py-2 text-sm text-admin-ink transition-all duration-200 ease-breath hover:bg-admin-hover; }
+  .field { @apply w-full rounded-control border border-admin-line-strong bg-admin-surface px-3 py-2 text-sm text-admin-ink placeholder:text-admin-faint focus:border-accent focus:outline-none; }
+  .public { background-color: var(--color-canvas); color: var(--color-ink); }
 }

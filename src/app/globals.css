@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@theme {
+@theme inline {
   /* The brand, written per request by the root layout. */
   --color-canvas: var(--brand-canvas);
   --color-canvas-muted: var(--brand-canvas-muted);

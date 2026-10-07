@@ -11,8 +11,9 @@ export const metadata: Metadata = { title: "Command center", robots: { index: fa
 async function loadBrand() {
   try {
     return await getBrand(await getDb());
-  } catch {
+  } catch (err) {
     // A database that cannot be reached never blanks the page; the default brand paints it.
+    console.error("brand: falling back to the default brand", err);
     return DEFAULT_BRAND;
   }
 }

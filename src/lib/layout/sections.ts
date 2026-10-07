@@ -110,3 +110,56 @@ export function activeEntry(pathname: string, sections: NavSection[], settings: 
 export function findOwnPage(section: "brand" | "agentic", id: string): OwnPage | undefined {
   return OWN[section].find((p) => p.id === id);
 }
+
+export type TabId = "today" | "brand" | "business" | "agentic" | "more";
+
+export const TABS: { id: TabId; label: string; href: string }[] = [
+  { id: "today", label: "Today", href: "/admin" },
+  { id: "brand", label: "Brand", href: "/admin/brand" },
+  { id: "business", label: "Business", href: "/admin/business" },
+  { id: "agentic", label: "Agentic", href: "/admin/agentic" },
+  { id: "more", label: "More", href: "/admin/more" },
+];
+
+export const STAGES: ("grow" | "serve" | "run")[] = ["grow", "serve", "run"];
+
+const SECTION_TAB: Record<SectionId, TabId> = {
+  command: "today", brand: "brand", agentic: "agentic", grow: "business", serve: "business", run: "business",
+};
+
+function hubFor(pathname: string): TabId | null {
+  if (pathname === "/admin") return "today";
+  if (pathname === "/admin/brand") return "brand";
+  if (pathname === "/admin/business") return "business";
+  if (pathname === "/admin/agentic") return "agentic";
+  if (pathname === "/admin/more") return "more";
+  return null;
+}
+
+function sectionOf(key: string, sections: NavSection[]): NavSection | undefined {
+  return sections.find((s) => s.headings.some((h) => h.entries.some((e) => e.key === key)));
+}
+
+export function tabFor(pathname: string, sections: NavSection[], settings: NavHeading[]): TabId {
+  const hub = hubFor(pathname);
+  if (hub) return hub;
+  if (pathname === "/admin/settings") return "more";
+  const key = activeEntry(pathname, sections, settings);
+  if (!key) return "today";
+  const section = sectionOf(key, sections);
+  return section ? SECTION_TAB[section.id] : "more";
+}
+
+export function mobileBar(pathname: string, sections: NavSection[], settings: NavHeading[]): { title: string; back: string | null } {
+  const hub = hubFor(pathname);
+  if (hub) return { title: TABS.find((t) => t.id === hub)!.label, back: null };
+  if (pathname === "/admin/settings") return { title: "Settings", back: "/admin/more" };
+  const key = activeEntry(pathname, sections, settings);
+  const entry = [...sections.flatMap((s) => s.headings), ...settings].flatMap((h) => h.entries).find((e) => e.key === key);
+  if (!key || !entry) return { title: "Command center", back: "/admin" };
+  const section = sectionOf(key, sections);
+  if (!section) return { title: entry.label, back: "/admin/more" };
+  const tab = SECTION_TAB[section.id];
+  const back = tab === "business" ? `/admin/business?stage=${section.id}` : TABS.find((t) => t.id === tab)!.href;
+  return { title: entry.label, back };
+}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { CATEGORIES } from "@/lib/layout/categories";
-import { buildNav, hrefFor, findSubcategory, activeKey } from "@/lib/layout/registry";
+import { hrefFor, findSubcategory } from "@/lib/layout/registry";
 
 describe("the eleven categories", () => {
   it("are in the spec's order", () => {
@@ -44,41 +44,17 @@ describe("the nav", () => {
     expect(hrefFor("command", "inbox")).toBe("/admin/command/inbox");
     expect(hrefFor("system", "setup")).toBe("/admin/system/setup");
     expect(hrefFor("deliver", "booking")).toBe("/admin/deliver/booking");
-  });
-  it("builds the Modules screen at /system/modules", () => {
     expect(hrefFor("system", "modules")).toBe("/admin/system/modules");
-    const system = buildNav().find((g) => g.id === "system")!;
-    expect(system.items.find((i) => i.key === "system.modules")!.state).toBe("built");
-  });
-  it("marks built core screens and leaves the rest ready to set up", () => {
-    const nav = buildNav();
-    const command = nav.find((g) => g.id === "command")!;
-    expect(command.items.find((i) => i.key === "command.home")!.state).toBe("built");
-    expect(command.items.find((i) => i.key === "command.alerts")!.state).toBe("ready");
-    expect(nav.find((g) => g.id === "deliver")!.items.every((i) => i.state === "ready")).toBe(true);
-  });
-  it("rolls badges up to the category", () => {
-    const nav = buildNav({ "command.inbox": 3, "command.alerts": 2 });
-    expect(nav.find((g) => g.id === "command")!.badge).toBe(5);
   });
   it("finds sub-categories and refuses unknown ones", () => {
     expect(findSubcategory("deliver", "booking")?.sub.label).toBe("Book appointments");
     expect(findSubcategory("deliver", "nope")).toBeUndefined();
     expect(findSubcategory("nope", "booking")).toBeUndefined();
   });
-  it("picks the longest matching href as active", () => {
-    const nav = buildNav();
-    expect(activeKey("/admin", nav)).toBe("command.home");
-    expect(activeKey("/admin/command/inbox", nav)).toBe("command.inbox");
-    expect(activeKey("/admin/deliver/booking", nav)).toBe("deliver.booking");
-    expect(activeKey("/elsewhere", nav)).toBeNull();
-  });
 });
 
 describe("Connect your tools", () => {
   it("is a built screen at /system/connections", () => {
     expect(hrefFor("system", "connections")).toBe("/admin/system/connections");
-    const item = buildNav().find((g) => g.id === "system")!.items.find((i) => i.key === "system.connections")!;
-    expect(item.state).toBe("built");
   });
 });

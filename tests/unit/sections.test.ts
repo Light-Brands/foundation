@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { CATEGORIES } from "@/lib/layout/categories";
 import {
-  buildSections, buildSettings, activeEntry, findOwnPage,
+  buildSections, buildSettings, activeEntry, findOwnPage, TABS, tabFor, mobileBar,
   SECTION_DEPARTMENTS, SETTINGS_DEPARTMENTS, BRAND_PAGES, AGENTIC_PAGES,
 } from "@/lib/layout/sections";
 
@@ -62,5 +62,39 @@ describe("the six sections", () => {
     expect(findOwnPage("brand", "nope")).toBeUndefined();
     expect(BRAND_PAGES.every((p) => p.blurb.length > 20)).toBe(true);
     expect(AGENTIC_PAGES.every((p) => p.blurb.length > 20)).toBe(true);
+  });
+});
+
+describe("the phone tabs", () => {
+  const sections = buildSections();
+  const settings = buildSettings();
+  it("are Today, Brand, Business, Agentic and More", () => {
+    expect(TABS.map((t) => [t.label, t.href])).toEqual([
+      ["Today", "/admin"], ["Brand", "/admin/brand"], ["Business", "/admin/business"], ["Agentic", "/admin/agentic"], ["More", "/admin/more"],
+    ]);
+  });
+  it("light the tab that owns the screen", () => {
+    expect(tabFor("/admin", sections, settings)).toBe("today");
+    expect(tabFor("/admin/command/inbox", sections, settings)).toBe("today");
+    expect(tabFor("/admin/brand", sections, settings)).toBe("brand");
+    expect(tabFor("/admin/brand/offers", sections, settings)).toBe("brand");
+    expect(tabFor("/admin/business", sections, settings)).toBe("business");
+    expect(tabFor("/admin/sell/leads", sections, settings)).toBe("business");
+    expect(tabFor("/admin/money/books", sections, settings)).toBe("business");
+    expect(tabFor("/admin/agentic/skills", sections, settings)).toBe("agentic");
+    expect(tabFor("/admin/more", sections, settings)).toBe("more");
+    expect(tabFor("/admin/settings", sections, settings)).toBe("more");
+    expect(tabFor("/admin/system/setup", sections, settings)).toBe("more");
+    expect(tabFor("/admin/risk/backups", sections, settings)).toBe("more");
+  });
+  it("title every screen and point back to its tab", () => {
+    expect(mobileBar("/admin", sections, settings)).toEqual({ title: "Today", back: null });
+    expect(mobileBar("/admin/business", sections, settings)).toEqual({ title: "Business", back: null });
+    expect(mobileBar("/admin/command/inbox", sections, settings)).toEqual({ title: "Handle what needs you", back: "/admin" });
+    expect(mobileBar("/admin/brand/identity", sections, settings)).toEqual({ title: "Identity", back: "/admin/brand" });
+    expect(mobileBar("/admin/sell/leads", sections, settings)).toEqual({ title: "Capture leads", back: "/admin/business?stage=grow" });
+    expect(mobileBar("/admin/keep/reviews", sections, settings)).toEqual({ title: "Collect reviews", back: "/admin/business?stage=serve" });
+    expect(mobileBar("/admin/system/setup", sections, settings)).toEqual({ title: "Set up", back: "/admin/more" });
+    expect(mobileBar("/admin/settings", sections, settings)).toEqual({ title: "Settings", back: "/admin/more" });
   });
 });

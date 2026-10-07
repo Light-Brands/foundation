@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 
 test("the first win: in with the PIN, profile saved, a real message in the Inbox", async ({ page, context }) => {
-  await page.goto("/system/settings");
-  await expect(page).toHaveURL(/\/gate\?next=%2Fsystem%2Fsettings/);
+  await page.goto("/admin/system/settings");
+  await expect(page).toHaveURL(/\/admin\/login\?next=%2Fadmin%2Fsystem%2Fsettings/);
 
   await page.getByLabel("Your PIN").fill("000000");
   await page.getByRole("button", { name: "Open" }).click();
@@ -10,7 +10,13 @@ test("the first win: in with the PIN, profile saved, a real message in the Inbox
 
   await page.getByLabel("Your PIN").fill("246810");
   await page.getByRole("button", { name: "Open" }).click();
-  await expect(page).toHaveURL(/\/system\/settings$/);
+  await expect(page).toHaveURL(/\/admin\/system\/settings$/);
+
+  await page.goto("/system/setup");
+  await expect(page).toHaveURL(/\/admin\/system\/setup$/);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Harbor Studio");
+  await page.goto("/admin/system/settings");
 
   await page.getByLabel("What you do, in one line").fill("Calm, careful design work");
   await page.getByRole("button", { name: "Save" }).click();
@@ -26,39 +32,39 @@ test("the first win: in with the PIN, profile saved, a real message in the Inbox
   await contact.getByRole("button", { name: "Send" }).click();
   await expect(contact.getByRole("status")).toContainText("Thank you");
 
-  await page.goto("/command/inbox");
+  await page.goto("/admin/command/inbox");
   await expect(page.getByText("Ada sent a message")).toBeVisible();
   await expect(page.getByText("<script>alert(1)</script> Hello")).toBeVisible();
 
-  await page.goto("/system/modules");
+  await page.goto("/admin/system/modules");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("What you have built");
   await expect(page.getByText("Nothing is built yet.")).toBeVisible();
 
-  await page.goto("/deliver/booking");
+  await page.goto("/admin/deliver/booking");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Book appointments");
   await expect(page.getByText("Have Light Brands build it")).toBeVisible();
   // The shipped dictionary has no install entry for this job yet, so the doors say what comes next.
   await expect(page.getByText("This job's install arrives in a coming dictionary update.", { exact: false })).toBeVisible();
   await expect(page.getByText("Connections arrive with coming dictionary updates.", { exact: false })).toBeVisible();
 
-  await page.goto("/deliver/not-a-thing");
+  await page.goto("/admin/deliver/not-a-thing");
   await expect(page.getByText("That page is not part of your command center.")).toBeVisible();
 });
 
 test("a deep link outside the site never escapes the gate", async ({ page }) => {
-  await page.goto("/gate?next=//evil.example");
+  await page.goto("/admin/login?next=//evil.example");
   await page.getByLabel("Your PIN").fill("246810");
   await page.getByRole("button", { name: "Open" }).click();
-  await expect(page).toHaveURL("http://localhost:3100/");
+  await expect(page).toHaveURL("http://localhost:3100/admin");
 });
 
 test("pages never scroll sideways on a phone", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 800 });
-  await page.goto("/gate");
+  await page.goto("/admin/login");
   await page.getByLabel("Your PIN").fill("246810");
   await page.getByRole("button", { name: "Open" }).click();
-  await expect(page).toHaveURL("http://localhost:3100/");
-  for (const path of ["/", "/system/setup", "/deliver/booking"]) {
+  await expect(page).toHaveURL("http://localhost:3100/admin");
+  for (const path of ["/admin", "/admin/system/setup", "/admin/deliver/booking"]) {
     await page.goto(path);
     const width = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(width, path).toBeLessThanOrEqual(375);

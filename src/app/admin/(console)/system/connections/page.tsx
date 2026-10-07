@@ -23,7 +23,7 @@ export default async function ConnectionsPage() {
       </div>
       {rows.length === 0 ? (
         <p className="text-admin-muted">
-          Nothing is connected yet. Each connection you add appears here with its status. <Link href="/system/modules" className="text-admin-ink underline">See what you can add</Link>
+          Nothing is connected yet. Each connection you add appears here with its status. <Link href="/admin/system/modules" className="text-admin-ink underline">See what you can add</Link>
         </p>
       ) : (
         <ul className="space-y-3">

@@ -1,7 +1,18 @@
 import type { FoundationEnv } from "@/lib/env";
 import { pinMatches, signSession } from "@/lib/auth/pin-token";
 
-const PUBLIC = [/^\/gate$/, /^\/api\/gate$/, /^\/contact$/, /^\/f\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/api\/hooks\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/u\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}$/, /^\/_next\//, /^\/favicon\.ico$/];
+export const ADMIN = "/admin";
+
+const PUBLIC = [/^\/$/, /^\/admin\/login$/, /^\/api\/gate$/, /^\/contact$/, /^\/f\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/api\/hooks\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/u\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}$/, /^\/_next\//, /^\/favicon\.ico$/];
+
+const LEGACY = /^\/(command|attract|sell|deliver|keep|money|team|plan|vendors|risk|system)(\/.*)?$/;
+
+/** Screens that moved under /admin keep working: the old address answers with the new one. */
+export function legacyRedirect(pathname: string): string | null {
+  if (pathname === "/gate") return `${ADMIN}/login`;
+  const m = LEGACY.exec(pathname);
+  return m ? `${ADMIN}${pathname}` : null;
+}
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC.some((re) => re.test(pathname));
@@ -32,16 +43,16 @@ export function isPublicRequest(pathname: string, authorization: string | null, 
 const ORIGIN = "http://gate.local";
 
 export function safeNext(next: string | null | undefined): string {
-  if (!next || !next.startsWith("/") || /[\u0000-\u001f\u007f\\]/.test(next)) return "/";
+  if (!next || !next.startsWith("/") || /[\u0000-\u001f\u007f\\]/.test(next)) return ADMIN;
   let url: URL;
   try {
     url = new URL(next, ORIGIN);
   } catch {
-    return "/";
+    return ADMIN;
   }
-  if (url.origin !== ORIGIN) return "/";
+  if (url.origin !== ORIGIN) return ADMIN;
   const path = url.pathname + url.search + url.hash;
-  return path.startsWith("//") ? "/" : path;
+  return path.startsWith("//") || path === "/" ? ADMIN : path;
 }
 
 export async function handleGatePost(

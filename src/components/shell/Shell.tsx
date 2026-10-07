@@ -78,7 +78,7 @@ export function Shell({
               onSubmit={async (e) => {
                 e.preventDefault();
                 await fetch("/api/gate", { method: "DELETE" });
-                window.location.href = "/gate";
+                window.location.href = "/admin/login";
               }}
             >
               <button type="submit" className="chip transition-colors duration-200 ease-breath hover:border-admin-faint hover:text-admin-ink">

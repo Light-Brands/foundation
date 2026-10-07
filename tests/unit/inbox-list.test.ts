@@ -10,7 +10,7 @@ import { listInbox, type InboxItem } from "@/lib/data/inbox";
 import { draftEmail, markCopied } from "@/lib/data/outbox";
 import type { Db } from "@/lib/db/types";
 
-vi.mock("@/app/(console)/command/inbox/actions", () => ({
+vi.mock("@/app/admin/(console)/command/inbox/actions", () => ({
   decideCardAction: async () => null, markDoneAction: async () => null, routeCardAction: async () => null,
   markSentByHandAction: async () => null, cancelEmailAction: async () => null, markCopiedAction: async () => ({ ok: true, message: "" }),
 }));
@@ -75,7 +75,7 @@ describe("the Inbox card and list", () => {
     decided_at: null, created_at: new Date(T0.getTime() + DAY).toISOString(), contact_name: "Ada", contact_email: "ada@example.com", emails: [],
   };
   it("InboxCard renders one card, with an optional line below it from another job", async () => {
-    const { InboxCard } = await import("@/app/(console)/command/inbox/InboxCard");
+    const { InboxCard } = await import("@/app/admin/(console)/command/inbox/InboxCard");
     const props = { item: ITEM, timezone: "America/Los_Angeles", mode: "done" as const, routes: [], handSend: new Map() };
     const plain = renderToStaticMarkup(createElement(InboxCard, props));
     expect(plain).toContain("Ada sent a message");
@@ -85,10 +85,10 @@ describe("the Inbox card and list", () => {
     expect(withLine.indexOf("Looks like a lead.")).toBeGreaterThan(withLine.indexOf("Do you work weekends?"));
   });
   it("the Inbox page shows the list as one element a job can swap in one line", () => {
-    const page = readFileSync(path.join(ROOT, "src/app/(console)/command/inbox/page.tsx"), "utf8");
+    const page = readFileSync(path.join(ROOT, "src/app/admin/(console)/command/inbox/page.tsx"), "utf8");
     expect(page.match(/<InboxList \/>/g)).toHaveLength(1);
     expect(page).not.toMatch(/listInbox|EmailDraft|CardActions/);
-    const list = readFileSync(path.join(ROOT, "src/app/(console)/command/inbox/InboxList.tsx"), "utf8");
+    const list = readFileSync(path.join(ROOT, "src/app/admin/(console)/command/inbox/InboxList.tsx"), "utf8");
     expect(list).toMatch(/<InboxCard /);
   });
 });

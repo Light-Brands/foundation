@@ -10,7 +10,7 @@ test("a message in the Inbox can be marked done", async ({ page, context }) => {
   await contact.getByRole("button", { name: "Send" }).click();
   await expect(contact.getByRole("status")).toContainText("Thank you");
 
-  await page.goto("/gate?next=/command/inbox");
+  await page.goto("/admin/login?next=/admin/command/inbox");
   await page.getByLabel("Your PIN").fill("246810");
   await page.getByRole("button", { name: "Open" }).click();
   const card = page.getByRole("listitem").filter({ hasText: "Grace sent a message" });

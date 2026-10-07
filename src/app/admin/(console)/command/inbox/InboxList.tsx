@@ -16,7 +16,7 @@ export async function InboxList() {
         {storageMode() === "preview" ? (
           <p className="text-admin-muted">
             Your contact page starts taking messages once your database is connected.{" "}
-            <Link href="/system/setup" className="text-admin-ink underline">Open setup</Link>
+            <Link href="/admin/system/setup" className="text-admin-ink underline">Open setup</Link>
           </p>
         ) : (
           <p className="text-admin-muted">Nothing yet. Your public contact page is at <code className="font-mono text-admin-ink">/contact</code>. Share it and the first message arrives here.</p>

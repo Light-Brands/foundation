@@ -105,7 +105,7 @@ export async function markSentByHandAction(_prev: CardActionResult | null, form:
     const db = await getDb();
     if (!db) return { ok: false, message: PREVIEW_MESSAGE };
     const r = await markSentByHand(db, id, new Date(), { approved: !(await emailSendingActive(db)) });
-    revalidatePath("/command/inbox");
+    revalidatePath("/admin/command/inbox");
     return { ok: r === "sent", message: HAND_SENT[r] };
   } catch (err) {
     if (err instanceof MissingSecretError) return { ok: false, message: err.message };
@@ -126,7 +126,7 @@ export async function markCopiedAction(id: string): Promise<CardActionResult> {
     const db = await getDb();
     if (!db) return { ok: false, message: PREVIEW_MESSAGE };
     const ok = await markCopied(db, id, new Date());
-    revalidatePath("/command/inbox");
+    revalidatePath("/admin/command/inbox");
     return ok ? { ok: true, message: "Copied. Send it from your email, then mark it sent." } : { ok: false, message: HAND_SENT.not_waiting };
   } catch (err) {
     console.error("markCopiedAction failed", err);
@@ -144,7 +144,7 @@ export async function cancelEmailAction(_prev: CardActionResult | null, form: Fo
     const db = await getDb();
     if (!db) return { ok: false, message: PREVIEW_MESSAGE };
     const ok = await cancelEmail(db, id, new Date());
-    revalidatePath("/command/inbox");
+    revalidatePath("/admin/command/inbox");
     return ok ? { ok: true, message: "This email will not be sent." } : { ok: false, message: "This email is already sending or sent, so it cannot be stopped." };
   } catch (err) {
     console.error("cancelEmailAction failed", err);

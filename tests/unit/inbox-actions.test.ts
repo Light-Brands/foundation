@@ -24,7 +24,7 @@ vi.mock("@/lib/data/outbox", () => ({
   markCopied: (...a: unknown[]) => (markCopied as (...x: unknown[]) => unknown)(...a),
 }));
 
-import { cancelEmailAction, decideCardAction, markCopiedAction, markDoneAction, markSentByHandAction, routeCardAction } from "@/app/(console)/command/inbox/actions";
+import { cancelEmailAction, decideCardAction, markCopiedAction, markDoneAction, markSentByHandAction, routeCardAction } from "@/app/admin/(console)/command/inbox/actions";
 
 const ID = "6f1c2a4e-1b2c-4d5e-8f90-1234567890ab";
 const form = (v: Record<string, string>) => { const f = new FormData(); for (const [k, x] of Object.entries(v)) f.set(k, x); return f; };

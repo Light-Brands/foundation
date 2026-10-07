@@ -5,16 +5,16 @@ export type NavGroup = { id: CategoryId; label: string; icon: IconName; items: N
 
 // Screens this phase ships. Later phases add module screens through manifests.
 export const CORE_SCREENS: Record<string, string> = {
-  "command.home": "/",
-  "command.inbox": "/command/inbox",
-  "system.modules": "/system/modules",
-  "system.setup": "/system/setup",
-  "system.settings": "/system/settings",
-  "system.connections": "/system/connections",
+  "command.home": "/admin",
+  "command.inbox": "/admin/command/inbox",
+  "system.modules": "/admin/system/modules",
+  "system.setup": "/admin/system/setup",
+  "system.settings": "/admin/system/settings",
+  "system.connections": "/admin/system/connections",
 };
 
 export function hrefFor(category: string, sub: string): string {
-  return CORE_SCREENS[`${category}.${sub}`] ?? `/${category}/${sub}`;
+  return CORE_SCREENS[`${category}.${sub}`] ?? `/admin/${category}/${sub}`;
 }
 
 export function buildNav(badges: Record<string, number> = {}): NavGroup[] {
@@ -46,7 +46,7 @@ export function findSubcategory(categoryId: string, subId: string): { category: 
 export function activeKey(pathname: string, groups: NavGroup[]): string | null {
   let best: NavItem | null = null;
   for (const g of groups) for (const i of g.items) {
-    const hit = i.href === "/" ? pathname === "/" : pathname === i.href || pathname.startsWith(i.href + "/");
+    const hit = i.href === "/admin" ? pathname === "/admin" : pathname === i.href || pathname.startsWith(i.href + "/");
     if (hit && (!best || i.href.length > best.href.length)) best = i;
   }
   return best?.key ?? null;

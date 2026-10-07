@@ -20,7 +20,7 @@ vi.mock("@/lib/auth/roles", async (orig) => {
   return { ...real, allows: (...a: unknown[]) => allows(...a) };
 });
 
-import { runChecksAction } from "@/app/(console)/actions";
+import { runChecksAction } from "@/app/admin/(console)/actions";
 import { GET } from "@/app/api/cron/checks/route";
 
 beforeEach(() => { getDb.mockReset(); runChecks.mockClear(); drainOutbox.mockClear(); order.length = 0; });

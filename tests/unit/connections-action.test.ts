@@ -16,7 +16,7 @@ vi.mock("@/lib/auth/roles", async (orig) => {
   return { ...real, get PIN_OWNER() { return actorRef.value ?? real.PIN_OWNER; } };
 });
 
-import { saveConnectionAction, testConnectionAction } from "@/app/(console)/system/connections/actions";
+import { saveConnectionAction, testConnectionAction } from "@/app/admin/(console)/system/connections/actions";
 
 const form = (v: Record<string, string>) => { const f = new FormData(); for (const [k, x] of Object.entries(v)) f.set(k, x); return f; };
 

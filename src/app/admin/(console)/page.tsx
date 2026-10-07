@@ -39,7 +39,7 @@ export default async function Home() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">
-        <Link href="/system/setup" className="surface block p-5 transition hover:border-admin-faint">
+        <Link href="/admin/system/setup" className="surface block p-5 transition hover:border-admin-faint">
           <p className="kicker">Set up</p>
           <p className="mt-2 text-2xl text-admin-ink">{done} of {steps.length} steps live</p>
           <p className="mt-1 text-sm text-admin-muted">Next: {steps.find((s) => s.status === "next")?.label ?? "You are all set"}</p>
@@ -48,10 +48,10 @@ export default async function Home() {
           <div className="surface block p-5">
             <p className="kicker">Inbox</p>
             <p className="mt-2 text-sm text-admin-muted">Your contact page starts taking messages once your database is connected.</p>
-            <Link href="/system/setup" className="mt-2 inline-block text-sm text-admin-ink underline">Open setup</Link>
+            <Link href="/admin/system/setup" className="mt-2 inline-block text-sm text-admin-ink underline">Open setup</Link>
           </div>
         ) : (
-          <Link href="/command/inbox" className="surface block p-5 transition hover:border-admin-faint">
+          <Link href="/admin/command/inbox" className="surface block p-5 transition hover:border-admin-faint">
             <p className="kicker">Inbox</p>
             {latest.length ? (
               <ul className="mt-2 space-y-1 text-sm text-admin-ink">

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { safeNext, isPublicPath, handleGatePost, cronAuthorized, isPublicRequest } from "@/lib/auth/gate";
+import { safeNext, isPublicPath, legacyRedirect, handleGatePost, cronAuthorized, isPublicRequest } from "@/lib/auth/gate";
 import { readEnv } from "@/lib/env";
 import { verifySession } from "@/lib/auth/pin-token";
 
@@ -9,7 +9,7 @@ describe("safeNext", () => {
   });
   it("refuses other sites and odd paths", () => {
     for (const bad of ["//evil.com", "https://evil.com", "/\\evil.com", "evil", "", null, undefined, "/\t/evil.com", "/\n/evil.com", "/\r/evil.com", "/\u0000x", "/x/..//evil.com", "/%2e%2e//evil.com", "/a/..//b/../evil.com"]) {
-      expect(safeNext(bad)).toBe("/");
+      expect(safeNext(bad)).toBe("/admin");
     }
   });
 });
@@ -21,14 +21,30 @@ describe("safeNext percent-encoding", () => {
 });
 
 describe("isPublicPath", () => {
-  it("lets the gate, the contact page and static files through", () => {
-    for (const p of ["/gate", "/api/gate", "/contact", "/_next/static/x.js", "/favicon.ico"]) {
+  it("lets the public page, the sign-in, the contact page and static files through", () => {
+    for (const p of ["/", "/admin/login", "/api/gate", "/contact", "/_next/static/x.js", "/favicon.ico"]) {
       expect(isPublicPath(p)).toBe(true);
     }
   });
-  it("guards everything else", () => {
-    for (const p of ["/", "/command/inbox", "/system/setup", "/gateway", "/contacts"]) {
+  it("guards the admin and everything else", () => {
+    for (const p of ["/admin", "/admin/command/inbox", "/admin/system/setup", "/admin/loginx", "/gateway", "/contacts"]) {
       expect(isPublicPath(p)).toBe(false);
+    }
+  });
+});
+
+describe("legacyRedirect", () => {
+  it("sends old screens to the same screen under /admin", () => {
+    expect(legacyRedirect("/command/inbox")).toBe("/admin/command/inbox");
+    expect(legacyRedirect("/deliver/booking")).toBe("/admin/deliver/booking");
+    expect(legacyRedirect("/system")).toBe("/admin/system");
+  });
+  it("sends the old gate to the sign-in", () => {
+    expect(legacyRedirect("/gate")).toBe("/admin/login");
+  });
+  it("leaves everything else alone", () => {
+    for (const p of ["/", "/admin", "/contact", "/f/hello", "/commander", "/admin/command/inbox"]) {
+      expect(legacyRedirect(p)).toBeNull();
     }
   });
 });

@@ -40,13 +40,13 @@ describe("the eleven categories", () => {
 
 describe("the nav", () => {
   it("maps core screens to their routes and everything else to its slot", () => {
-    expect(hrefFor("command", "home")).toBe("/");
-    expect(hrefFor("command", "inbox")).toBe("/command/inbox");
-    expect(hrefFor("system", "setup")).toBe("/system/setup");
-    expect(hrefFor("deliver", "booking")).toBe("/deliver/booking");
+    expect(hrefFor("command", "home")).toBe("/admin");
+    expect(hrefFor("command", "inbox")).toBe("/admin/command/inbox");
+    expect(hrefFor("system", "setup")).toBe("/admin/system/setup");
+    expect(hrefFor("deliver", "booking")).toBe("/admin/deliver/booking");
   });
   it("builds the Modules screen at /system/modules", () => {
-    expect(hrefFor("system", "modules")).toBe("/system/modules");
+    expect(hrefFor("system", "modules")).toBe("/admin/system/modules");
     const system = buildNav().find((g) => g.id === "system")!;
     expect(system.items.find((i) => i.key === "system.modules")!.state).toBe("built");
   });
@@ -68,16 +68,16 @@ describe("the nav", () => {
   });
   it("picks the longest matching href as active", () => {
     const nav = buildNav();
-    expect(activeKey("/", nav)).toBe("command.home");
-    expect(activeKey("/command/inbox", nav)).toBe("command.inbox");
-    expect(activeKey("/deliver/booking", nav)).toBe("deliver.booking");
+    expect(activeKey("/admin", nav)).toBe("command.home");
+    expect(activeKey("/admin/command/inbox", nav)).toBe("command.inbox");
+    expect(activeKey("/admin/deliver/booking", nav)).toBe("deliver.booking");
     expect(activeKey("/elsewhere", nav)).toBeNull();
   });
 });
 
 describe("Connect your tools", () => {
   it("is a built screen at /system/connections", () => {
-    expect(hrefFor("system", "connections")).toBe("/system/connections");
+    expect(hrefFor("system", "connections")).toBe("/admin/system/connections");
     const item = buildNav().find((g) => g.id === "system")!.items.find((i) => i.key === "system.connections")!;
     expect(item.state).toBe("built");
   });

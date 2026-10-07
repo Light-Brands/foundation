@@ -12,7 +12,7 @@ vi.mock("@/lib/data/card-kinds", async () => {
 });
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
-import { decideCardAction, markDoneAction, markSentByHandAction } from "@/app/(console)/command/inbox/actions";
+import { decideCardAction, markDoneAction, markSentByHandAction } from "@/app/admin/(console)/command/inbox/actions";
 import { draftEmail, optOut } from "@/lib/data/outbox";
 import { upsertConnection } from "@/lib/data/connections";
 

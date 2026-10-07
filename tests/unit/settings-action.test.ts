@@ -29,7 +29,7 @@ vi.mock("next/cache", () => ({ revalidatePath: (...a: unknown[]) => revalidatePa
 const hasSession = vi.fn(async () => false);
 vi.mock("@/lib/auth/session", () => ({ hasSession: () => hasSession() }));
 
-import { saveProfileAction, pauseAction } from "@/app/(console)/system/settings/actions";
+import { saveProfileAction, pauseAction } from "@/app/admin/(console)/system/settings/actions";
 
 function form(values: Record<string, string>) {
   const f = new FormData();

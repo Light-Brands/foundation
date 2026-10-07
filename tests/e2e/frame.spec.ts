@@ -72,6 +72,7 @@ test.describe("phone", () => {
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Security" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Set up/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Lock" })).toBeVisible();
   });
 
   test("Today shows what needs you first", async ({ page }) => {

@@ -14,12 +14,12 @@ export async function InboxList() {
     return (
       <div className="space-y-4">
         {storageMode() === "preview" ? (
-          <p className="text-mist">
+          <p className="text-admin-muted">
             Your contact page starts taking messages once your database is connected.{" "}
-            <Link href="/system/setup" className="text-zinc-200 underline">Open setup</Link>
+            <Link href="/system/setup" className="text-admin-ink underline">Open setup</Link>
           </p>
         ) : (
-          <p className="text-mist">Nothing yet. Your public contact page is at <code className="font-mono text-zinc-200">/contact</code>. Share it and the first message arrives here.</p>
+          <p className="text-admin-muted">Nothing yet. Your public contact page is at <code className="font-mono text-admin-ink">/contact</code>. Share it and the first message arrives here.</p>
         )}
         <PromptBox name="first-session" title="Ask Claude what to do next" />
       </div>

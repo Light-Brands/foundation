@@ -36,9 +36,9 @@ export function ProfileForm({ profile }: { profile: Profile }) {
             name={f.name}
             type={f.type ?? "text"}
             defaultValue={state?.values?.[f.name] ?? profile[f.name]}
-            className="mt-1 w-full rounded-xl border border-white/10 bg-ink-50 px-3 py-2 text-zinc-100"
+            className="mt-1 w-full rounded-xl border border-admin-line-strong bg-admin-canvas px-3 py-2 text-admin-ink"
           />
-          {state?.errors?.[f.name] && <span className="mt-1 block text-sm text-amber-200">{state.errors[f.name]}</span>}
+          {state?.errors?.[f.name] && <span className="mt-1 block text-sm text-warn">{state.errors[f.name]}</span>}
         </label>
   );
   return (
@@ -50,7 +50,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
       </details>
       <div className="flex items-center gap-4">
         <button type="submit" className="btn-primary" disabled={pending}>{pending ? "Saving" : "Save"}</button>
-        <p role="status" className="text-sm text-mist">{state?.message}</p>
+        <p role="status" className="text-sm text-admin-muted">{state?.message}</p>
       </div>
     </form>
   );

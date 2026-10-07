@@ -9,7 +9,7 @@ export function TestButton({ service }: { service: string }) {
     <form action={run} className="mt-2 flex flex-wrap items-center gap-3">
       <input type="hidden" name="service" value={service} />
       <button type="submit" className="btn-quiet min-h-11" disabled={running}>Test now</button>
-      <p role="status" className={`text-sm ${result && !result.ok && !running ? "text-amber-200" : "text-mist"}`}>{running ? "Testing" : (result?.message ?? "")}</p>
+      <p role="status" className={`text-sm ${result && !result.ok && !running ? "text-warn" : "text-admin-muted"}`}>{running ? "Testing" : (result?.message ?? "")}</p>
     </form>
   );
 }

@@ -24,13 +24,13 @@ export default async function PublicFormPage({ params, searchParams }: {
   // A visit from the business's own site is never a referral.
   const source = sourceFields(await searchParams, h.get("referer"), ownHosts(h.get("host"), profile.website));
   return (
-    <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-6 p-6">
+    <main className="public mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-6 p-6">
       <div>
         <p className="kicker">{profile.business}</p>
-        <h1 className="mt-1 text-3xl text-zinc-50">{form.title}</h1>
-        {form.intro && <p className="mt-2 text-mist">{form.intro}</p>}
+        <h1 className="mt-1 text-3xl text-ink">{form.title}</h1>
+        {form.intro && <p className="mt-2 text-ink-muted">{form.intro}</p>}
       </div>
-      {formReady(form, choices) ? <PublicForm form={form} source={source} choices={choices} /> : <p className="surface p-6 text-zinc-100">{NOT_READY}</p>}
+      {formReady(form, choices) ? <PublicForm form={form} source={source} choices={choices} /> : <p className="surface border-hairline bg-canvas-muted p-6 text-ink">{NOT_READY}</p>}
     </main>
   );
 }

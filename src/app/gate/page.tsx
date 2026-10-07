@@ -10,10 +10,10 @@ export default async function GatePage({ searchParams }: { searchParams: Promise
   const { next } = await searchParams;
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
-      <h1 className="text-2xl text-zinc-100">{env.businessName}</h1>
+      <h1 className="text-2xl text-admin-ink">{env.businessName}</h1>
       {env.pinProblem ? (
         <div className="w-full max-w-xl space-y-4">
-          <p className="text-mist">
+          <p className="text-admin-muted">
             {env.pinProblem === "missing"
               ? "Your command center is deployed. One step left: set your PIN."
               : "Your PIN needs to be 6 to 12 digits. One quick change and you are in."}

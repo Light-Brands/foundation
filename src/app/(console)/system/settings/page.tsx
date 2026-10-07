@@ -13,8 +13,8 @@ export default async function SettingsPage() {
     <div className="space-y-6">
       <div>
         <p className="kicker">Settings · Preferences</p>
-        <h1 className="mt-1 text-3xl text-zinc-50">Your business profile</h1>
-        <p className="mt-2 max-w-xl text-mist">Every part of your command center uses these details: your name, how people reach you, and what you do.</p>
+        <h1 className="mt-1 text-3xl text-admin-ink">Your business profile</h1>
+        <p className="mt-2 max-w-xl text-admin-muted">Every part of your command center uses these details: your name, how people reach you, and what you do.</p>
       </div>
       <ProfileForm profile={profile} />
       <PausePanel state={pause} />

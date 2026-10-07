@@ -14,11 +14,11 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
   // A visit from the business's own site is never a referral.
   const source = sourceFields(await searchParams, h.get("referer"), ownHosts(h.get("host"), profile.website));
   return (
-    <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-6 p-6">
+    <main className="public mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-6 p-6">
       <div>
         <p className="kicker">Get in touch</p>
-        <h1 className="mt-1 text-3xl text-zinc-50">{profile.business}</h1>
-        {profile.what_we_do && <p className="mt-2 text-mist">{profile.what_we_do}</p>}
+        <h1 className="mt-1 text-3xl text-ink">{profile.business}</h1>
+        {profile.what_we_do && <p className="mt-2 text-ink-muted">{profile.what_we_do}</p>}
       </div>
       <PublicForm form={CONTACT_FORM} source={source} />
     </main>

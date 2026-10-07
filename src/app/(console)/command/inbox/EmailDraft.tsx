@@ -28,14 +28,14 @@ export function EmailDraft({ email, sendAfter, handSend }: { email: CardEmail; s
   const canSendByHand = (email.status === "approved" || email.status === "failed") && copyText !== null;
   const canStop = email.status === "draft" || email.status === "approved";
   return (
-    <div className="mt-3 rounded-xl border border-white/10 p-3">
+    <div className="mt-3 rounded-xl border border-admin-line-strong p-3">
       <p className="kicker">{email.kind === "marketing" ? "Marketing email" : "Email"} to {email.to}</p>
-      <p className="mt-1 text-sm text-zinc-100">{email.subject}</p>
-      <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-300">{email.body}</p>
-      <p className="mt-2 text-xs text-mist">{email.status === "approved" && copyText === null ? "Approved." : STATUS[email.status]}{email.note ? ` ${email.note}` : ""}</p>
-      {email.status === "approved" && email.copied && <p className="mt-1 text-xs text-mist">Copied. It waits for you to mark it sent, and is never sent on its own.</p>}
-      {sendAfter && (email.status === "draft" || email.status === "approved") && <p className="mt-1 text-xs text-mist">Goes out after {sendAfter}.</p>}
-      {note && <p className="mt-1 text-xs text-mist">{note}</p>}
+      <p className="mt-1 text-sm text-admin-ink">{email.subject}</p>
+      <p className="mt-2 whitespace-pre-wrap text-sm text-admin-muted">{email.body}</p>
+      <p className="mt-2 text-xs text-admin-muted">{email.status === "approved" && copyText === null ? "Approved." : STATUS[email.status]}{email.note ? ` ${email.note}` : ""}</p>
+      {email.status === "approved" && email.copied && <p className="mt-1 text-xs text-admin-muted">Copied. It waits for you to mark it sent, and is never sent on its own.</p>}
+      {sendAfter && (email.status === "draft" || email.status === "approved") && <p className="mt-1 text-xs text-admin-muted">Goes out after {sendAfter}.</p>}
+      {note && <p className="mt-1 text-xs text-admin-muted">{note}</p>}
       {(canSendByHand || canStop) && (
         <div className="mt-2 flex flex-wrap items-center gap-3">
           {canSendByHand && <CopyButton text={copyText} label="Copy email" before={email.status === "approved" ? () => markCopiedAction(email.id) : undefined} />}
@@ -51,7 +51,7 @@ export function EmailDraft({ email, sendAfter, handSend }: { email: CardEmail; s
               <button type="submit" className={`btn-quiet ${BUTTON}`} disabled={pending}>Do not send</button>
             </form>
           )}
-          <p role="status" className="text-sm text-mist">{pending ? "Saving" : (result?.message ?? "")}</p>
+          <p role="status" className="text-sm text-admin-muted">{pending ? "Saving" : (result?.message ?? "")}</p>
         </div>
       )}
     </div>

@@ -9,7 +9,7 @@ export async function PromptBox({ name, title }: { name: string; title: string }
         <p className="kicker">{title}</p>
         <CopyButton text={text} />
       </div>
-      <pre className="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-mist">{text}</pre>
+      <pre className="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-admin-muted">{text}</pre>
     </div>
   );
 }

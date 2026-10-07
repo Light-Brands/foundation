@@ -51,11 +51,11 @@ export function Shell({
       <div inert={drawer} className="relative min-h-dvh">
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-[-8rem] h-[26rem] w-[42rem] -translate-x-1/2 rounded-full bg-violet/10 blur-[120px]"
+          className="pointer-events-none absolute left-1/2 top-[-8rem] h-[26rem] w-[42rem] -translate-x-1/2 rounded-full bg-accent/10 blur-[120px]"
         />
         <header
           className={`sticky top-0 z-30 transition-colors duration-300 ease-breath ${
-            scrolled ? "border-b border-white/5 bg-ink/80 backdrop-blur-md" : "border-b border-transparent"
+            scrolled ? "border-b border-admin-line-strong bg-admin-canvas/80 backdrop-blur-md" : "border-b border-transparent"
           }`}
         >
           <div className="flex h-14 items-center gap-3 px-4">
@@ -69,7 +69,7 @@ export function Shell({
             >
               <Menu size={20} />
             </button>
-            <span className="font-display text-sm tracking-wide text-zinc-100">{businessName}</span>
+            <span className="font-display text-sm tracking-wide text-admin-ink">{businessName}</span>
             <span className="kicker ml-2 hidden sm:inline">Command center</span>
             <form
               action="/api/gate"
@@ -81,7 +81,7 @@ export function Shell({
                 window.location.href = "/gate";
               }}
             >
-              <button type="submit" className="chip transition-colors duration-200 ease-breath hover:border-white/20 hover:text-white">
+              <button type="submit" className="chip transition-colors duration-200 ease-breath hover:border-admin-faint hover:text-admin-ink">
                 Lock
               </button>
             </form>
@@ -89,7 +89,7 @@ export function Shell({
         </header>
         {banner}
         <div className="relative flex">
-          <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-white/10 lg:block">
+          <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-admin-line-strong lg:block">
             <Rail groups={nav} />
           </aside>
           <div className="relative z-10 mx-auto w-full max-w-6xl min-w-0 flex-1 px-6 py-8">
@@ -99,8 +99,8 @@ export function Shell({
       </div>
       {drawer && (
         <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
-          <button type="button" tabIndex={-1} aria-hidden className="absolute inset-0 bg-black/60" onClick={() => setDrawer(false)} />
-          <div className="absolute inset-y-0 left-0 w-72 overflow-y-auto border-r border-white/10 bg-ink">
+          <button type="button" tabIndex={-1} aria-hidden className="absolute inset-0 bg-admin-ink/40" onClick={() => setDrawer(false)} />
+          <div className="absolute inset-y-0 left-0 w-72 overflow-y-auto border-r border-admin-line-strong bg-admin-canvas">
             <button ref={closeButton} type="button" className="m-3" aria-label="Close menu" onClick={() => setDrawer(false)}>
               <X size={20} />
             </button>

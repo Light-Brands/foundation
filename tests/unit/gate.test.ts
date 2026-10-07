@@ -14,6 +14,15 @@ describe("safeNext", () => {
   });
 });
 
+describe("safeNext public page", () => {
+  it("sends the public page, with or without a query or hash, to /admin", () => {
+    for (const p of ["/", "/?a=1", "/#x"]) expect(safeNext(p)).toBe("/admin");
+  });
+  it("keeps an admin path with a query", () => {
+    expect(safeNext("/admin/sell/leads?x=1")).toBe("/admin/sell/leads?x=1");
+  });
+});
+
 describe("safeNext percent-encoding", () => {
   it("keeps a literal percent string same-site", () => {
     expect(safeNext("/%09/evil.com").startsWith("//")).toBe(false);

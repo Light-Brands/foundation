@@ -52,7 +52,7 @@ export function safeNext(next: string | null | undefined): string {
   }
   if (url.origin !== ORIGIN) return ADMIN;
   const path = url.pathname + url.search + url.hash;
-  return path.startsWith("//") || path === "/" ? ADMIN : path;
+  return path.startsWith("//") || url.pathname === "/" ? ADMIN : path;
 }
 
 export async function handleGatePost(

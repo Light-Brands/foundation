@@ -1,28 +1,77 @@
+import Image from "next/image";
 import { readEnv } from "@/lib/env";
 import { safeNext } from "@/lib/auth/gate";
-import { Keypad } from "./Keypad";
+import { getDb } from "@/lib/db";
+import { getProfile } from "@/lib/data/profile";
+import { getBrand } from "@/lib/data/brand";
 import { PromptBox } from "@/components/PromptBox";
+import { Keypad } from "./Keypad";
+import s from "./chamber.module.css";
 
 export const dynamic = "force-dynamic";
 
-export default async function GatePage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+const SECTIONS = ["Command center", "Brand", "Agentic", "Grow", "Serve", "Run"];
+
+export default async function SignIn({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const env = readEnv();
   const { next } = await searchParams;
+  const db = await getDb();
+  const [profile, brand] = await Promise.all([getProfile(db, env.businessName), getBrand(db)]);
+  const logo = brand.logoLightUrl ?? brand.logoUrl;
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
-      <h1 className="text-2xl text-admin-ink">{env.businessName}</h1>
-      {env.pinProblem ? (
-        <div className="w-full max-w-xl space-y-4">
-          <p className="text-admin-muted">
-            {env.pinProblem === "missing"
-              ? "Your command center is deployed. One step left: set your PIN."
-              : "Your PIN needs to be 6 to 12 digits. One quick change and you are in."}
-          </p>
-          <PromptBox name="setup/set-pin" title="Set your PIN with Claude" />
+    <div className={s.page}>
+      <aside className={s.chamber} data-chamber>
+        <div className={s.grain} aria-hidden />
+        <div className={s.shaft} aria-hidden />
+        <div className={s.floor} aria-hidden />
+        <div className={`${s.content} ${s.rise}`} style={{ animationDelay: "60ms" }}>
+          {logo ? (
+            <Image src={logo} alt={profile.business} width={40} height={40} className="h-10 w-auto object-contain" unoptimized />
+          ) : (
+            <p className={s.eyebrow}>Command center</p>
+          )}
         </div>
-      ) : (
-        <Keypad next={safeNext(next)} />
-      )}
-    </main>
+        <div className={s.content}>
+          <p className={`${s.eyebrow} ${s.rise}`} style={{ animationDelay: "140ms" }}>Command center</p>
+          <h2 className={`${s.wordmark} ${s.rise}`} style={{ animationDelay: "220ms" }}>{profile.business}</h2>
+          {profile.what_we_do && (
+            <p className={`${s.lede} ${s.rise}`} style={{ animationDelay: "320ms" }}>{profile.what_we_do}</p>
+          )}
+        </div>
+        <ul className={`${s.content} ${s.sections} ${s.rise}`} style={{ animationDelay: "420ms" }}>
+          {SECTIONS.map((x) => <li key={x}>{x}</li>)}
+        </ul>
+      </aside>
+      <main className={s.panel}>
+        <header className={s.topBar}>
+          <span />
+          <p className={s.staff}>Owner and team</p>
+        </header>
+        <div className={s.formWrap}>
+          <div className={s.mobileBrand}>
+            <p className="kicker">Command center</p>
+            <p className="mt-1 font-display text-3xl font-light tracking-tight text-admin-ink">{profile.business}</p>
+          </div>
+          <div className={s.rise} style={{ animationDelay: "180ms" }}>
+            <h1 className={s.headline}>Sign in</h1>
+            <p className={s.sub}>Enter your command center.</p>
+          </div>
+          <div className={`mt-8 ${s.rise}`} style={{ animationDelay: "260ms" }}>
+            {env.pinProblem ? (
+              <div className="space-y-4">
+                <p className="text-admin-muted">
+                  {env.pinProblem === "missing"
+                    ? "Your command center is deployed. One step left: set your PIN."
+                    : "Your PIN needs to be 6 to 12 digits. One quick change and you are in."}
+                </p>
+                <PromptBox name="setup/set-pin" title="Set your PIN with Claude" />
+              </div>
+            ) : (
+              <Keypad next={safeNext(next)} />
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }

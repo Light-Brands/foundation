@@ -34,7 +34,7 @@ export function Keypad({ next }: { next: string }) {
   }
   return (
     <form
-      className="surface w-full max-w-xs p-6"
+      className="w-full"
       onSubmit={(e) => {
         e.preventDefault();
         void submit();
@@ -49,15 +49,15 @@ export function Keypad({ next }: { next: string }) {
         type="password"
         value={pin}
         onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 12))}
-        className="mt-2 w-full rounded-xl border border-admin-line-strong bg-admin-canvas px-4 py-3 text-center font-mono text-2xl tracking-[0.4em] text-admin-ink"
+        className="field mt-2 py-3 text-center font-mono text-2xl tracking-[0.4em]"
       />
       <div className="mt-4 grid grid-cols-3 gap-2">
         {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
-          <button key={d} type="button" onClick={() => press(d)} className="rounded-xl bg-admin-hover py-3 font-mono text-lg hover:bg-admin-line-strong">{d}</button>
+          <button key={d} type="button" onClick={() => press(d)} className="rounded-control border border-admin-line-strong bg-admin-surface py-3 font-mono text-lg text-admin-ink transition-colors duration-200 ease-breath hover:bg-admin-hover">{d}</button>
         ))}
-        <button type="button" onClick={() => setPin((p) => p.slice(0, -1))} className="rounded-xl bg-admin-hover py-3 text-sm hover:bg-admin-line-strong">Back</button>
-        <button type="button" onClick={() => press("0")} className="rounded-xl bg-admin-hover py-3 font-mono text-lg hover:bg-admin-line-strong">0</button>
-        <button type="submit" disabled={pin.length < 6 || state === "checking"} className="rounded-xl bg-accent py-3 text-sm font-medium text-on-accent disabled:opacity-40">Open</button>
+        <button type="button" onClick={() => setPin((p) => p.slice(0, -1))} className="rounded-control border border-admin-line-strong bg-admin-surface py-3 text-sm text-admin-ink transition-colors duration-200 ease-breath hover:bg-admin-hover">Back</button>
+        <button type="button" onClick={() => press("0")} className="rounded-control border border-admin-line-strong bg-admin-surface py-3 font-mono text-lg text-admin-ink transition-colors duration-200 ease-breath hover:bg-admin-hover">0</button>
+        <button type="submit" disabled={pin.length < 6 || state === "checking"} className="btn-primary py-3">Open</button>
       </div>
       <p className="mt-3 min-h-5 text-sm text-admin-muted" role="status">
         {MESSAGES[state]}

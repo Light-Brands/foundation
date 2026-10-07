@@ -367,7 +367,7 @@ export async function readDeclarations(root: string): Promise<Declarations> {
 }
 
 // Every table the Foundation itself creates. A check may read only the few in CHECK_CORE_TABLES.
-export const CORE_TABLES = ["business_profile", "contacts", "inbox_items", "pause", "form_hits", "form_counts", "webhook_events", "check_runs", "outbox", "opt_outs", "connections", "core_settings", "core_accounts", "accounts"];
+export const CORE_TABLES = ["business_profile", "contacts", "inbox_items", "pause", "form_hits", "form_counts", "webhook_events", "check_runs", "outbox", "opt_outs", "connections", "core_settings", "core_accounts", "core_brand", "accounts"];
 
 export const CHECK_PERIODS = ["day", "week"] as const;
 // Core tables a check may read. The outbox stays out: it holds message bodies.

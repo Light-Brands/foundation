@@ -7,12 +7,12 @@ const ids = (s: ReturnType<typeof stackStatus>) => s.map((x) => `${x.id}:${x.sta
 describe("stackStatus", () => {
   it("lists the eight steps in order", () => {
     expect(stackStatus({}, { storage: "pglite" }).map((s) => s.id)).toEqual(
-      ["github", "vercel", "supabase", "owner", "domain", "email", "claude", "dojo"],
+      ["github", "vercel", "database", "owner", "domain", "email", "claude", "dojo"],
     );
   });
   it("on a fresh Vercel deploy, GitHub and Vercel are done and running locally is the next win", () => {
     const steps = stackStatus({ VERCEL: "1", VERCEL_GIT_REPO_SLUG: "command-center", VERCEL_PROJECT_PRODUCTION_URL: "cc.vercel.app" }, { storage: "preview" });
-    expect(ids(steps).slice(0, 3)).toEqual(["github:done", "vercel:done", "supabase:later"]);
+    expect(ids(steps).slice(0, 3)).toEqual(["github:done", "vercel:done", "database:later"]);
     expect(steps.find((s) => s.id === "claude")!.status).toBe("next");
   });
   it("marks a custom domain done when production is off vercel.app", () => {
@@ -40,16 +40,22 @@ describe("stackStatus", () => {
 describe("Set up reads connection status from the table", () => {
   it("marks the hosted database and email sending done when their connections are connected", () => {
     const steps = stackStatus({}, { storage: "pglite", connections: { "hosted-database": "connected", "email-sending": "connected" }, emailSending: true });
-    expect(steps.find((s) => s.id === "supabase")!.status).toBe("done");
+    expect(steps.find((s) => s.id === "database")!.status).toBe("done");
     expect(steps.find((s) => s.id === "email")!.status).toBe("done");
   });
   it("leaves them open while a connection is only planned or failing", () => {
     const steps = stackStatus({}, { storage: "pglite", connections: { "hosted-database": "planned", "email-sending": "failing" }, emailSending: false });
-    expect(steps.find((s) => s.id === "supabase")!.status).not.toBe("done");
+    expect(steps.find((s) => s.id === "database")!.status).not.toBe("done");
     expect(steps.find((s) => s.id === "email")!.status).not.toBe("done");
   });
   it("marks email sending done from emailSendingActive, not from the raw status", () => {
     expect(stackStatus({}, { storage: "pglite", connections: {}, emailSending: true }).find((s) => s.id === "email")!.status).toBe("done");
     expect(stackStatus({}, { storage: "pglite", connections: { "email-sending": "connected" }, emailSending: false }).find((s) => s.id === "email")!.status).not.toBe("done");
+  });
+  it("names the database step plainly and points at Neon", () => {
+    const steps = stackStatus({}, { storage: "pglite" });
+    const db = steps.find((s) => s.id === "database")!;
+    expect(db.label).toBe("Database");
+    expect(db.unlocks).toContain("Neon");
   });
 });

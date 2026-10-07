@@ -33,12 +33,12 @@ async function open(): Promise<Db | null> {
   const kind = selectDriver(env);
   if (env.databaseProblem === "insecure") console.error(DATABASE_INSECURE_MESSAGE);
   if (kind === "preview") return null;
-  const db = kind === "supabase" ? openSupabase(env.databaseUrl as string, { ca: env.databaseCa }) : await openLocal(env.dataDir);
+  const db = kind === "postgres" ? openSupabase(env.databaseUrl as string, { ca: env.databaseCa }) : await openLocal(env.dataDir);
   try {
     await migrateAll(db, process.cwd());
     // One statement, so two starts at once never seed two rows.
     await db.query("insert into business_profile (id, business) values (1, $1) on conflict (id) do nothing", [env.businessName]);
-    if (kind === "supabase") {
+    if (kind === "postgres") {
       const unprotected = await tablesWithoutRls(db);
       if (unprotected.length) console.error(`These tables have no row level security: ${unprotected.join(", ")}. Add it in their app's migrations.`);
     }

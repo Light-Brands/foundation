@@ -2,7 +2,7 @@ import type { Db } from "@/lib/db/types";
 import { PROFILE_FIELDS, type Profile } from "@/lib/validate";
 
 export const PREVIEW_MESSAGE =
-  "Your live site is not saving yet. Run your command center on your own computer to save now, or connect Supabase from Setup when it arrives.";
+  "Your live site is not saving yet. Connect your Neon database from Setup, or run your command center on your own computer to save now.";
 
 export async function getProfile(db: Db | null, fallbackName: string): Promise<Profile> {
   const empty = Object.fromEntries(PROFILE_FIELDS.map((k) => [k, k === "business" ? fallbackName : ""])) as Profile;

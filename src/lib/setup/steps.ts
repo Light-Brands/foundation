@@ -3,7 +3,7 @@ import type { ConnectionStatus } from "@/lib/data/connections";
 
 export type StepStatus = "done" | "next" | "later";
 export type StackStep = {
-  id: "github" | "vercel" | "supabase" | "owner" | "domain" | "email" | "claude" | "dojo";
+  id: "github" | "vercel" | "database" | "owner" | "domain" | "email" | "claude" | "dojo";
   label: string;
   unlocks: string;
   status: StepStatus;
@@ -20,14 +20,14 @@ export function stackStatus(env: Record<string, string | undefined>, facts: { st
   if (onVercel && prod !== "" && !prod.endsWith(".vercel.app")) doneIds.add("domain");
   if (!onVercel && facts.storage === "pglite") doneIds.add("claude");
   const conn = facts.connections ?? {};
-  if (conn["hosted-database"] === "connected") doneIds.add("supabase");
+  if (conn["hosted-database"] === "connected") doneIds.add("database");
   // emailSending is emailSendingActive(db), the one rule for whether email sends on its own.
   if (facts.emailSending) doneIds.add("email");
 
   const base: Omit<StackStep, "status">[] = [
     { id: "github", label: "GitHub", unlocks: "Your code, its history, and updates from Light Brands.", custom: true, prompt: "setup/deploy" },
     { id: "vercel", label: "Vercel", unlocks: "Your command center, live on its own address.", custom: true, prompt: "setup/deploy" },
-    { id: "supabase", label: "Supabase", unlocks: "Saving on your live site, your inbox going live, and team accounts.", custom: true },
+    { id: "database", label: "Database", unlocks: "Saving on your live site with your own Neon database, your inbox going live, and team accounts.", custom: true },
     { id: "owner", label: "Your account", unlocks: "Signing in with your email in place of the PIN.", custom: true },
     { id: "domain", label: "Your domain", unlocks: "Your command center on your own address, like command.yourbusiness.com.", custom: true, prompt: "setup/custom-domain" },
     { id: "email", label: "Email sending", unlocks: "Confirmations and reminders sent from your own domain.", custom: true },

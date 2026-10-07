@@ -16,8 +16,8 @@ describe("selectDriver", () => {
   });
   it("uses the hosted database wherever its address is set", () => {
     const url = "postgresql://postgres.ref:pw@pooler.example:6543/postgres";
-    expect(selectDriver(readEnv({ FOUNDATION_DATABASE_URL: url }))).toBe("supabase");
-    expect(selectDriver(readEnv({ FOUNDATION_DATABASE_URL: url, VERCEL: "1" }))).toBe("supabase");
+    expect(selectDriver(readEnv({ FOUNDATION_DATABASE_URL: url }))).toBe("postgres");
+    expect(selectDriver(readEnv({ FOUNDATION_DATABASE_URL: url, VERCEL: "1" }))).toBe("postgres");
     expect(selectDriver(readEnv({ FOUNDATION_DATABASE_URL: "nonsense", VERCEL: "1" }))).toBe("preview");
   });
   it("offers email sign-in only with the hosted database, both Supabase settings and an explicit secret", () => {

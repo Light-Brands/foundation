@@ -12,6 +12,7 @@ import { after } from "next/server";
 import { checkDeps } from "@/lib/checks/deps";
 import { runChecksIfDue } from "@/lib/checks/runner";
 import { RunChecksButton } from "./RunChecksButton";
+import { InstallHint } from "@/components/pwa/InstallHint";
 
 export default async function Home() {
   const db = await getDb();
@@ -59,6 +60,7 @@ export default async function Home() {
           )}
         </Link>
       )}
+      <InstallHint />
 
       <section>
         <p className="kicker">See your day</p>

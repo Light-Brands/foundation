@@ -1,12 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { FONT_VARIABLES } from "@/lib/brand/fonts";
 import { brandCss } from "@/lib/brand/css";
 import { getBrand } from "@/lib/data/brand";
 import { getDb } from "@/lib/db";
 import { DEFAULT_BRAND } from "@/lib/brand/tokens";
+import { RegisterServiceWorker } from "@/components/pwa/RegisterServiceWorker";
+import { getProfile } from "@/lib/data/profile";
+import { readEnv } from "@/lib/env";
 
-export const metadata: Metadata = { title: "Command center", robots: { index: false } };
 
 async function loadBrand() {
   try {
@@ -18,6 +20,23 @@ async function loadBrand() {
   }
 }
 
+export async function generateMetadata(): Promise<Metadata> {
+  const db = await getDb().catch(() => null);
+  const profile = await getProfile(db, readEnv().businessName);
+  return {
+    title: "Command center",
+    robots: { index: false },
+    manifest: "/manifest.webmanifest",
+    appleWebApp: { capable: true, title: profile.business, statusBarStyle: "default" },
+    icons: { apple: "/pwa/apple-touch-icon.png" },
+  };
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  const brand = await loadBrand();
+  return { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: brand.colors.accent };
+}
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const brand = await loadBrand();
   return (
@@ -25,7 +44,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <style id="brand" dangerouslySetInnerHTML={{ __html: brandCss(brand) }} />
       </head>
-      <body>{children}</body>
+      <body>{children}<RegisterServiceWorker /></body>
     </html>
   );
 }

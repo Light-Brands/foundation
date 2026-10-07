@@ -3,7 +3,7 @@ import { pinMatches, signSession } from "@/lib/auth/pin-token";
 
 export const ADMIN = "/admin";
 
-const PUBLIC = [/^\/$/, /^\/admin\/login$/, /^\/api\/gate$/, /^\/contact$/, /^\/f\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/api\/hooks\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/u\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}$/, /^\/_next\//, /^\/favicon\.ico$/];
+const PUBLIC = [/^\/$/, /^\/admin\/login$/, /^\/api\/gate$/, /^\/contact$/, /^\/f\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/api\/hooks\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/u\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}$/, /^\/_next\//, /^\/favicon\.ico$/, /^\/manifest\.webmanifest$/, /^\/pwa\/(?:icon-192|icon-512|icon-maskable|apple-touch-icon)\.png$/, /^\/sw\.js$/, /^\/offline$/];
 
 const LEGACY = /^\/(command|attract|sell|deliver|keep|money|team|plan|vendors|risk|system)(\/.*)?$/;
 

@@ -40,7 +40,7 @@ export function Rail({ groups, onNavigate }: { groups: NavGroup[]; onNavigate?: 
               <Icon
                 size={16}
                 strokeWidth={2}
-                className={`shrink-0 transition-colors ${holdsActive ? "text-accent" : "text-admin-ink0 group-hover:text-admin-muted"}`}
+                className={`shrink-0 transition-colors ${holdsActive ? "text-accent" : "text-admin-faint group-hover:text-admin-muted"}`}
                 aria-hidden
               />
               <span className="flex-1 truncate">{g.label}</span>
@@ -52,7 +52,7 @@ export function Rail({ groups, onNavigate }: { groups: NavGroup[]; onNavigate?: 
               <ChevronDown
                 size={14}
                 aria-hidden
-                className={`shrink-0 text-admin-ink0 transition-transform duration-200 ease-breath ${isOpen ? "" : "-rotate-90"}`}
+                className={`shrink-0 text-admin-faint transition-transform duration-200 ease-breath ${isOpen ? "" : "-rotate-90"}`}
               />
             </button>
             <div id={panelId} className={`grid transition-[grid-template-rows] duration-300 ease-breath ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>

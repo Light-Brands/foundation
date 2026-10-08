@@ -1,6 +1,6 @@
 const STYLES = {
-  done: "bg-good shadow-[0_0_10px_rgba(52,211,153,0.6)]",
-  next: "bg-warn shadow-[0_0_10px_rgba(251,191,36,0.5)]",
+  done: "bg-good shadow-[0_0_10px_color-mix(in_oklch,var(--color-good)_60%,transparent)]",
+  next: "bg-warn shadow-[0_0_10px_color-mix(in_oklch,var(--color-warn)_50%,transparent)]",
   later: "bg-admin-ghost",
 } as const;
 

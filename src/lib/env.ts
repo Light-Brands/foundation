@@ -12,6 +12,11 @@ export type FoundationEnv = {
    */
   fixedSecret: string | null;
   onVercel: boolean;
+  /**
+   * Off Vercel, the request header a proxy in front of the app writes the visitor's address into, lowercased
+   * (FOUNDATION_CLIENT_IP_HEADER). Null means no header is trusted and every visitor shares one sign-in limit.
+   */
+  clientIpHeader: string | null;
   businessName: string;
   dataDir: string;
   /** Lets the host's schedule run the checks. At least 16 characters, else null, and null means the cron route refuses everyone. */
@@ -66,6 +71,7 @@ export function readEnv(e: Record<string, string | undefined> = process.env, bui
     secret: fixed.length >= FIXED_SECRET_MIN ? fixed : buildSecret,
     fixedSecret: fixed.length >= FIXED_SECRET_MIN ? fixed : null,
     onVercel: e.VERCEL === "1",
+    clientIpHeader: /^[A-Za-z0-9-]{1,64}$/.test(e.FOUNDATION_CLIENT_IP_HEADER?.trim() ?? "") ? (e.FOUNDATION_CLIENT_IP_HEADER as string).trim().toLowerCase() : null,
     businessName: e.FOUNDATION_BUSINESS_NAME?.trim() || "Your business",
     dataDir: e.FOUNDATION_DATA_DIR?.trim() || ".data/pglite",
     cronSecret: cron.length >= 16 ? cron : null,

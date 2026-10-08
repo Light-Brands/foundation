@@ -9,14 +9,28 @@ const MESSAGES = {
   idle: "",
   checking: "Checking",
   wrong: "That PIN did not match. Try again.",
-  busy: "Too many tries. Wait a few minutes, then try again.",
+  busy: "",
   setup: "This command center needs its PIN set up. Reload this page for the steps.",
+  unavailable: "Your command center could not check that just now. Try again in a moment.",
   offline: "Could not reach your command center. Check your connection and try again.",
 } as const;
 
+/** What the page says while sign-in waits after too many tries, with the wait rounded up. */
+export function waitMessage(seconds: number | undefined): string {
+  const lead = "Too many tries for now. Try again in";
+  if (!seconds || !Number.isFinite(seconds) || seconds <= 0) return `${lead} a few minutes.`;
+  if (seconds > 90 * 60) {
+    const hours = Math.ceil(seconds / 3600);
+    return `${lead} ${hours} hours.`;
+  }
+  const minutes = Math.max(1, Math.ceil(seconds / 60));
+  return `${lead} ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`;
+}
+
 export function Keypad({ next }: { next: string }) {
   const [pin, setPin] = useState("");
-  const [state, setState] = useState<"idle" | "checking" | "wrong" | "setup" | "busy" | "offline">("idle");
+  const [state, setState] = useState<keyof typeof MESSAGES>("idle");
+  const [wait, setWait] = useState<number | undefined>(undefined);
   const press = (d: string) => setPin((p) => (p.length < 12 ? p + d : p));
   const field = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -37,7 +51,9 @@ export function Keypad({ next }: { next: string }) {
         return;
       }
       setPin("");
-      setState(res.status === 503 ? "setup" : res.status === 429 ? "busy" : "wrong");
+      const data = (await res.json().catch(() => null)) as { error?: string; retryAfter?: number } | null;
+      setWait(data?.retryAfter ?? (Number(res.headers.get("Retry-After")) || undefined));
+      setState(res.status === 503 ? (data?.error === "unavailable" ? "unavailable" : "setup") : res.status === 429 ? "busy" : "wrong");
     } catch {
       setState("offline");
     }
@@ -72,7 +88,7 @@ export function Keypad({ next }: { next: string }) {
         <button type="submit" disabled={pin.length < 6 || state === "checking"} className="btn-primary min-h-14 lg:min-h-12">Open</button>
       </div>
       <p className="mt-3 min-h-5 text-sm text-admin-muted" role="status">
-        {MESSAGES[state]}
+        {state === "busy" ? waitMessage(wait) : MESSAGES[state]}
       </p>
     </form>
   );

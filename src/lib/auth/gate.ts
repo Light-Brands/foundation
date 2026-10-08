@@ -1,5 +1,6 @@
 import type { FoundationEnv } from "@/lib/env";
 import { pinMatches, signSession } from "@/lib/auth/pin-token";
+import type { GateLimiter } from "@/lib/auth/limit";
 
 export const ADMIN = "/admin";
 
@@ -55,14 +56,24 @@ export function safeNext(next: string | null | undefined): string {
   return path.startsWith("//") || url.pathname === "/" ? ADMIN : path;
 }
 
+/**
+ * Checks one sign-in. With a limiter, the try is recorded before the PIN is compared, so a burst of tries at once
+ * is counted one by one, and a refused try answers 429 with how long to wait.
+ */
 export async function handleGatePost(
   body: unknown,
   env: FoundationEnv,
   now: number = Date.now(),
-): Promise<{ status: 200 | 400 | 401 | 503; token?: string; error?: string }> {
+  gate?: { limiter: GateLimiter; client: string },
+): Promise<{ status: 200 | 400 | 401 | 429 | 503; token?: string; error?: string; retryAfterMs?: number }> {
   if (!env.pin) return { status: 503, error: "setup" };
   const pin = (body as { pin?: unknown } | null)?.pin;
   if (typeof pin !== "string" || pin.length > 32) return { status: 400, error: "bad-request" };
+  if (gate) {
+    const d = await gate.limiter.attempt(gate.client, new Date(now));
+    if (!d.ok) return { status: 429, error: "too-many", retryAfterMs: d.retryAfterMs };
+  }
   if (!(await pinMatches(pin, env.pin))) return { status: 401, error: "wrong-pin" };
+  if (gate) await gate.limiter.succeed(gate.client, new Date(now));
   return { status: 200, token: await signSession(env.pin, env.secret, now) };
 }

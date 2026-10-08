@@ -7,7 +7,7 @@ import { buildSections, buildSettings } from "@/lib/layout/sections";
 // and where the Set up card's form sits. Styling is checked by eye; these are the parts a person relies on.
 
 let pathname = "/admin";
-vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
+vi.mock("next/navigation", () => ({ usePathname: () => pathname, useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/app/admin/(console)/actions", () => ({ runChecksAction: async () => null }));
 
 const { Sidebar } = await import("@/components/frame/Sidebar");

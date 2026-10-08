@@ -7,7 +7,7 @@ import { buildSections, buildSettings, BRAND_PAGES, AGENTIC_PAGES } from "@/lib/
 // What needs you rows, the More actions and the ready pages. Markup only; the look is checked by eye.
 
 let pathname = "/admin";
-vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
+vi.mock("next/navigation", () => ({ usePathname: () => pathname, useSearchParams: () => new URLSearchParams() }));
 
 const { CardTime } = await import("@/components/CardTime");
 const { MobileHeader } = await import("@/components/frame/MobileHeader");

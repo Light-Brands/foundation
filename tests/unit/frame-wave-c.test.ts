@@ -11,7 +11,7 @@ import { parseBrand, DEFAULT_BRAND, SURFACES } from "@/lib/brand/tokens";
 // follow the surface style, Today's even top row, the sidebar's wrapping labels) and the whole-product pass.
 
 let pathname = "/admin";
-vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
+vi.mock("next/navigation", () => ({ usePathname: () => pathname, useSearchParams: () => new URLSearchParams() }));
 
 const { MobileHeader } = await import("@/components/frame/MobileHeader");
 const { Sidebar } = await import("@/components/frame/Sidebar");

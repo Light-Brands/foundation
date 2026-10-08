@@ -11,7 +11,7 @@ describe("the eleven categories", () => {
   it("carry exactly the spec's sub-categories", () => {
     const subs = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.subcategories.map((s) => s.label)]));
     expect(subs).toEqual({
-      command: ["See your day", "Inbox", "Get alerted"],
+      command: ["See your day", "Handle what needs you", "Get alerted"],
       attract: ["Create content", "Post on social", "Run ads", "Get referrals", "Host events"],
       sell: ["Capture leads", "Follow up and close", "Send proposals", "Take payment", "Sign contracts"],
       deliver: ["Book appointments", "Run projects", "Run programs", "Fulfill orders"],

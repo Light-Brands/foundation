@@ -90,7 +90,7 @@ describe("the phone tabs", () => {
   it("title every screen and point back to its tab", () => {
     expect(mobileBar("/admin", sections, settings)).toEqual({ title: "Today", back: null, hub: "today" });
     expect(mobileBar("/admin/business", sections, settings)).toEqual({ title: "Business", back: null, hub: "business" });
-    expect(mobileBar("/admin/command/inbox", sections, settings)).toEqual({ title: "Inbox", back: "/admin", hub: null });
+    expect(mobileBar("/admin/command/inbox", sections, settings)).toEqual({ title: "Handle what needs you", back: "/admin", hub: null });
     expect(mobileBar("/admin/brand/identity", sections, settings)).toEqual({ title: "Identity", back: "/admin/brand", hub: null });
     expect(mobileBar("/admin/sell/leads", sections, settings)).toEqual({ title: "Capture leads", back: "/admin/business?stage=grow", hub: null });
     expect(mobileBar("/admin/keep/reviews", sections, settings)).toEqual({ title: "Collect reviews", back: "/admin/business?stage=serve", hub: null });

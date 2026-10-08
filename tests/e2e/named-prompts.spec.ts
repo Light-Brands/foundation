@@ -58,10 +58,12 @@ test.describe("named prompts", () => {
     await signIn(page, "/admin/agentic/agents");
     await nameChief(page, "Juniper");
     await page.goto("/admin/context/story");
-    await expect(page.locator("header [data-dictionary-number]")).toHaveText(/2\.3/);
-    await page.getByRole("button", { name: "Copy prompt" }).click();
-    expect(await lastCopy(page)).toMatch(/^Juniper, follow 2\.3 Story and voice from the Ninja dictionary\./);
-    await page.locator("[data-top-bar]").getByRole("button", { name: "Check my system" }).click();
+    await expect(page.locator("header [data-dictionary-number]")).toHaveText(/2\.1\.3/);
+    await page.locator('[data-door="install"]').getByRole("button", { name: "Copy prompt" }).click();
+    expect(await lastCopy(page)).toMatch(/^Juniper, follow 2\.1\.3 Story and voice from the Ninja dictionary\./);
+    const bar = page.locator("[data-top-bar]");
+    await bar.getByRole("link", { name: "Check my system" }).locator("xpath=following-sibling::button[@aria-label='Choose where to open']").click();
+    await bar.getByRole("button", { name: "Copy prompt" }).click();
     expect(await lastCopy(page)).toBe("Juniper, check my system with the Ninja framework runner.");
   });
 

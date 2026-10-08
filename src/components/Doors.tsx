@@ -10,7 +10,7 @@ export function Doors({ categoryId, subId, subLabel, prompt, hasEntry, name }: {
   categoryId: string; subId: string; subLabel: string; prompt: string; hasEntry: boolean; name: string;
 }) {
   return (
-    <div className="rise grid items-stretch gap-4 lg:grid-cols-3" style={{ "--i": 1 } as React.CSSProperties}>
+    <div className="rise relative z-10 grid items-stretch gap-4 lg:grid-cols-3" style={{ "--i": 1 } as React.CSSProperties}>
       <div data-door="connect" className="surface flex flex-col p-card md:p-card-lg">
         <p className="kicker">1 · Connect a tool you use</p>
         <p className="mt-3 text-sm leading-relaxed text-admin-muted">{connectCardCopy(subLabel, name)}</p>

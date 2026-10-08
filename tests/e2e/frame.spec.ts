@@ -18,7 +18,7 @@ test.describe("desktop", () => {
     await expect(nav.getByText("Marketing")).toBeVisible();
     await expect(nav.getByRole("link", { name: "Capture leads" })).toBeVisible();
     await nav.getByRole("button", { name: "Agentic" }).click();
-    await expect(nav.getByRole("link", { name: /Recipes/ })).toContainText("Soon");
+    await expect(nav.getByRole("link", { name: /Quick wins/ })).toContainText("Soon");
     await expect(nav.getByRole("link", { name: /Routines/ })).toContainText("Soon");
   });
 
@@ -34,7 +34,7 @@ test.describe("desktop", () => {
     const bar = page.locator("[data-top-bar]");
     await expect(bar).toContainText("Serve");
     await expect(bar).toContainText("Collect reviews");
-    await expect(bar.getByRole("button", { name: "Check my system" })).toBeVisible();
+    await expect(bar.getByRole("link", { name: "Check my system" })).toBeVisible();
     await expect(bar.getByRole("link", { name: "View my site" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Command center" }).getByRole("link", { name: /Collect reviews/ })).toHaveAttribute("aria-current", "page");
   });

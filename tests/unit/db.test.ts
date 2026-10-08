@@ -40,11 +40,11 @@ describe("selectDriver", () => {
     for (const mode of ["verify-full", "verify-ca"]) expect(readEnv({ FOUNDATION_DATABASE_URL: `${base}?sslmode=${mode}` }).databaseProblem).toBeNull();
     const { DATABASE_INSECURE_MESSAGE } = await import("@/lib/db/driver");
     expect(DATABASE_INSECURE_MESSAGE).toMatch(/sslmode/);
-    const { openSupabase } = await import("@/lib/db/supabase");
-    expect(() => openSupabase(`${base}?sslmode=no-verify`)).toThrow(DATABASE_INSECURE_MESSAGE);
+    const { openPostgres } = await import("@/lib/db/postgres");
+    expect(() => openPostgres(`${base}?sslmode=no-verify`)).toThrow(DATABASE_INSECURE_MESSAGE);
   });
   it("verifies the server certificate, and skips TLS only for a database on this computer", async () => {
-    const { connectionOptions } = await import("@/lib/db/supabase");
+    const { connectionOptions } = await import("@/lib/db/postgres");
     const hosted = connectionOptions("postgresql://postgres.ref:pw@aws-0-us-west-1.pooler.supabase.com:6543/postgres");
     expect(hosted.ssl).toEqual({ rejectUnauthorized: true });
     expect(hosted.prepare).toBe(false);
@@ -54,8 +54,8 @@ describe("selectDriver", () => {
     expect(readEnv({ FOUNDATION_DATABASE_CA: " pem " }).databaseCa).toBe("pem");
   });
   it("builds a hosted handle without connecting until used", async () => {
-    const { openSupabase } = await import("@/lib/db/supabase");
-    const db = openSupabase("postgresql://postgres.ref:pw@pooler.invalid:6543/postgres");
+    const { openPostgres } = await import("@/lib/db/postgres");
+    const db = openPostgres("postgresql://postgres.ref:pw@pooler.invalid:6543/postgres");
     expect(typeof db.transaction).toBe("function");
     await db.close();
   });
@@ -71,7 +71,7 @@ describe("migrate", () => {
     const tables = await db.query<{ table_name: string }>(
       "select table_name from information_schema.tables where table_schema = 'public' order by table_name",
     );
-    expect(tables.map((t) => t.table_name)).toEqual(["_migrations", "accounts", "business_profile", "check_runs", "connections", "contacts", "core_accounts", "core_brand", "core_settings", "form_counts", "form_hits", "inbox_items", "opt_outs", "outbox", "pause", "webhook_events"]);
+    expect(tables.map((t) => t.table_name)).toEqual(["_migrations", "accounts", "business_profile", "check_runs", "connections", "contacts", "core_accounts", "core_brand", "core_settings", "form_counts", "form_hits", "gate_attempts", "gate_failures", "inbox_items", "opt_outs", "outbox", "pause", "webhook_events"]);
     await db.close();
   });
 

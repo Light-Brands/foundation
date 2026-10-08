@@ -3,7 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { readEnv } from "@/lib/env";
 import { DATABASE_INSECURE_MESSAGE, selectDriver, type DriverKind } from "./driver";
 import { openPglite } from "./pglite";
-import { openSupabase } from "./supabase";
+import { openPostgres } from "./postgres";
 import { tablesWithoutRls } from "./rls";
 import { migrateAll } from "./migrate";
 import type { Db } from "./types";
@@ -33,7 +33,7 @@ async function open(): Promise<Db | null> {
   const kind = selectDriver(env);
   if (env.databaseProblem === "insecure") console.error(DATABASE_INSECURE_MESSAGE);
   if (kind === "preview") return null;
-  const db = kind === "postgres" ? openSupabase(env.databaseUrl as string, { ca: env.databaseCa }) : await openLocal(env.dataDir);
+  const db = kind === "postgres" ? openPostgres(env.databaseUrl as string, { ca: env.databaseCa }) : await openLocal(env.dataDir);
   try {
     await migrateAll(db, process.cwd());
     // One statement, so two starts at once never seed two rows.

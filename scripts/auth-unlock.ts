@@ -1,5 +1,5 @@
 import { openScriptDb } from "../src/lib/db/script";
-import { openSupabase } from "../src/lib/db/supabase";
+import { openPostgres } from "../src/lib/db/postgres";
 import { migrateAll } from "../src/lib/db/migrate";
 import { readEnv } from "../src/lib/env";
 import { clearGateAttempts } from "../src/lib/auth/limit";
@@ -14,7 +14,7 @@ try { process.loadEnvFile(".env.local"); } catch { /* no .env.local: use the set
 async function open(): Promise<Db> {
   const env = readEnv();
   if (!env.databaseUrl) return openScriptDb();
-  const db = openSupabase(env.databaseUrl, { max: 1, ca: env.databaseCa });
+  const db = openPostgres(env.databaseUrl, { max: 1, ca: env.databaseCa });
   await migrateAll(db, process.cwd());
   return db;
 }

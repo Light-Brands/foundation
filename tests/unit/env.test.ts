@@ -79,6 +79,6 @@ describe("readEnv", () => {
   it("no setting a browser can read holds a secret", () => {
     const text = readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
     expect(text).not.toMatch(/NEXT_PUBLIC_/);
-    expect(readFileSync(path.join(process.cwd(), "src/lib/db/supabase.ts"), "utf8").startsWith('import "server-only";')).toBe(true);
+    expect(readFileSync(path.join(process.cwd(), "src/lib/db/postgres.ts"), "utf8").startsWith('import "server-only";')).toBe(true);
   });
 });

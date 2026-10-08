@@ -4,7 +4,7 @@ import type { Db, Tx } from "./types";
 import { insecureSslMode } from "@/lib/env";
 import { DATABASE_INSECURE_MESSAGE } from "./driver";
 
-// The hosted database, reached through Supabase's pooler in transaction mode. postgres.js runs the
+// The hosted Postgres database (Neon recommended), reached through its pooler in transaction mode. postgres.js runs the
 // same raw SQL with $1 parameters as PGlite and gives each transaction its own connection.
 // prepare: false is required by the transaction pooler. Nothing connects until the first query.
 
@@ -48,7 +48,7 @@ export function connectionOptions(url: string, opts: { max?: number; ca?: string
   };
 }
 
-export function openSupabase(url: string, opts: { max?: number; ca?: string | null } = {}): Db {
+export function openPostgres(url: string, opts: { max?: number; ca?: string | null } = {}): Db {
   const sql = postgres(url, connectionOptions(url, opts));
   return {
     ...wrap(sql),

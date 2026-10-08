@@ -44,21 +44,9 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
       </aside>
       <main className={s.panel}>
         <header className={s.topBar}>
-          {/* On a desk the chamber already carries the mark, so this one only holds its place. */}
-          <span className="lg:invisible">
-            {brand.logoUrl ? (
-              <Image src={brand.logoUrl} alt="" width={36} height={36} className="h-9 w-auto object-contain" unoptimized />
-            ) : (
-              <Monogram name={profile.business} size="lg" />
-            )}
-          </span>
           <p className={s.staff}>Owner and team</p>
         </header>
         <div className={s.formWrap}>
-          <div className={s.mobileBrand}>
-            <p className="kicker">Command center</p>
-            <p className="mt-1 font-display text-3xl font-light tracking-tight text-admin-ink">{profile.business}</p>
-          </div>
           <div className={s.rise} style={{ animationDelay: "180ms" }}>
             <h1 className={s.headline}>Sign in</h1>
             <p className={s.sub}>Enter your command center.</p>

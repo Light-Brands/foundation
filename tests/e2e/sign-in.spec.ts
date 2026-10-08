@@ -17,3 +17,12 @@ test("the chamber fits a phone", async ({ page }) => {
   expect(overflow).toBe(0);
   await expect(page.getByLabel("Your PIN")).toBeVisible();
 });
+
+test("the delete key takes back one digit", async ({ page }) => {
+  await page.goto("/admin/login");
+  const pin = page.getByLabel("Your PIN");
+  await expect(pin).toHaveAttribute("placeholder", "••••••");
+  for (const d of ["2", "4", "6"]) await page.getByRole("button", { name: d, exact: true }).click();
+  await page.getByRole("button", { name: "Delete last digit" }).click();
+  await expect(pin).toHaveValue("24");
+});

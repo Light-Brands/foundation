@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { ADMIN_CANVAS } from "@/lib/brand/tokens";
+import { ADMIN_CANVAS, DEFAULT_BRAND, adminCanvas, parseBrand } from "@/lib/brand/tokens";
+import { TONES } from "@/lib/brand/admin-tone";
 import { resolveLogoUrl, readPublicLogo } from "@/lib/pwa/logo";
-import { buildManifest, PWA_ICONS, shortNameFor } from "@/lib/pwa/manifest";
+import { buildManifest, PWA_ICONS, shortNameFor, statusBarFor } from "@/lib/pwa/manifest";
 
 describe("the app manifest", () => {
   const m = buildManifest({ business: "Harbor Studio", shortName: "Harbor", description: "Calm, careful design work", accent: "#b85a36", background: ADMIN_CANVAS });
@@ -33,7 +34,19 @@ describe("the manifest background", () => {
   it("is the admin canvas the stylesheet paints", () => {
     const m = buildManifest({ business: "B", shortName: "B", description: "", accent: "#b85a36", background: ADMIN_CANVAS });
     expect(m.background_color).toBe(ADMIN_CANVAS);
-    expect(readFileSync("src/app/globals.css", "utf8")).toContain(`--color-admin-canvas: ${ADMIN_CANVAS};`);
+    expect(readFileSync("src/app/globals.css", "utf8")).toContain(`--color-admin-canvas: var(--admin-canvas, ${ADMIN_CANVAS});`);
+  });
+  it("follows the brand's admin tone", () => {
+    expect(adminCanvas(DEFAULT_BRAND)).toBe(ADMIN_CANVAS);
+    expect(adminCanvas(parseBrand({ adminTone: "dark" }))).toBe(TONES.dark.neutrals.canvas);
+    expect(adminCanvas(parseBrand({ adminTone: "dim" }))).toBe(TONES.dim.neutrals.canvas);
+    const src = readFileSync("src/app/manifest.ts", "utf8");
+    expect(src).toContain("adminCanvas(brand)");
+  });
+  it("the phone's status bar follows the tone", () => {
+    expect(statusBarFor(DEFAULT_BRAND)).toBe("default");
+    expect(statusBarFor(parseBrand({ adminTone: "dark" }))).toBe("black");
+    expect(statusBarFor(parseBrand({ adminTone: "dim" }))).toBe("black");
   });
 });
 

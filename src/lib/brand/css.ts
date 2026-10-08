@@ -1,5 +1,6 @@
 import { COLOR_SLOTS, onColor, typeCharacter, type BrandTokens, type Chamber, type Density, type Motion, type NavMarker, type SurfaceStyle } from "./tokens";
 import { PAIRINGS, NUMERIC_FONT } from "./pairings";
+import { toneVars } from "./admin-tone";
 
 const kebab = (s: string) => s.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
 const round = (n: number) => Number(n.toFixed(3));
@@ -23,6 +24,18 @@ const SURFACE: Record<SurfaceStyle, Record<string, string>> = {
     border: "color-mix(in oklch, var(--color-admin-line-strong) 70%, transparent)",
     bg: "color-mix(in oklch, var(--color-admin-surface) 72%, transparent)", shadow: SOFT_SHADOW, lift: SOFT_LIFT, blur: "12px", filter: "blur(12px)",
   },
+};
+
+// The bars follow the surface style: how much of the surface shows through, the blur behind, and a shadow for raised.
+const BAR: Record<SurfaceStyle, Record<string, string>> = {
+  flat: { fill: "100%", "fill-top": "100%", filter: "none", shadow: "none", "shadow-up": "none" },
+  soft: { fill: "95%", "fill-top": "85%", filter: "blur(12px)", shadow: "none", "shadow-up": "none" },
+  raised: {
+    fill: "100%", "fill-top": "100%", filter: "none",
+    shadow: "0 1px 2px rgb(15 23 42 / 0.05), 0 6px 16px -10px rgb(15 23 42 / 0.18)",
+    "shadow-up": "0 -1px 2px rgb(15 23 42 / 0.05), 0 -6px 16px -10px rgb(15 23 42 / 0.18)",
+  },
+  glass: { fill: "70%", "fill-top": "62%", filter: "blur(16px) saturate(1.4)", shadow: "none", "shadow-up": "none" },
 };
 
 const NAV: Record<NavMarker, Record<string, string>> = {
@@ -85,10 +98,12 @@ export function brandCss(b: BrandTokens): string {
     `--surface-blur:${surface.blur};`,
     // Only glass sets a filter: a backdrop filter of any kind makes a new containing block, so the others say none.
     `--surface-filter:${surface.filter};`,
+    ...Object.entries(BAR[b.surface]).map(([k, v]) => `--bar-${k}:${v};`),
     ...Object.entries(nav).map(([k, v]) => (k.startsWith("seg") ? `--${k}-active:${v};` : `--nav-active-${k}:${v};`)),
     `--chamber-shaft:${chamber.shaft};`,
     `--chamber-grain:${chamber.grain};`,
     `--chamber-floor:${chamber.floor};`,
+    ...toneVars(b.adminTone),
   ];
   return `:root{${vars.join("")}}`;
 }

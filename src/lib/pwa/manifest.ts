@@ -1,4 +1,6 @@
 import type { MetadataRoute } from "next";
+import { TONES } from "@/lib/brand/admin-tone";
+import type { BrandTokens } from "@/lib/brand/tokens";
 
 export const PWA_ICONS: Record<string, { size: number; maskable: boolean }> = {
   "icon-192.png": { size: 192, maskable: false },
@@ -30,4 +32,9 @@ export function buildManifest(input: { business: string; shortName: string; desc
       { src: "/pwa/icon-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
+}
+
+/** The installed app's status bar on an iPhone: dark in a dim or dark tone, so it matches the command center. */
+export function statusBarFor(b: BrandTokens): "default" | "black" {
+  return TONES[b.adminTone].scheme === "dark" ? "black" : "default";
 }

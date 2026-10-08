@@ -1,4 +1,5 @@
 import { isPairingId, PAIRINGS, type PairingId, type TypeCharacter } from "./pairings";
+import { ADMIN_TONES, TONES, type AdminTone } from "./admin-tone";
 
 // The eleven color slots every surface paints with. One color per slot; shades come from color-mix in CSS.
 export const COLOR_SLOTS = [
@@ -40,10 +41,17 @@ export type BrandTokens = {
   chamber: Chamber;
   /** The brand's own type character, over the pairing's. Only the fields set here override. */
   type: Partial<TypeCharacter>;
+  /** The command center's neutrals: light (the default), dim or dark. */
+  adminTone: AdminTone;
 };
 
-// The admin's own canvas (the --color-admin-canvas value in globals.css), for places CSS variables cannot reach, such as the app manifest.
-export const ADMIN_CANVAS = "#f8fafc";
+// The light tone's canvas (the fallback for --color-admin-canvas in globals.css).
+export const ADMIN_CANVAS = TONES.light.neutrals.canvas;
+
+/** The admin canvas a brand paints, for places CSS variables cannot reach, such as the app manifest. */
+export function adminCanvas(b: BrandTokens): string {
+  return TONES[b.adminTone].neutrals.canvas;
+}
 
 // The Foundation's own brand: warm canvas, deep green, terracotta and gold, after the Transformational Epicenter.
 export const DEFAULT_BRAND: BrandTokens = {
@@ -72,6 +80,7 @@ export const DEFAULT_BRAND: BrandTokens = {
   navActive: "pill",
   chamber: "glow",
   type: {},
+  adminTone: "light",
 };
 
 const HEX = /^#[0-9a-f]{6}$/;
@@ -146,6 +155,7 @@ export function parseBrand(input: unknown): BrandTokens {
     navActive: oneOf(NAV_MARKERS, o.navActive, DEFAULT_BRAND.navActive),
     chamber: oneOf(CHAMBERS, o.chamber, DEFAULT_BRAND.chamber),
     type: typeOverrides(o.type),
+    adminTone: oneOf(ADMIN_TONES, o.adminTone ?? o.admin_tone, DEFAULT_BRAND.adminTone),
   };
 }
 
@@ -176,7 +186,13 @@ const PAIRS: [ColorSlot, ColorSlot, string][] = [
   ["canvas", "primaryDeep", "Text on your dark bands is hard to read."],
 ];
 
-/** Plain-words problems where a pair falls below WCAG AA (4.5 to 1). Empty means every pair reads well. */
+/**
+ * Plain-words problems where a pair falls below WCAG AA (4.5 to 1), or where the accent, which marks where you are
+ * and what to press, falls below 3 to 1 on the command center's surface in the brand's tone. Empty means every pair
+ * reads well.
+ */
 export function contrastProblems(b: BrandTokens): string[] {
-  return PAIRS.filter(([fg, bg]) => contrastRatio(b.colors[fg], b.colors[bg]) < 4.5).map(([, , message]) => message);
+  const problems = PAIRS.filter(([fg, bg]) => contrastRatio(b.colors[fg], b.colors[bg]) < 4.5).map(([, , message]) => message);
+  if (contrastRatio(b.colors.accent, TONES[b.adminTone].neutrals.surface) < 3) problems.push("Your accent is hard to see in your command center.");
+  return problems;
 }

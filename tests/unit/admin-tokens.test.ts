@@ -1,14 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { TONES } from "@/lib/brand/admin-tone";
 
-// The admin frame's neutrals are fixed, so their contrast is checked here once, against the two
-// backgrounds every admin screen uses.
+// The admin frame's neutrals come from the brand's admin tone (every tone is checked in admin-tone.test.ts). Here the
+// default light tone is checked against the two backgrounds every admin screen uses.
 const css = readFileSync("src/app/globals.css", "utf8");
 
 function token(name: string): string {
-  const m = css.match(new RegExp(`--color-${name}:\\s*(#[0-9a-fA-F]{6})`));
-  if (!m) throw new Error(`no --color-${name} in globals.css`);
-  return m[1]!;
+  return TONES.light.neutrals[name.replace(/^admin-/, "") as keyof typeof TONES.light.neutrals];
 }
 
 function luminance(hex: string): number {

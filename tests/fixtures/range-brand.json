@@ -7,7 +7,7 @@
     "hairline": "#cfcfc8",
     "primary": "#1b1b1f",
     "primaryDeep": "#0b0b0d",
-    "accent": "#1f45ff",
+    "accent": "#5a78ff",
     "highlight": "#d4ff3a",
     "onHighlight": "#0d0d0f",
     "glow": "#1f45ff"
@@ -23,5 +23,11 @@
   "motion": "still",
   "navActive": "rail",
   "chamber": "plain",
-  "type": { "displayWeight": 500, "headingWeight": 500, "headingTracking": 0.04, "headingCase": "uppercase" }
+  "type": {
+    "displayWeight": 500,
+    "headingWeight": 500,
+    "headingTracking": 0.04,
+    "headingCase": "uppercase"
+  },
+  "adminTone": "dark"
 }

@@ -1,5 +1,6 @@
 import "server-only";
 import { BUILD_SECRET } from "@/generated/build-secret";
+import { cleanChiefName } from "@/lib/validate";
 
 export type FoundationEnv = {
   pin: string | null;
@@ -18,6 +19,8 @@ export type FoundationEnv = {
    */
   clientIpHeader: string | null;
   businessName: string;
+  /** The chief of staff's name setup saved (FOUNDATION_CHIEF_NAME), seeded into the profile once. Empty when unset or not a name. */
+  chiefName: string;
   dataDir: string;
   /** Lets the host's schedule run the checks. At least 16 characters, else null, and null means the cron route refuses everyone. */
   cronSecret: string | null;
@@ -73,6 +76,7 @@ export function readEnv(e: Record<string, string | undefined> = process.env, bui
     onVercel: e.VERCEL === "1",
     clientIpHeader: /^[A-Za-z0-9-]{1,64}$/.test(e.FOUNDATION_CLIENT_IP_HEADER?.trim() ?? "") ? (e.FOUNDATION_CLIENT_IP_HEADER as string).trim().toLowerCase() : null,
     businessName: e.FOUNDATION_BUSINESS_NAME?.trim() || "Your business",
+    chiefName: ((c) => (c.ok ? c.value : ""))(cleanChiefName(e.FOUNDATION_CHIEF_NAME)),
     dataDir: e.FOUNDATION_DATA_DIR?.trim() || ".data/pglite",
     cronSecret: cron.length >= 16 ? cron : null,
     databaseUrl: dbOk && !dbInsecure ? dbRaw : null,

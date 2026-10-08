@@ -15,6 +15,8 @@ export type ContextBlock = {
   work_start: string;
   work_end: string;
   postal_address: string;
+  /** The name the owner gave their chief of staff. Empty means Claude. */
+  chief_name: string;
   owner: { name: string; first: string; role: string };
   stated_by: string;
   recorded: string;
@@ -36,6 +38,7 @@ export function contextBlockFromProfile(p: Profile, statedBy: string, recorded: 
     work_start: p.work_start,
     work_end: p.work_end,
     postal_address: p.postal_address,
+    chief_name: p.chief_name,
     owner: { name: p.owner_name, first: p.owner_first, role: p.owner_role },
     stated_by: statedBy,
     recorded,

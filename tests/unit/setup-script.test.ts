@@ -113,6 +113,30 @@ describe("npm run setup", () => {
     expect(env).toContain("FOUNDATION_PIN=135790");
     expect(env).toContain(`FOUNDATION_BUSINESS_NAME='Harbor "Studio" \\ Co'`);
   });
+  it("saves the chief of staff's name from --chief, into .env.local and the context block", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
+    cpSync(SEED_KEY, path.join(dir, "key"), { recursive: true });
+    run(dir, ["--name", "Harbor Studio", "--chief", " Sage ", "--pin", "246810"]);
+    expect(readFileSync(path.join(dir, ".env.local"), "utf8")).toContain('FOUNDATION_CHIEF_NAME="Sage"');
+    expect(parse(readFileSync(path.join(dir, "key/knowledge/context-block.yaml"), "utf8")).chief_name).toBe("Sage");
+    run(dir, ["--pin", "135790", "--force"]);
+    expect(readFileSync(path.join(dir, ".env.local"), "utf8")).toContain('FOUNDATION_CHIEF_NAME="Sage"');
+  });
+  it("keeps Claude when no name is given, and refuses a name that is not a name", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
+    run(dir, ["--name", "Harbor Studio", "--pin", "246810"]);
+    expect(readFileSync(path.join(dir, ".env.local"), "utf8")).not.toContain("FOUNDATION_CHIEF_NAME");
+    const bad = spawnSync("node", [SCRIPT, "--name", "X", "--chief", "R2D2", "--pin", "246810", "--force"], { cwd: dir, encoding: "utf8" });
+    expect(bad.status).not.toBe(0);
+    expect(bad.stderr).toContain("Use letters, spaces, apostrophes and hyphens in your chief of staff's name");
+  });
+  it("asks for the chief of staff's name right after the business name", () => {
+    const src = readFileSync(SCRIPT, "utf8");
+    const ask = "What would you like to call your chief of staff? This is the name you'll use when you ask for anything. Press Enter to keep Claude.";
+    expect(src).toContain(ask);
+    expect(src.indexOf("Your business name: ")).toBeLessThan(src.indexOf(ask));
+    expect(src.indexOf(ask)).toBeLessThan(src.indexOf("Choose a PIN"));
+  });
   it("tests against the unnamed seed Key, never the live key/ folder setup has named", () => {
     expect(parse(readFileSync(path.join(SEED_KEY, "key.yaml"), "utf8")).client).toBe("your-business");
   });

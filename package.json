@@ -27,6 +27,8 @@
     "connection:set": "tsx --conditions=react-server scripts/connection-set.ts",
     "preperson": "node scripts/gen-build-secret.mjs",
     "person": "tsx --conditions=react-server scripts/person.ts",
+    "prechief": "node scripts/gen-build-secret.mjs",
+    "chief": "tsx --conditions=react-server scripts/chief.ts",
     "preauth:unlock": "node scripts/gen-build-secret.mjs --if-missing",
     "auth:unlock": "tsx --conditions=react-server scripts/auth-unlock.ts"
   },

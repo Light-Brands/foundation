@@ -85,7 +85,7 @@ Install the booking reminders routine.
 
 ## The context block
 
-`key/knowledge/context-block.yaml` is the single source of business facts. The database's `business_profile` table has the same fields under the same names, with `owner` stored as `owner_name`, `owner_first` and `owner_role`. The Preferences save is the only writer of this file: it copies the saved row into it with no mapping, and sets `name` in `key.yaml` to the business name. `client` stays as set at setup. `npm run key:sync` rebuilds the inventory in `system.md` and writes neither.
+`key/knowledge/context-block.yaml` is the single source of business facts. The database's `business_profile` table has the same fields under the same names, with `owner` stored as `owner_name`, `owner_first` and `owner_role`. The profile saves are its only writers: the Preferences save, the chief of staff card on the Agents page and `npm run chief`. Each copies the saved row into it with no mapping, and sets `name` in `key.yaml` to the business name. `client` stays as set at setup. `npm run key:sync` rebuilds the inventory in `system.md` and writes neither.
 
 ```yaml
 business: Harbor Studio
@@ -102,6 +102,7 @@ work_days: tue,wed,thu,fri,sat
 work_start: "09:00"
 work_end: "17:00"
 postal_address: 12 Harbor Way, Portland, OR 97201
+chief_name: Sage
 owner:
   name: Jo Harbor
   first: Jo
@@ -110,9 +111,10 @@ stated_by: Jo Harbor
 recorded: 2026-10-05
 ```
 
-`work_days` lists the days the business is open in week order, and `work_start` and `work_end` are its hours on a 24 hour clock in its own time zone. All three are empty when the owner has not set them, and every routine then treats the business as always open. `postal_address` is one line, and marketing email carries it in its footer when it is set. A job reads it from the profile when it sends and never keeps its own copy.
+`work_days` lists the days the business is open in week order, and `work_start` and `work_end` are its hours on a 24 hour clock in its own time zone. All three are empty when the owner has not set them, and every routine then treats the business as always open. `postal_address` is one line, and marketing email carries it in its footer when it is set. A job reads it from the profile when it sends and never keeps its own copy. `chief_name` is the name the owner gave their chief of staff, and every prompt the command center copies opens with it. It is empty until the owner names one, and prompts then say Claude.
 
-- **Change a business fact in Settings, then Preferences, and press Save.** Never edit the file by hand. Commit the files the save changed, `key/key.yaml` and `key/knowledge/context-block.yaml`, by name as one commit named `chore: business facts`. The first session's setup commit, `chore: set up <business>`, holds any save made before it. Why: the Preferences save is the only writer, and the next Save rewrites the file from the database row. One commit name for every save makes the history of business facts easy to find.
+- **Change the chief of staff's name on the Agents page, in Preferences, or with `npm run chief -- "<name>"` (`--clear` goes back to Claude).** All three save through `setChiefName` in `src/lib/data/profile.ts`, and commit the same way as a Preferences save. Why: one source, two doors, so the command line and the command center always agree.
+- **Change a business fact in Settings, then Preferences, and press Save.** Never edit the file by hand. Commit the files the save changed, `key/key.yaml` and `key/knowledge/context-block.yaml`, by name as one commit named `chore: business facts`. The first session's setup commit, `chore: set up <business>`, holds any save made before it. Why: the profile saves are the only writers, and the next save rewrites the file from the database row. One commit name for every save makes the history of business facts easy to find.
 
 ## Charter
 

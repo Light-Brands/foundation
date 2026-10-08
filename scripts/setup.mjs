@@ -4,6 +4,7 @@
 //   node scripts/setup.mjs --name "Harbor Studio" --pin 246810
 //   node scripts/setup.mjs --name "Harbor Studio" --pin-prompt   (you type the PIN yourself)
 //   node scripts/setup.mjs --pin-prompt --force                  (keeps the business name already saved)
+//   node scripts/setup.mjs --name "Harbor Studio" --chief "Sage" --pin-prompt   (names the chief of staff)
 import { chmodSync, existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
@@ -15,6 +16,7 @@ import { parse, stringify } from "yaml";
 const { values } = parseArgs({
   options: {
     name: { type: "string" },
+    chief: { type: "string" },
     pin: { type: "string" },
     "pin-prompt": { type: "boolean", default: false },
     force: { type: "boolean", default: false },
@@ -29,14 +31,14 @@ function fail(message) {
 const file = ".env.local";
 if (existsSync(file) && !values.force) fail(".env.local already exists. Run again with --force to replace it.");
 
-// With --force and no --name, keep the business name already saved in .env.local.
-function savedName() {
+// With --force and no --name, keep the business name already saved in .env.local. The chief of staff's name too.
+function savedName(key = "FOUNDATION_BUSINESS_NAME") {
   if (!existsSync(file)) return "";
   const line = readFileSync(file, "utf8")
     .split(/\r?\n/)
-    .find((l) => l.startsWith("FOUNDATION_BUSINESS_NAME="));
+    .find((l) => l.startsWith(`${key}=`));
   if (!line) return "";
-  const raw = line.slice("FOUNDATION_BUSINESS_NAME=".length).trim();
+  const raw = line.slice(`${key}=`.length).trim();
   const q = raw[0];
   if (raw.length >= 2 && (q === '"' || q === "'") && raw.endsWith(q)) return raw.slice(1, -1);
   return raw;
@@ -44,6 +46,7 @@ function savedName() {
 
 let name = values.name ?? (values.force ? savedName() : "");
 let pin = values.pin ?? "";
+let chief = values.chief ?? (values.force ? savedName("FOUNDATION_CHIEF_NAME") : undefined);
 
 if ((!name || !pin) && !process.stdin.isTTY) {
   if (!name) fail('Add --name "Your business".');
@@ -52,6 +55,9 @@ if ((!name || !pin) && !process.stdin.isTTY) {
 if (!name || !pin) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   if (!name) name = await rl.question("Your business name: ");
+  if (chief === undefined) {
+    chief = await rl.question("What would you like to call your chief of staff? This is the name you'll use when you ask for anything. Press Enter to keep Claude. ");
+  }
   if (!pin) pin = await rl.question("Choose a PIN (6 to 12 digits): ");
   rl.close();
 }
@@ -63,6 +69,13 @@ if (!/^\d{6,12}$/.test(pin)) fail("Your PIN needs to be 6 to 12 digits.");
 
 if (/[\u0000-\u001f\u007f]/.test(name)) fail("Use letters, numbers and punctuation in your business name.");
 if (name.includes('"') && name.includes("'")) fail("Your business name cannot contain both kinds of quote marks.");
+// The same rule as cleanChiefName in src/lib/validate.ts: one short name, or empty to keep Claude.
+chief = (chief ?? "").trim();
+const CHIEF_NAME = /^\p{L}[\p{L}\p{M}]*(?:[ '\u2019-]+[\p{L}\p{M}]+)*['\u2019]?$/u;
+if (chief && (chief.length > 40 || !CHIEF_NAME.test(chief))) {
+  fail("Use letters, spaces, apostrophes and hyphens in your chief of staff's name, up to 40 characters.");
+}
+if (chief.includes('"') && chief.includes("'")) fail("Your chief of staff's name cannot contain both kinds of quote marks.");
 // Written raw: Next's env loader does not unescape backslashes, so pick the quote style that fits.
 const quote = (v) => (v.includes('"') ? `'${v}'` : `"${v}"`);
 writeFileSync(
@@ -71,6 +84,8 @@ writeFileSync(
     `FOUNDATION_PIN=${pin}`,
     `FOUNDATION_SECRET=${randomBytes(32).toString("hex")}`,
     `FOUNDATION_BUSINESS_NAME=${quote(name)}`,
+    // Seeds the profile the first time the command center opens its database. Agents and Preferences change it later.
+    ...(chief ? [`FOUNDATION_CHIEF_NAME=${quote(chief)}`] : []),
     "",
   ].join("\n"),
   { mode: 0o600 },
@@ -103,11 +118,12 @@ if (existsSync(keyFile)) {
     const blockFile = "key/knowledge/context-block.yaml";
     const empty = {
       business: "", short_name: "", what_we_do: "", who_we_serve: "", how_we_sound: "", website: "",
-      email: "", phone: "", city: "", timezone: "", owner: { name: "", first: "", role: "" },
+      email: "", phone: "", city: "", timezone: "", chief_name: "", owner: { name: "", first: "", role: "" },
       stated_by: "", recorded: "",
     };
     const block = existsSync(blockFile) ? { ...empty, ...(parse(readFileSync(blockFile, "utf8")) ?? {}) } : empty;
     block.business = name;
+    block.chief_name = chief;
     mkdirSync("key/knowledge", { recursive: true });
     writeFileSync(blockFile, stringify(block));
   }

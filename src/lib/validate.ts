@@ -3,15 +3,28 @@ export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PROFILE_FIELDS = [
   "business", "short_name", "what_we_do", "who_we_serve", "how_we_sound", "website",
   "email", "phone", "city", "timezone", "owner_name", "owner_first", "owner_role",
-  "work_days", "work_start", "work_end", "postal_address",
+  "work_days", "work_start", "work_end", "postal_address", "chief_name",
 ] as const;
 export type Profile = Record<(typeof PROFILE_FIELDS)[number], string>;
 
 const LIMITS: Record<keyof Profile, number> = {
   business: 120, short_name: 40, what_we_do: 200, who_we_serve: 200, how_we_sound: 200, website: 200,
   email: 254, phone: 40, city: 80, timezone: 64, owner_name: 120, owner_first: 60, owner_role: 80,
-  work_days: 60, work_start: 5, work_end: 5, postal_address: 300,
+  work_days: 60, work_start: 5, work_end: 5, postal_address: 300, chief_name: 40,
 };
+
+export const CHIEF_NAME_MAX = 40;
+export const CHIEF_NAME_ERROR = "Use letters, spaces, apostrophes and hyphens, up to 40 characters.";
+// One short name: words of letters joined by single spaces, apostrophes or hyphens. scripts/setup.mjs keeps a copy.
+const CHIEF_NAME = /^\p{L}[\p{L}\p{M}]*(?:[ '\u2019-]+[\p{L}\p{M}]+)*['\u2019]?$/u;
+
+/** The chief of staff's name, trimmed. Empty is allowed, and means prompts say Claude. */
+export function cleanChiefName(raw: unknown): { ok: true; value: string } | { ok: false; error: string } {
+  const value = (typeof raw === "string" ? raw : "").trim();
+  if (value === "") return { ok: true, value };
+  if (value.length > CHIEF_NAME_MAX || !CHIEF_NAME.test(value)) return { ok: false, error: CHIEF_NAME_ERROR };
+  return { ok: true, value };
+}
 
 function isTimeZone(tz: string): boolean {
   try { new Intl.DateTimeFormat("en-US", { timeZone: tz }); return true; } catch { return false; }
@@ -43,6 +56,8 @@ export function validateProfile(input: Record<string, unknown>):
     if (value[k].length > LIMITS[k]) errors[k] = `Keep this under ${LIMITS[k]} characters.`;
   }
   if (/[\r\n]/.test(value.postal_address) && !errors.postal_address) errors.postal_address = "Keep the postal address on one line.";
+  const chief = cleanChiefName(value.chief_name);
+  if (!chief.ok && !errors.chief_name) errors.chief_name = chief.error;
   if (value.email && !EMAIL.test(value.email)) errors.email = "That email does not look complete.";
   if (value.timezone && !isTimeZone(value.timezone)) errors.timezone = "Use a time zone like America/Chicago.";
   const days = cleanWorkDays(value.work_days);

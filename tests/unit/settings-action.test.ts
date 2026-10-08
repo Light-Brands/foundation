@@ -5,10 +5,13 @@ const storageMode = vi.fn(() => "local");
 const writeContextBlock = vi.fn(async () => {});
 const writeKeyName = vi.fn(async () => {});
 const saveProfile = vi.fn(async () => {});
+const setChiefName = vi.fn(async (_db: unknown, raw: unknown) =>
+  raw === "R2D2" ? { ok: false, error: "Use letters" } : { ok: true, profile: { business: "Harbor", owner_name: "Ann Lee", chief_name: String(raw) } });
 vi.mock("@/lib/db", () => ({ getDb: (...a: unknown[]) => getDb(...a), storageMode: () => storageMode() }));
 vi.mock("@/lib/key/write", () => ({ keyRoot: () => "/key-root", writeContextBlock: (...a: unknown[]) => (writeContextBlock as (...x: unknown[]) => unknown)(...a), writeKeyName: (...a: unknown[]) => (writeKeyName as (...x: unknown[]) => unknown)(...a) }));
 vi.mock("@/lib/data/profile", () => ({
   saveProfile: (...a: unknown[]) => (saveProfile as (...x: unknown[]) => unknown)(...a),
+  setChiefName: (...a: unknown[]) => (setChiefName as (...x: unknown[]) => unknown)(...a),
   PREVIEW_MESSAGE: "preview",
 }));
 const setPause = vi.fn(async () => ({ paused: true, reason: "", paused_at: "x", paused_by: "pin:owner" }));
@@ -118,6 +121,36 @@ describe("saveProfileAction context block", () => {
     expect(r.ok).toBe(false);
     expect(r.message).toContain("could not save just now");
     expect(writeContextBlock).not.toHaveBeenCalled();
+  });
+});
+
+describe("saveProfileAction naming the chief of staff", () => {
+  beforeEach(() => {
+    getDb.mockReset().mockResolvedValue({});
+    writeContextBlock.mockClear();
+    saveProfile.mockClear();
+    setChiefName.mockClear();
+    hasSession.mockResolvedValue(true);
+    storageMode.mockReturnValue("pglite");
+  });
+  it("saves only the name through setChiefName, and carries it into the context block", async () => {
+    const r = await saveProfileAction(null, form({ only: "chief_name", chief_name: "Sage" }));
+    expect(r).toEqual({ ok: true, message: "Saved." });
+    expect(saveProfile).not.toHaveBeenCalled();
+    expect((setChiefName.mock.calls[0] as unknown[])[1]).toBe("Sage");
+    expect(((writeContextBlock.mock.calls[0] as unknown[])[1] as { chief_name: string }).chief_name).toBe("Sage");
+  });
+  it("says what to fix when the name is not a name", async () => {
+    const r = await saveProfileAction(null, form({ only: "chief_name", chief_name: "R2D2" }));
+    expect(r.ok).toBe(false);
+    expect(r.errors?.chief_name).toBe("Use letters");
+    expect(writeContextBlock).not.toHaveBeenCalled();
+  });
+  it("refuses without a session", async () => {
+    hasSession.mockResolvedValue(false);
+    const r = await saveProfileAction(null, form({ only: "chief_name", chief_name: "Sage" }));
+    expect(r.ok).toBe(false);
+    expect(setChiefName).not.toHaveBeenCalled();
   });
 });
 

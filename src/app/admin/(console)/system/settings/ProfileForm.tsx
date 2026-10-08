@@ -18,6 +18,7 @@ const FIELDS: Field[] = [
   { name: "work_start", label: "Opening time", type: "time" },
   { name: "work_end", label: "Closing time", type: "time" },
   { name: "owner_name", label: "Your name" },
+  { name: "chief_name", label: "Your chief of staff's name" },
 ];
 const MORE: Field[] = [
   { name: "how_we_sound", label: "How you sound" },

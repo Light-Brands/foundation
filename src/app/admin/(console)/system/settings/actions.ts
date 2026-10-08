@@ -1,7 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { getDb, storageMode } from "@/lib/db";
-import { saveProfile, PREVIEW_MESSAGE } from "@/lib/data/profile";
+import { saveProfile, setChiefName, PREVIEW_MESSAGE } from "@/lib/data/profile";
+import { readEnv } from "@/lib/env";
 import { validateProfile, PROFILE_FIELDS, type Profile } from "@/lib/validate";
 import { hasSession } from "@/lib/auth/session";
 import { PIN_OWNER, SESSION_ENDED_MESSAGE, allows } from "@/lib/auth/roles";
@@ -17,7 +18,40 @@ function submittedValues(form: FormData): Profile {
   return Object.fromEntries(PROFILE_FIELDS.map((k) => [k, str(k)])) as Profile;
 }
 
+// Locally, every save also writes the Key's context block and names the Key after the business.
+async function writeKey(p: Profile): Promise<boolean> {
+  if (storageMode() !== "pglite") return true;
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const root = keyRoot();
+    await writeContextBlock(root, contextBlockFromProfile(p, p.owner_name, today));
+    await writeKeyName(root, p.business);
+    return true;
+  } catch (err) {
+    console.error("context block write failed", err);
+    return false;
+  }
+}
+const KEY_LATER = "Saved. Your business notes could not be updated this time. They update on your next save.";
+
+// The Agents page names the chief of staff through this same action, sending only that one field.
+async function saveChiefNameOnly(form: FormData): Promise<ActionResult> {
+  if (!(await hasSession())) return { ok: false, message: "Your session ended. Enter your PIN again to save." };
+  try {
+    const db = await getDb();
+    if (!db) return { ok: false, message: PREVIEW_MESSAGE };
+    const r = await setChiefName(db, form.get("chief_name"), readEnv().businessName);
+    if (!r.ok) return { ok: false, message: r.error, errors: { chief_name: r.error } };
+    revalidatePath("/", "layout");
+    return { ok: true, message: (await writeKey(r.profile)) ? "Saved." : KEY_LATER };
+  } catch (err) {
+    console.error("saveChiefNameOnly failed", err);
+    return { ok: false, message: "We could not save just now. Try again in a moment." };
+  }
+}
+
 export async function saveProfileAction(_prev: ActionResult | null, form: FormData): Promise<ActionResult> {
+  if (form.get("only") === "chief_name") return saveChiefNameOnly(form);
   const values = submittedValues(form);
   if (!(await hasSession())) return { ok: false, message: "Your session ended. Enter your PIN again to save.", values };
   try {
@@ -27,18 +61,7 @@ export async function saveProfileAction(_prev: ActionResult | null, form: FormDa
     if (!result.ok) return { ok: false, message: "A few details need a look.", errors: result.errors, values };
     await saveProfile(db, result.value);
     revalidatePath("/", "layout");
-    if (storageMode() === "pglite") {
-      try {
-        const today = new Date().toISOString().slice(0, 10);
-        const root = keyRoot();
-        await writeContextBlock(root, contextBlockFromProfile(result.value, result.value.owner_name, today));
-        await writeKeyName(root, result.value.business);
-      } catch (err) {
-        console.error("context block write failed", err);
-        return { ok: true, message: "Saved. Your business notes could not be updated this time. They update on your next save." };
-      }
-    }
-    return { ok: true, message: "Saved." };
+    return { ok: true, message: (await writeKey(result.value)) ? "Saved." : KEY_LATER };
   } catch (err) {
     console.error("saveProfileAction failed", err);
     return { ok: false, message: "We could not save just now. Try again in a moment.", values };

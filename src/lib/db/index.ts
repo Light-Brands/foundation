@@ -37,7 +37,7 @@ async function open(): Promise<Db | null> {
   try {
     await migrateAll(db, process.cwd());
     // One statement, so two starts at once never seed two rows.
-    await db.query("insert into business_profile (id, business) values (1, $1) on conflict (id) do nothing", [env.businessName]);
+    await db.query("insert into business_profile (id, business, chief_name) values (1, $1, $2) on conflict (id) do nothing", [env.businessName, env.chiefName]);
     if (kind === "postgres") {
       const unprotected = await tablesWithoutRls(db);
       if (unprotected.length) console.error(`These tables have no row level security: ${unprotected.join(", ")}. Add it in their app's migrations.`);

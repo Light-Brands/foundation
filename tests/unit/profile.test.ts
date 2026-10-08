@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import path from "node:path";
 import { validateProfile, PROFILE_FIELDS, type Profile } from "@/lib/validate";
-import { getProfile, saveProfile } from "@/lib/data/profile";
+import { getProfile, saveProfile, setChiefName } from "@/lib/data/profile";
 import { openPglite } from "@/lib/db/pglite";
 import { migrate } from "@/lib/db/migrate";
 
@@ -49,6 +49,28 @@ describe("profile storage", () => {
     expect(got.business).toBe("Harbor Studio");
     expect(got.city).toBe("Austin");
     expect(got.owner_first).toBe("Ada");
+    await db.close();
+  });
+});
+
+describe("setChiefName", () => {
+  it("names the chief of staff, keeps every other fact, and clears back to empty", async () => {
+    const db = await openPglite();
+    await migrate(db, MIGRATIONS, "core");
+    await saveProfile(db, { ...EMPTY, business: "Harbor Studio", city: "Austin" });
+    const r = await setChiefName(db, "  Sage ", "x");
+    expect(r.ok && [r.profile.chief_name, r.profile.business, r.profile.city]).toEqual(["Sage", "Harbor Studio", "Austin"]);
+    expect((await setChiefName(db, "R2D2", "x")).ok).toBe(false);
+    expect((await getProfile(db, "x")).chief_name).toBe("Sage");
+    const cleared = await setChiefName(db, "", "x");
+    expect(cleared.ok && cleared.profile.chief_name).toBe("");
+    await db.close();
+  });
+  it("starts the row when there is none yet", async () => {
+    const db = await openPglite();
+    await migrate(db, MIGRATIONS, "core");
+    const r = await setChiefName(db, "Sage", "Harbor Studio");
+    expect(r.ok && [r.profile.business, r.profile.chief_name]).toEqual(["Harbor Studio", "Sage"]);
     await db.close();
   });
 });

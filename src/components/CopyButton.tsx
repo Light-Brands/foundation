@@ -4,16 +4,23 @@ import { copyText } from "@/lib/copy-text";
 
 /**
  * Copies text to the clipboard through copyText, which keeps the click's permission for Safari. With before, the copy
- * happens only once before resolves ok, and its message is shown when it does not.
+ * happens only once before resolves ok, and its message is shown when it does not. It wears the shared button scale:
+ * btn-quiet unless a className such as btn-primary is passed.
  */
-export function CopyButton({ text, label = "Copy prompt", before }: { text: string; label?: string; before?: () => Promise<{ ok: boolean; message: string }> }) {
+export function CopyButton({ text, label = "Copy prompt", before, className = "" }: {
+  text: string;
+  label?: string;
+  before?: () => Promise<{ ok: boolean; message: string }>;
+  className?: string;
+}) {
   const [copied, setCopied] = useState(false);
   const [note, setNote] = useState("");
+  const look = /\bbtn-(primary|quiet)\b/.test(className) ? className : `btn-quiet ${className}`;
   return (
     <>
       <button
         type="button"
-        className="rounded-lg border border-admin-line-strong px-3 py-1.5 text-xs text-admin-ink transition hover:border-accent/60"
+        className={look.trim()}
         onClick={async () => {
           setNote("");
           const r = await copyText(text, before);

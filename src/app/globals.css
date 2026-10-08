@@ -20,7 +20,9 @@
   --color-admin-surface: #ffffff;
   --color-admin-ink: #1e293b;
   --color-admin-muted: #475569;
-  --color-admin-faint: #94a3b8;
+  /* Faint is the lightest text: 4.76:1 on white. Ghost is lighter, so it carries only icons, chevrons and hollow marks. */
+  --color-admin-faint: #64748b;
+  --color-admin-ghost: #94a3b8;
   --color-admin-line: #f1f5f9;
   --color-admin-line-strong: #e2e8f0;
   --color-admin-hover: #f1f5f9;
@@ -45,6 +47,11 @@
   --ease-breath: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Surfaces lift a pixel under the hand. Named here so a brand surface style can retune them later. */
+:root {
+  --shadow-lift: 0 6px 20px -8px rgb(15 23 42 / 0.12), 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
 html { color-scheme: light; }
 
 body {
@@ -54,16 +61,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4 { font-family: var(--font-heading); }
+/* Kickers are labels even when they are headings, so they keep the label face. */
+h1, h2:not(.kicker), h3:not(.kicker), h4 { font-family: var(--font-heading); }
 
 :focus-visible { outline: 2px solid color-mix(in oklch, var(--color-accent) 60%, transparent); outline-offset: 2px; }
 
 @layer components {
   .surface { @apply rounded-card border border-admin-line-strong bg-admin-surface shadow-[0_1px_2px_rgb(15_23_42/0.04)]; }
-  .kicker { @apply font-label text-[10px] font-semibold uppercase tracking-wider text-admin-faint; }
+  .kicker { @apply font-label text-[11px] font-semibold uppercase tracking-[0.14em] text-admin-faint; }
+  .page-title { @apply font-heading text-3xl font-normal leading-[1.1] tracking-tight text-admin-ink md:text-4xl; }
   .chip { @apply inline-flex items-center gap-1 rounded-full border border-admin-line-strong px-2.5 py-0.5 text-xs text-admin-muted; }
-  .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-control bg-accent px-4 py-2 text-sm font-medium text-on-accent shadow-sm transition-all duration-200 ease-breath hover:opacity-90 disabled:opacity-40; }
-  .btn-quiet { @apply inline-flex items-center justify-center gap-2 rounded-control border border-admin-line-strong bg-admin-surface px-4 py-2 text-sm text-admin-ink transition-all duration-200 ease-breath hover:bg-admin-hover; }
-  .field { @apply w-full rounded-control border border-admin-line-strong bg-admin-surface px-3 py-2 text-sm text-admin-ink placeholder:text-admin-faint focus:border-accent focus:outline-none; }
+  /* One button scale: 44px on a phone, 40px on a desk. btn-sm is for dense rows only. */
+  .btn-primary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-transparent bg-accent px-4 text-sm font-medium text-on-accent shadow-sm transition-all duration-200 ease-breath hover:opacity-90 disabled:bg-admin-hover disabled:text-admin-faint disabled:opacity-100 disabled:shadow-none md:min-h-10; }
+  .btn-quiet { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-admin-line-strong bg-admin-surface px-4 text-sm font-medium text-admin-ink transition-all duration-200 ease-breath hover:bg-admin-hover disabled:text-admin-faint md:min-h-10; }
+  .btn-sm { @apply min-h-11 px-3 text-[13px] md:min-h-8; }
+  .field { @apply w-full rounded-control border border-admin-line-strong bg-admin-surface px-3 py-2 text-sm text-admin-ink placeholder:text-admin-ghost focus:border-accent focus:outline-none; }
+  .surface-link { @apply transition-[transform,box-shadow,border-color] duration-200 ease-breath hover:-translate-y-px hover:shadow-[var(--shadow-lift)]; }
   .public { background-color: var(--color-canvas); color: var(--color-ink); }
 }

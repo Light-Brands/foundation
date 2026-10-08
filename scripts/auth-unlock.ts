@@ -5,7 +5,7 @@ import { readEnv } from "../src/lib/env";
 import { clearGateAttempts } from "../src/lib/auth/limit";
 import type { Db } from "../src/lib/db/types";
 
-// Owner-run, the way in when sign-in is waiting: forgets every sign-in try, so every address may try again now.
+// Owner-run, the way in when sign-in is waiting: forgets every client lockout and every counted try, so sign-in opens now.
 // Usage: npm run auth:unlock. It reaches the hosted database when FOUNDATION_DATABASE_URL is set (in .env.local or
 // the shell), otherwise the local one, with the command center closed. It needs no sign-in: whoever can run it
 // already holds the database.

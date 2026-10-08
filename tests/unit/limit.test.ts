@@ -12,7 +12,7 @@ import {
   clientAddress,
   clientBucket,
   clientKeyFromHeaders,
-  clientNetwork,
+  SLOWED_CARD,
   clearGateAttempts,
   dbGateLimiter,
   memoryGateLimiter,
@@ -42,12 +42,6 @@ describe("clientBucket", () => {
     expect(clientBucket("2001:db8:1:2::1")).toBe(a);
     expect(clientBucket("[2001:DB8:1:2:ffff::9]")).toBe(a);
     expect(clientBucket("2001:db8:1:3::1")).not.toBe(a);
-  });
-  it("spaces a slowed site by IPv4 /24 and IPv6 /48", () => {
-    expect(clientNetwork("203.0.113.9")).toBe(clientNetwork("203.0.113.200"));
-    expect(clientNetwork("203.0.113.9")).not.toBe(clientNetwork("203.0.114.9"));
-    expect(clientNetwork("2001:db8:1:2::1")).toBe(clientNetwork("2001:db8:1:ffff::1"));
-    expect(clientNetwork("2001:db8:1:2::1")).not.toBe(clientNetwork("2001:db8:2:2::1"));
   });
   it("puts anything that is not an address in one bucket", () => {
     expect(clientBucket("")).toBe("unknown");
@@ -148,85 +142,90 @@ describe("the sign-in limiter in the database", () => {
     await db.close();
   });
 
-  it("slows the site past the ceiling, spacing each network's tries, and never closes it", async () => {
+  // The site's budget is the wall against guessing from many addresses. At 300 tries a day, searching every
+  // 6 digit PIN (10^6 of them) takes 10^6 / 300 = 3,334 days, about 9.1 years, and finding one at random takes
+  // half that on average, about 4.6 years. A longer PIN multiplies it by ten per digit.
+  it("keeps a full search of a six digit PIN longer than a year", () => {
+    const days = 10 ** 6 / GATE_LIMITS.globalPerDay;
+    expect(days / 365).toBeGreaterThan(1);
+    expect(days / 2 / 365).toBeGreaterThan(1);
+  });
+
+  it("lets no more than the minute's budget through when many /64s guess at once", async () => {
     const db = await coreDb();
     const l = dbGateLimiter(db, SECRET);
-    // Thirty tries from one /24, each from its own address.
-    for (let i = 0; i < GATE_LIMITS.global; i++) expect((await l.attempt(`198.51.100.${i}`, at(i))).ok).toBe(true);
-    const t = GATE_LIMITS.global;
-    // That network tried a moment ago, so it waits the spacing, never longer.
-    const over = await l.attempt("198.51.100.200", at(t));
-    expect(over.ok).toBe(false);
-    expect(!over.ok && over.retryAfterMs).toBeLessThanOrEqual(GATE_LIMITS.slowSpacingMs);
-    // Another network gets in at once, and then waits the spacing itself.
-    expect((await l.attempt("203.0.113.5", at(t))).ok).toBe(true);
-    expect(await l.attempt("203.0.113.6", at(t + 1000))).toEqual({ ok: false, retryAfterMs: GATE_LIMITS.slowSpacingMs - 1000 });
-    expect((await l.attempt("203.0.113.6", at(t + GATE_LIMITS.slowSpacingMs))).ok).toBe(true);
-    // A later slowdown doubles the spacing.
-    const later = t + GATE_LIMITS.slowMs + 1;
-    for (let i = 0; i < GATE_LIMITS.global; i++) expect((await l.attempt(`192.0.${i}.1`, at(later))).ok).toBe(true);
-    expect((await l.attempt("192.0.200.9", at(later))).ok).toBe(true);
-    expect(await l.attempt("192.0.200.10", at(later))).toEqual({ ok: false, retryAfterMs: 2 * GATE_LIMITS.slowSpacingMs });
+    const groups = Array.from({ length: 60 }, (_, i) => `2001:db8:${(i + 1).toString(16)}:1::1`);
+    const burst = await Promise.all(groups.map((g) => l.attempt(g, at(0))));
+    expect(burst.filter((d) => d.ok)).toHaveLength(GATE_LIMITS.globalPerMinute);
+    for (const d of burst) if (!d.ok) expect(d.retryAfterMs).toBeLessThanOrEqual(GATE_LIMITS.minuteMs);
     await db.close();
   });
 
-  it("never makes anyone wait longer than the capped spacing, however many slowdowns came before", async () => {
+  it("lets no more than the day's budget through, minute after minute, from fresh /64s", async () => {
     const db = await coreDb();
     const l = dbGateLimiter(db, SECRET);
-    let now = 0;
-    for (let round = 0; round < 8; round++) {
-      for (let i = 0; i < GATE_LIMITS.global + 1; i++) await l.attempt(`10.${round}.${i}.1`, at(now));
-      const d = await l.attempt("10.250.0.1", at(now + 1));
-      const again = await l.attempt("10.250.0.2", at(now + 2));
-      expect(d.ok).toBe(true);
-      expect(again.ok).toBe(false);
-      expect(!again.ok && again.retryAfterMs).toBeLessThanOrEqual(GATE_LIMITS.maxSlowSpacingMs);
-      now += GATE_LIMITS.maxSlowMs + 1;
+    let ok = 0;
+    let n = 0;
+    let longest = 0;
+    for (let minute = 0; minute < 35; minute++) {
+      const burst = await Promise.all(Array.from({ length: GATE_LIMITS.globalPerMinute + 2 }, () => l.attempt(`2001:db8:${(++n).toString(16)}::1`, at(minute * MIN))));
+      ok += burst.filter((d) => d.ok).length;
+      for (const d of burst) if (!d.ok) longest = Math.max(longest, d.retryAfterMs);
     }
+    expect(ok).toBe(GATE_LIMITS.globalPerDay);
+    expect(longest).toBeGreaterThan(GATE_LIMITS.minuteMs);
+    expect(longest).toBeLessThanOrEqual(GATE_LIMITS.dayMs);
     await db.close();
-  });
+  }, 60_000);
 
-  it("lets the owner in within the capped wait while a stranger exhausts the ceiling from many networks", async () => {
+  it("lets the owner in from a fresh address once the window frees", async () => {
     const db = await coreDb();
     const l = dbGateLimiter(db, SECRET);
     const env = readEnv({ FOUNDATION_PIN: "24681012", FOUNDATION_SECRET: SECRET });
-    // The stranger guesses from sixty IPv6 /48s, then keeps going while the owner signs in.
-    const stranger = (i: number) => `2001:db8:${(i + 1).toString(16)}::1`;
-    for (let i = 0; i < 60; i++) await handleGatePost({ pin: "11111111" }, env, T0 + i, { limiter: l, client: stranger(i) });
-    for (let i = 0; i < 60; i++) {
-      const r = await handleGatePost({ pin: "11111111" }, env, T0 + 100 + i, { limiter: l, client: stranger(i) });
-      expect(r.status === 429 ? r.retryAfterMs : 0).toBeLessThanOrEqual(GATE_LIMITS.maxClientLockMs);
-    }
+    for (let i = 0; i < GATE_LIMITS.globalPerMinute; i++) await handleGatePost({ pin: "11111111" }, env, T0, { limiter: l, client: `198.51.100.${i}` });
     const owner = { limiter: l, client: "203.0.113.9" };
-    let when = T0 + 200;
-    let r = await handleGatePost({ pin: "24681012" }, env, when, owner);
-    if (r.status === 429) {
-      expect(r.retryAfterMs).toBeLessThanOrEqual(GATE_LIMITS.maxSlowSpacingMs);
-      when += r.retryAfterMs ?? 0;
-      r = await handleGatePost({ pin: "24681012" }, env, when, owner);
-    }
+    const waiting = await handleGatePost({ pin: "24681012" }, env, T0 + 1000, owner);
+    expect(waiting.status).toBe(429);
+    expect(waiting.retryAfterMs).toBeLessThanOrEqual(GATE_LIMITS.minuteMs);
+    const r = await handleGatePost({ pin: "24681012" }, env, T0 + 1000 + (waiting.retryAfterMs ?? 0), owner);
     expect(r.status).toBe(200);
-    expect(when - (T0 + 200)).toBeLessThanOrEqual(GATE_LIMITS.maxSlowSpacingMs);
     await db.close();
   });
 
-  it("keeps locking out the stranger's own address", async () => {
+  it("raises one Inbox card a day when the site's budget is spent", async () => {
     const db = await coreDb();
     const l = dbGateLimiter(db, SECRET);
-    let refusedFor = 0;
-    for (let i = 0; i < 40; i++) {
-      const d = await l.attempt("2001:db8:7:7::1", at(i * 60_000));
-      if (!d.ok) refusedFor = Math.max(refusedFor, d.retryAfterMs);
+    const cards = async () => (await db.query<{ title: string }>("select title from inbox_items where kind = $1", [SLOWED_CARD.kind]));
+    for (let i = 0; i < GATE_LIMITS.globalPerMinute + 5; i++) await l.attempt(`198.51.100.${i}`, at(i));
+    for (let i = 0; i < 5; i++) await l.attempt(`203.0.113.${i}`, at(1000 + i));
+    expect(await cards()).toEqual([{ title: "Many wrong PINs today. Your command center slowed sign-in to protect itself." }]);
+    for (let i = 0; i < GATE_LIMITS.globalPerMinute + 1; i++) await l.attempt(`192.0.2.${i}`, at(GATE_LIMITS.dayMs + i));
+    expect(await cards()).toHaveLength(2);
+    await db.close();
+  });
+
+  it("keeps locking out the stranger's own address, doubling each time", async () => {
+    const db = await coreDb();
+    const l = dbGateLimiter(db, SECRET);
+    const waits: number[] = [];
+    let now = 0;
+    for (let round = 0; round < 3; round++) {
+      await tries(l, "2001:db8:7:7::1", GATE_LIMITS.perClient, at(now));
+      const d = await l.attempt("2001:db8:7:7::abcd", at(now));
+      if (!d.ok) waits.push(d.retryAfterMs);
+      now += (waits.at(-1) ?? 0) + 1;
     }
-    expect(refusedFor).toBeGreaterThanOrEqual(GATE_LIMITS.clientLockMs - 60_000);
+    expect(waits).toEqual([1, 2, 4].map((x) => x * GATE_LIMITS.clientLockMs));
     await db.close();
   });
 
   it("npm run auth:unlock's helper clears every wait", async () => {
     const db = await coreDb();
     const l = dbGateLimiter(db, SECRET);
+    for (let i = 0; i < GATE_LIMITS.globalPerMinute; i++) await l.attempt(`198.51.100.${i}`, at(0));
     await tries(l, "203.0.113.9", GATE_LIMITS.perClient + 1, at(0));
     expect((await l.attempt("203.0.113.9", at(1))).ok).toBe(false);
+    expect((await l.attempt("192.0.2.1", at(1))).ok).toBe(false);
     expect(await clearGateAttempts(db)).toBeGreaterThan(0);
     expect((await l.attempt("203.0.113.9", at(2))).ok).toBe(true);
     await db.close();
@@ -235,7 +234,7 @@ describe("the sign-in limiter in the database", () => {
   it("a right PIN gives back its try, so the owner never spends the site's budget", async () => {
     const db = await coreDb();
     const l = dbGateLimiter(db, SECRET);
-    for (let i = 0; i < GATE_LIMITS.global * 2; i++) {
+    for (let i = 0; i < GATE_LIMITS.globalPerMinute * 3; i++) {
       expect((await l.attempt("203.0.113.9", at(i))).ok).toBe(true);
       await l.succeed("203.0.113.9", at(i));
     }

@@ -14,5 +14,7 @@ export const CORE_CARD_KINDS: CardKindDecl[] = [
   { kind: "brief", category: "command", subcategory: "home", label: "Weekly brief", always_human: false, decide: "done", expires_days: null, on_lapse: "stays", source: "core", routable: false },
   // No expiry: a request to be forgotten waits for the owner, it never lapses away.
   { kind: "person-forget", category: "risk", subcategory: "compliance", label: "Forget a person", always_human: true, decide: "approve", expires_days: null, on_lapse: "stays", source: "core", routable: false },
+  // Written by the sign-in limiter at most once a day, when wrong PINs spend the site's budget.
+  { kind: "sign-in-slowed", category: "command", subcategory: "alerts", label: "Sign-in slowed", always_human: false, decide: "done", expires_days: 7, on_lapse: "closes", source: "core", routable: false },
   { kind: "brief-blocked", category: "command", subcategory: "home", label: "The brief did not run", always_human: false, decide: "done", expires_days: null, on_lapse: "stays", source: "core", routable: false },
 ];

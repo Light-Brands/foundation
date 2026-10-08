@@ -23,7 +23,6 @@ export function buildManifest(input: { business: string; shortName: string; desc
     start_url: "/admin",
     scope: "/",
     display: "standalone",
-    orientation: "portrait",
     background_color: input.background,
     theme_color: input.accent,
     icons: [

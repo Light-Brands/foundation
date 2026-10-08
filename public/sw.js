@@ -16,10 +16,22 @@ self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(VERSION).then((c) => c.add(OFFLINE)).then(() => self.skipWaiting()));
 });
 
+// The worker's own bytes rarely change, so a new deploy may never reinstall it. Each activation fetches the offline
+// page again, past the HTTP cache, so it always matches the build that is live. A failed fetch keeps the old copy.
+async function refreshOffline() {
+  try {
+    const res = await fetch(OFFLINE, { cache: "reload" });
+    if (res.ok) await (await caches.open(VERSION)).put(OFFLINE, res);
+  } catch {
+    // Offline right now: the copy from install stays.
+  }
+}
+
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
       .then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
+      .then(refreshOffline)
       .then(() => self.clients.claim()),
   );
 });

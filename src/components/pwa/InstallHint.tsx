@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Share } from "lucide-react";
+import { Monogram } from "@/components/frame/Monogram";
 
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 const KEY = "foundation.install-hint";
 
-export function InstallHint() {
+export function InstallHint({ businessName }: { businessName: string }) {
   const [show, setShow] = useState(false);
   const [ios, setIos] = useState(false);
   const [deferred, setDeferred] = useState<InstallEvent | null>(null);
@@ -42,14 +44,19 @@ export function InstallHint() {
     }
   };
   return (
-    <div className="surface flex items-start gap-4 p-4" data-install-hint>
-      <div className="flex-1">
-        <p className="font-medium text-admin-ink">Put your command center on your home screen</p>
-        <p className="mt-1 text-sm text-admin-muted">
-          {ios ? "Tap Share, then Add to Home Screen. It opens like an app." : "Install it and it opens like an app, full screen."}
+    <div className="surface flex items-center gap-3 p-4" data-install-hint>
+      <Monogram name={businessName} size="app" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-admin-ink">Put your command center on your home screen</p>
+        <p className="mt-0.5 text-sm text-admin-muted">
+          {ios ? (
+            <>Tap Share <Share size={14} aria-label="Share" className="inline-block -translate-y-px align-middle text-admin-ink" /> then Add to Home Screen. It opens like an app.</>
+          ) : (
+            "Install it and it opens like an app, full screen."
+          )}
         </p>
         {deferred && (
-          <button type="button" className="btn-primary mt-3" onClick={async () => {
+          <button type="button" className="btn-primary btn-sm mt-3" onClick={async () => {
               try {
                 await deferred.prompt();
                 const { outcome } = await deferred.userChoice;
@@ -63,7 +70,7 @@ export function InstallHint() {
           </button>
         )}
       </div>
-      <button type="button" className="text-sm text-admin-faint hover:text-admin-muted" onClick={dismiss}>Not now</button>
+      <button type="button" className="min-h-11 shrink-0 rounded-control px-3 text-sm text-admin-muted transition-colors duration-200 ease-breath hover:bg-admin-hover hover:text-admin-ink" onClick={dismiss}>Not now</button>
     </div>
   );
 }

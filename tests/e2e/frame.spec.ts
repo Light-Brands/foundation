@@ -29,6 +29,16 @@ test.describe("desktop", () => {
     await expect(page.getByRole("heading", { name: "Security" })).toBeVisible();
   });
 
+  test("the top bar says where you are and holds the shared actions", async ({ page }) => {
+    await signIn(page, "/admin/keep/reviews");
+    const bar = page.locator("[data-top-bar]");
+    await expect(bar).toContainText("Serve");
+    await expect(bar).toContainText("Collect reviews");
+    await expect(bar.getByRole("button", { name: "Check my system" })).toBeVisible();
+    await expect(bar.getByRole("link", { name: "View my site" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Command center" }).getByRole("link", { name: /Collect reviews/ })).toHaveAttribute("aria-current", "page");
+  });
+
   test("the sidebar collapses and remembers it", async ({ page }) => {
     await signIn(page);
     await page.getByRole("button", { name: "Collapse the menu" }).click();
@@ -57,13 +67,13 @@ test.describe("phone", () => {
     const tabs = page.getByRole("navigation", { name: "Tabs" });
     await tabs.getByRole("link", { name: "Business" }).click();
     await expect(page).toHaveURL(/\/admin\/business/);
-    await page.getByRole("tab", { name: "Serve" }).click();
+    await page.getByRole("navigation", { name: "Stage" }).getByRole("link", { name: "Serve" }).click();
     await page.getByRole("link", { name: /Collect reviews/ }).click();
     await expect(page).toHaveURL(/\/admin\/keep\/reviews$/);
     await expect(page.getByRole("banner").getByText("Collect reviews")).toBeVisible();
     await page.getByRole("link", { name: "Back" }).click();
     await expect(page).toHaveURL(/\/admin\/business\?stage=serve$/);
-    await expect(page.getByRole("tab", { name: "Serve" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("navigation", { name: "Stage" }).getByRole("link", { name: "Serve" })).toHaveAttribute("aria-current", "page");
   });
 
   test("More holds Settings and Security", async ({ page }) => {
@@ -75,9 +85,20 @@ test.describe("phone", () => {
     await expect(page.getByRole("button", { name: "Lock" })).toBeVisible();
   });
 
-  test("Today shows what needs you first", async ({ page }) => {
+  test("Today opens on the business, then what needs you", async ({ page }) => {
     await signIn(page);
     const first = page.locator("[data-today] > *").first();
-    await expect(first).toHaveAttribute("data-needs-you", "");
+    await expect(first.getByRole("heading", { level: 1 })).toHaveText("Harbor Studio");
+    await expect(page.locator("[data-today-grid] > *").first()).toHaveAttribute("data-needs-you", "");
+  });
+
+  test("every tab and stage is a full-size tap target", async ({ page }) => {
+    await signIn(page, "/admin/business");
+    const targets = [
+      ...(await page.getByRole("navigation", { name: "Tabs" }).getByRole("link").all()),
+      ...(await page.getByRole("navigation", { name: "Stage" }).getByRole("link").all()),
+    ];
+    expect(targets.length).toBe(8);
+    for (const t of targets) expect((await t.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   });
 });

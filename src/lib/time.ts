@@ -73,3 +73,8 @@ export function isOpenAt(hours: WorkingHours | null, tz: string | null | undefin
   const clock = businessClock(tz, at);
   return clock >= hours.start && clock < hours.end;
 }
+
+// Today's date as the Today page kicker reads it, on the business's clock: "Tuesday, October 7".
+export function formatTodayKicker(tz: string | null | undefined, at: Date): string {
+  return new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: businessTimeZone(tz) }).format(at);
+}

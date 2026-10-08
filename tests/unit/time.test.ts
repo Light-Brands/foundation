@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { businessTimeZone, formatCardTime, businessDate, businessWeekday, businessWeekStart, businessClock, isOpenAt, workingHours } from "@/lib/time";
+import { businessTimeZone, formatCardTime, businessDate, businessWeekday, businessWeekStart, businessClock, isOpenAt, workingHours, formatTodayKicker } from "@/lib/time";
 
 // 06:30 UTC on a Monday is still Sunday evening in Los Angeles: the card must show the business's day.
 const AT = "2026-10-05 06:30:00.123456+00";
@@ -110,5 +110,14 @@ describe("daylight saving and week edges", () => {
     const h = workingHours({ work_days: "mon,funday,fri,", work_start: "09:00", work_end: "17:00" });
     expect(h?.days).toEqual(["mon", "fri"]);
     expect(workingHours({ work_days: "nope", work_start: "09:00", work_end: "17:00" })).toBeNull();
+  });
+});
+
+describe("the Today kicker", () => {
+  it("names the day on the business's clock", () => {
+    const at = new Date("2026-10-07T03:00:00Z");
+    expect(formatTodayKicker("UTC", at)).toBe("Wednesday, October 7");
+    expect(formatTodayKicker("America/Los_Angeles", at)).toBe("Tuesday, October 6");
+    expect(formatTodayKicker(null, at)).toBe("Wednesday, October 7");
   });
 });

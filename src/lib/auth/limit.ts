@@ -14,9 +14,12 @@ import { CORE_CARD_KINDS } from "@/lib/key/core-kinds";
 // A known device (src/lib/auth/device.ts) is counted on its own row in place of its address: five tries, then the
 // same doubling lockout, and it never touches the site's budget, so no stranger can stall it.
 // A right PIN clears its client and gives its try back to the site. The state lives in gate_attempts (clients) and
-// gate_failures (the site's tries), read and written in one transaction under an advisory lock, so a burst of tries
-// at once is counted one by one and every wait holds across restarts and every running copy of the site. Only a
-// deploy with no database (preview) keeps it in memory, per running copy.
+// gate_failures (the site's tries). A try that would be refused with nothing to write (its client already locked
+// out, or the site's budget spent) is refused from one plain read, with no lock. Any other try is read and written
+// in one transaction under an advisory lock: the site-wide one for a stranger, the device's own for a known device.
+// So a burst of tries at once is counted one by one, a flood never queues in front of the owner's device, and every
+// wait holds across restarts and every running copy of the site. Only a deploy with no database (preview) keeps it
+// in memory, per running copy.
 
 export const GATE_LIMITS = {
   perClient: 5,
@@ -75,22 +78,33 @@ export function siteWait(tries: readonly number[], now: number, l: GateLimits): 
   return wait;
 }
 
+/**
+ * The same wait as siteWait, from only the tries it looks at: the time of the minute's tenth newest try and the
+ * day's three hundredth newest (null when the window holds fewer), as the database hands them back.
+ */
+export function siteWaitFrom(nth: { minute: number | null; day: number | null }, now: number, l: GateLimits): number {
+  const minute = nth.minute === null ? 0 : nth.minute + l.minuteMs - now;
+  const day = nth.day === null ? 0 : nth.day + l.dayMs - now;
+  return Math.max(0, minute, day);
+}
+
 /** Decides one try. The client is checked first; a try the site refuses compares no PIN and spends nothing. */
-export function decide(client: Row | undefined, siteTries: readonly number[], now: number, l: GateLimits, knownDevice = false): { decision: GateDecision; client?: Row; record: boolean; tripped: boolean } {
+export function decide(client: Row | undefined, siteWaitMs: number, now: number, l: GateLimits, knownDevice = false): { decision: GateDecision; client?: Row; record: boolean; tripped: boolean } {
   const c = clientStep(client, now, l);
   if (!c.ok) return { decision: { ok: false, retryAfterMs: c.retryAfterMs }, client: c.changed ? c.row : undefined, record: false, tripped: false };
   if (knownDevice) return { decision: { ok: true }, client: c.row, record: false, tripped: false };
-  const wait = siteWait(siteTries, now, l);
-  if (wait > 0) return { decision: { ok: false, retryAfterMs: wait }, record: false, tripped: true };
+  if (siteWaitMs > 0) return { decision: { ok: false, retryAfterMs: siteWaitMs }, record: false, tripped: true };
   return { decision: { ok: true }, client: c.row, record: true, tripped: false };
 }
 
 /** Raises the owner's card for a spent site budget, once per UTC day. A failure is logged, never thrown. */
-export async function raiseSlowedCard(db: Queryable, now: Date): Promise<void> {
+export async function raiseSlowedCard(db: Queryable, now: Date): Promise<boolean> {
   try {
     await writeCard(db, registryFrom(CORE_CARD_KINDS), { kind: SLOWED_CARD.kind, title: SLOWED_CARD.title, runKey: `${SLOWED_CARD.kind}:${now.toISOString().slice(0, 10)}` }, now);
+    return true;
   } catch (err) {
     console.error("sign-in: the slowed sign-in card could not be written", err);
+    return false;
   }
 }
 
@@ -158,44 +172,85 @@ async function rowKey(bucket: string, secret: string): Promise<string> {
 // ---------------------------------------------------------------------------------------------------------------
 // The stores.
 
+// The site-wide lock, taken only by a try that may count against the site's budget. A known device's try takes
+// a lock of its own (DEVICE_LOCK plus its row key), so a flood of strangers queued on the site-wide lock never
+// stands in front of the owner.
 const LOCK = "foundation:gate-attempts";
+const DEVICE_LOCK = "foundation:gate-device:";
 const ms = (v: unknown): number => (v == null ? 0 : new Date(v as string | Date).getTime());
 const date = (n: number): Date | null => (n ? new Date(n) : null);
 
-type DbRow = { fails: number; window_start: unknown; locked_until: unknown; strikes: number; touched: unknown };
+type StateRow = { fails: number | null; window_start: unknown; locked_until: unknown; strikes: number | null; touched: unknown; minute_nth: unknown; day_nth: unknown };
+
+// One statement, one round trip: the client's row (if any) and the two tries the site's budget depends on.
+const STATE = `select g.fails, g.window_start, g.locked_until, g.strikes, g.touched, s.minute_nth, s.day_nth
+  from (select (select at from gate_failures where at > $2 order by at desc offset $3 limit 1) as minute_nth,
+               (select at from gate_failures where at > $4 order by at desc offset $5 limit 1) as day_nth) s
+  left join gate_attempts g on g.key = $1`;
 
 const UPSERT = `insert into gate_attempts (key, fails, window_start, locked_until, strikes, touched) values ($1, $2, $3, $4, $5, $6)
   on conflict (key) do update set fails = excluded.fails, window_start = excluded.window_start,
   locked_until = excluded.locked_until, strikes = excluded.strikes, touched = excluded.touched`;
 
+// Rows idle past a day, and tries older than a day. One statement outside any lock: deleting a row no one needs
+// cannot race with anything.
+const CLEANUP = `with a as (delete from gate_attempts where greatest(touched, coalesce(locked_until, touched)) < $1 returning 1),
+  f as (delete from gate_failures where at <= $2 returning 1)
+  select (select count(*) from a) + (select count(*) from f) as n`;
+
+async function readState(q: Queryable, key: string, t: number, l: GateLimits): Promise<{ client?: Row; wait: number }> {
+  const [r] = await q.query<StateRow>(STATE, [key, new Date(t - l.minuteMs), l.globalPerMinute - 1, new Date(t - l.dayMs), l.globalPerDay - 1]);
+  const client = r && r.fails !== null
+    ? { fails: Number(r.fails), windowStart: ms(r.window_start), lockedUntil: ms(r.locked_until), strikes: Number(r.strikes), touched: ms(r.touched) }
+    : undefined;
+  const nth = (v: unknown) => (v == null ? null : ms(v));
+  return { client, wait: siteWaitFrom({ minute: nth(r?.minute_nth), day: nth(r?.day_nth) }, t, l) };
+}
+
+// The day each database last raised the slowed sign-in card, so a flood of refused tries writes it once.
+const cardRaised = new WeakMap<object, string>();
+
 /** The limiter kept in gate_attempts and gate_failures. secret keys the client rows; every copy must use the same one. */
 export function dbGateLimiter(db: Db, secret: string, limits: GateLimits = GATE_LIMITS): GateLimiter {
+  async function slowed(now: Date) {
+    const day = now.toISOString().slice(0, 10);
+    if (cardRaised.get(db) === day) return;
+    if (await raiseSlowedCard(db, now)) cardRaised.set(db, day);
+  }
   return {
     async attempt(address, now, device) {
       const key = await rowKey(bucketFor(address, device), secret);
       const t = now.getTime();
+      const known = !!device;
+      // A plain read first, with no lock and no transaction. A try that would be refused with nothing written (a
+      // client already locked out, or the site's budget spent) is refused here. The read may be a moment stale,
+      // which is safe: a lockout only ends with time or npm run auth:unlock, and so does a spent budget.
+      const before = await readState(db, key, t, limits);
+      const seen = decide(before.client, before.wait, t, limits, known);
+      if (!seen.decision.ok && !seen.client && !seen.record) {
+        if (seen.tripped) await slowed(now);
+        return seen.decision;
+      }
+      if (!known) await db.query(CLEANUP, [new Date(t - limits.forgetMs), new Date(t - limits.dayMs)]);
       const out = await db.transaction(async (tx) => {
-        await tx.query("select pg_advisory_xact_lock(hashtext($1))", [LOCK]);
-        await tx.query("delete from gate_attempts where greatest(touched, coalesce(locked_until, touched)) < $1", [new Date(t - limits.forgetMs)]);
-        await tx.query("delete from gate_failures where at <= $1", [new Date(t - limits.dayMs)]);
-        const [row] = await tx.query<DbRow>("select fails, window_start, locked_until, strikes, touched from gate_attempts where key = $1", [key]);
-        const client = row && { fails: Number(row.fails), windowStart: ms(row.window_start), lockedUntil: ms(row.locked_until), strikes: Number(row.strikes), touched: ms(row.touched) };
-        const tries = (await tx.query<{ at: unknown }>("select at from gate_failures order by at, id")).map((r) => ms(r.at));
-        const d = decide(client, tries, t, limits, !!device);
+        await tx.query("select pg_advisory_xact_lock(hashtext($1))", [known ? DEVICE_LOCK + key : LOCK]);
+        const { client, wait } = await readState(tx, key, t, limits);
+        const d = decide(client, wait, t, limits, known);
         if (d.client) await tx.query(UPSERT, [key, d.client.fails, new Date(d.client.windowStart), date(d.client.lockedUntil), d.client.strikes, new Date(d.client.touched)]);
         if (d.record) await tx.query("insert into gate_failures (key_hash, at) values ($1, $2)", [key, now]);
         return d;
       });
       // Outside the transaction, so a card that cannot be written never undoes the count.
-      if (out.tripped) await raiseSlowedCard(db, now);
+      if (out.tripped) await slowed(now);
       return out.decision;
     },
     async succeed(address, _now, device) {
       const key = await rowKey(bucketFor(address, device), secret);
       await db.transaction(async (tx) => {
-        await tx.query("select pg_advisory_xact_lock(hashtext($1))", [LOCK]);
+        await tx.query("select pg_advisory_xact_lock(hashtext($1))", [device ? DEVICE_LOCK + key : LOCK]);
         await tx.query("delete from gate_attempts where key = $1", [key]);
-        await tx.query("delete from gate_failures where id = (select id from gate_failures where key_hash = $1 order by at desc, id desc limit 1)", [key]);
+        // A known device's tries never count against the site, so it has none to give back.
+        if (!device) await tx.query("delete from gate_failures where id = (select id from gate_failures where key_hash = $1 order by at desc, id desc limit 1)", [key]);
       });
     },
   };
@@ -231,7 +286,7 @@ export function memoryGateLimiter(limits: GateLimits = GATE_LIMITS): GateLimiter
         for (const [k, r] of clients) if (forgotten(r, t, limits)) clients.delete(k);
         tries = tries.filter((x) => x.at > t - limits.dayMs);
         const key = bucketFor(address, device);
-        const d = decide(clients.get(key), tries.map((x) => x.at), t, limits, !!device);
+        const d = decide(clients.get(key), siteWait(tries.map((x) => x.at), t, limits), t, limits, !!device);
         if (d.client) clients.set(key, d.client);
         if (d.record) tries.push({ at: t, key });
         return d.decision;

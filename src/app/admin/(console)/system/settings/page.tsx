@@ -5,6 +5,7 @@ import { getPause } from "@/lib/data/pause";
 import { PausePanel } from "./PausePanel";
 import { ProfileForm } from "./ProfileForm";
 import { PageHeader } from "@/components/frame/PageHeader";
+import { DictionaryKicker } from "@/components/frame/DictionaryKicker";
 
 export default async function SettingsPage() {
   const db = await getDb();
@@ -13,7 +14,7 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        kicker="Settings · Preferences"
+        kicker={<DictionaryKicker page="system/settings" fallback="Settings · Preferences" />}
         title="Your business profile"
         lede="Every part of your command center uses these details: your name, how people reach you, and what you do."
       />

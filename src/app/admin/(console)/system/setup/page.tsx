@@ -5,6 +5,7 @@ import { StatusLight } from "@/components/StatusLight";
 import { PromptBox } from "@/components/PromptBox";
 import { customHref } from "@/lib/links";
 import { PageHeader } from "@/components/frame/PageHeader";
+import { DictionaryKicker } from "@/components/frame/DictionaryKicker";
 
 const LIGHT_LABEL = { done: "Live", next: "Your next step", later: "Coming up" } as const;
 
@@ -14,7 +15,7 @@ export default async function SetupPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        kicker="Settings · Set up"
+        kicker={<DictionaryKicker page="system/setup" fallback="Settings · Set up" />}
         title="Your stack, step by step"
         lede={<>Each step adds something real to your command center. Do it yourself with a prompt for Claude, or have Light Brands set it up.</>}
       />

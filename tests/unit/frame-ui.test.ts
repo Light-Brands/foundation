@@ -135,7 +135,8 @@ describe("set up card", () => {
 });
 
 describe("doors", () => {
-  const html = renderToStaticMarkup(createElement(Doors, { categoryId: "keep", subId: "reviews", subLabel: "Collect reviews", hasEntry: false }));
+  const prompt = "Sage, follow 5.2.4 Collect reviews from the Ninja dictionary.";
+  const html = renderToStaticMarkup(createElement(Doors, { categoryId: "keep", subId: "reviews", subLabel: "Collect reviews", prompt, hasEntry: false, name: "Sage" }));
 
   it("recommends the install door and gives it the one primary button", () => {
     const doors = html.split('data-door="').slice(1);
@@ -151,5 +152,12 @@ describe("doors", () => {
     const text = html.replace(/<[^>]+>/g, " ");
     expect(text).not.toMatch(/[–—]/);
     expect(text).not.toMatch(/trickier|coming dictionary updates/);
+  });
+
+  it("speaks of the chief of staff by the owner's chosen name", () => {
+    const text = html.replace(/<[^>]+>/g, " ");
+    expect(text).toContain("Have Sage map");
+    expect(text).toContain("Sage asks what you want");
+    expect(text).not.toContain("Claude plans");
   });
 });

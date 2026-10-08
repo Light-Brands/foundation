@@ -4,8 +4,11 @@ import ReactMarkdown from "react-markdown";
 import { keyRoot } from "@/lib/key/write";
 import { parseLog } from "@/lib/key/log";
 import { PageHeader } from "@/components/frame/PageHeader";
+import { DictionaryKicker } from "@/components/frame/DictionaryKicker";
 import { EmptyState } from "@/components/frame/EmptyState";
 import { CopyButton } from "@/components/CopyButton";
+import { loadProfile } from "@/lib/data/safe";
+import { chiefName, checkSystemPrompt } from "@/lib/dictionary/prompt";
 
 async function readOptional(path: string): Promise<string | null> {
   try {
@@ -38,7 +41,7 @@ export default async function ModulesPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        kicker="Settings · Add capabilities"
+        kicker={<DictionaryKicker page="system/modules" fallback="Settings · Add capabilities" />}
         title="What you have built"
         lede={<>The plain-words record of your system, kept current by Claude from your build log.</>}
       />
@@ -46,7 +49,7 @@ export default async function ModulesPage() {
         <EmptyState
           title="Nothing is built yet."
           body="Your system record and build log fill in after your first build session. To start, paste this into Claude Code: it reads what is installed and ranks your next moves."
-          action={<CopyButton text="Check my system." label="Copy: Check my system." className="btn-primary" />}
+          action={<CopyButton text={checkSystemPrompt(chiefName(await loadProfile()))} label="Copy: Check my system" className="btn-primary" />}
         />
       ) : (
         <>

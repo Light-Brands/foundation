@@ -48,8 +48,9 @@ test("the first win: in with the PIN, profile saved, a real message in the Inbox
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Book appointments");
   await expect(page.getByText("Have Light Brands build it")).toBeVisible();
   // The shipped dictionary has no install entry for this job yet, so the doors say what comes next.
-  await expect(page.getByText("Until the install ships, Claude plans what it will do", { exact: false })).toBeVisible();
-  await expect(page.getByText("Have Claude map how the tool you already use for Book appointments would connect.", { exact: false })).toBeVisible();
+  // The doors speak of the chief of staff by name. named-prompts.spec.ts may have named one, so any name will do.
+  await expect(page.getByText(/Until the install ships, [\p{L}' -]+ asks what you want/u)).toBeVisible();
+  await expect(page.getByText(/Have [\p{L}' -]+ map how the tool you already use for Book appointments would connect\./u)).toBeVisible();
 
   await page.goto("/admin/deliver/not-a-thing");
   await expect(page.getByText("There is nothing at this address.")).toBeVisible();

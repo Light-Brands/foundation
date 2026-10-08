@@ -15,8 +15,10 @@ export function isSidebarToggle(e: KeyboardEvent): boolean {
   return !(t && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName ?? "")));
 }
 
-export function AdminFrame({ businessName, logoUrl, sections, settings, banner, children }: {
+export function AdminFrame({ businessName, chiefName = "Claude", logoUrl, sections, settings, banner, children }: {
   businessName: string;
+  /** The chief of staff's name, which Check my system opens with. */
+  chiefName?: string;
   logoUrl: string | null;
   sections: NavSection[];
   settings: NavHeading[];
@@ -69,7 +71,7 @@ export function AdminFrame({ businessName, logoUrl, sections, settings, banner, 
       <MobileHeader sections={sections} settings={settings} businessName={businessName} logoUrl={logoUrl} />
       <main id="main" tabIndex={-1} className={`min-h-dvh outline-none pb-[calc(72px+env(safe-area-inset-bottom))] transition-[padding] duration-300 ease-breath md:pb-0 ${collapsed ? "md:pl-20" : "md:pl-64"}`}>
         {banner}
-        <TopBar sections={sections} settings={settings} />
+        <TopBar sections={sections} settings={settings} chiefName={chiefName} />
         <div className="mx-auto max-w-[1600px] px-4 pb-10 pt-6 sm:px-5 md:px-6 md:pt-8 lg:px-8 lg:pb-14">
           {children}
         </div>

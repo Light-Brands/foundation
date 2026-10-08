@@ -7,6 +7,7 @@ import { stackStatus } from "@/lib/setup/steps";
 import { connectionStatuses, EMAIL_SENDING } from "@/lib/data/connections";
 import { SECTION_ICONS } from "@/components/frame/icons";
 import { PageHeader } from "@/components/frame/PageHeader";
+import { DictionaryKicker } from "@/components/frame/DictionaryKicker";
 import { formatTodayKicker } from "@/lib/time";
 import { after } from "next/server";
 import { checkDeps } from "@/lib/checks/deps";
@@ -40,13 +41,14 @@ export default async function Home() {
   const next = steps.find((s) => s.status === "next")?.label ?? null;
   const departments = buildSections().filter((s) => s.id !== "command");
   const preview = storageMode() === "preview";
+  const today = formatTodayKicker(profile.timezone, new Date());
   return (
     <div data-today className="space-y-stack-sm md:space-y-stack">
       {/* The header and the grid read as one opening, so they sit closer than the sections below them. */}
       <div className="space-y-5 md:space-y-6">
         <PageHeader
           flush
-          kicker={formatTodayKicker(profile.timezone, new Date())}
+          kicker={<DictionaryKicker page="command/home" fallback={today} label={today} />}
           title={profile.business}
           lede={profile.what_we_do || "Your command center is live. Here is where your business stands."}
         />

@@ -28,7 +28,7 @@ Everything belongs to one of eleven categories (a founder reads them as departme
 
 `key/` holds everything that makes this business's system yours: agents, skills, routines and apps, plus `key/knowledge/` (the context block and `system.md`, the plain-words record of what is built) and `key/log/` (the monthly build log). The build log stays in this repository. `system.md` goes only to your own workspace, when you connect one later. Neither holds customer details, business records or secrets. `docs/standards/key.md` has the formats.
 
-The Preferences save is the only writer of `key/knowledge/context-block.yaml`, and it also sets `name` in `key/key.yaml` to the business name. `npm run key:sync` rebuilds the inventory in `system.md` and nothing else. A member upgrading from an earlier version opens Settings, then Preferences, and presses Save once, so the Key holds the business details.
+The profile saves are the only writers of `key/knowledge/context-block.yaml`: the Preferences save, the chief of staff card on the Agents page and `npm run chief`. Each also sets `name` in `key/key.yaml` to the business name. `npm run key:sync` rebuilds the inventory in `system.md` and nothing else. A member upgrading from an earlier version opens Settings, then Preferences, and presses Save once, so the Key holds the business details.
 
 ## Standards
 
@@ -57,8 +57,9 @@ The rules every builder follows, each with its reason, live in `docs/standards/`
 - `npm run setup -- --name "<business>" --pin-prompt`: create `.env.local`
 - `npm run dev`: run locally at http://localhost:3000
 - `npm test` · `npm run typecheck` · `npm run lint` · `npm run e2e` (delete .data/e2e first for a clean run)
+- `npm run chief -- "<name>"`: name the chief of staff, the name every copied prompt opens with (`--clear` goes back to Claude, no name says the current one)
 - `npm run auth:unlock`: the owner's way in when sign-in is waiting after many wrong PINs
 
 ## What is coming
 
-Dictionary updates from Light Brands bring department installs and connections: each job's ready to set up page offers its install once the dictionary has an entry for it in `ninja/modules/`, and until then it maps what the job will do. Supabase and owner accounts arrive as updates too. Each update opens as a change for the owner to accept.
+Dictionary updates from Light Brands bring department installs and connections: every page carries its number from `ninja/foundation/numbers.yaml`, and its copied prompt points at that numbered entry once the dictionary ships it, and until then plans the job with the owner. Supabase and owner accounts arrive as updates too. Each update opens as a change for the owner to accept.

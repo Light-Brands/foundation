@@ -5,6 +5,7 @@ import { hasTester } from "@/lib/connections/tester";
 import { keyRoot } from "@/lib/key/write";
 import { TestButton } from "./TestButton";
 import { PageHeader } from "@/components/frame/PageHeader";
+import { DictionaryKicker } from "@/components/frame/DictionaryKicker";
 import { EmptyState } from "@/components/frame/EmptyState";
 
 const DOOR = { own: "Your own account", custom: "Built by Light Brands" } as const;
@@ -19,7 +20,7 @@ export default async function ConnectionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        kicker="Settings · Connect your tools"
+        kicker={<DictionaryKicker page="system/connections" fallback="Settings · Connect your tools" />}
         title="Connect your tools"
         lede={<>Every service your business uses, how it was connected, and the name of the setting that holds its key. Keys stay in your host&apos;s settings, never here.</>}
       />

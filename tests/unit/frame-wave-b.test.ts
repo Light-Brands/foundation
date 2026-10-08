@@ -18,6 +18,8 @@ const { SiteActions } = await import("@/components/frame/SiteActions");
 const { ReadyState } = await import("@/components/frame/ReadyState");
 const { NeedsYouCard } = await import("@/app/admin/(console)/NeedsYouCard");
 const { READY } = await import("@/lib/layout/ready");
+const { entryForPage } = await import("@/lib/dictionary/numbers");
+const { DictionaryKicker } = await import("@/components/frame/DictionaryKicker");
 
 const html = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(el);
 const text = (h: string) => h.replace(/<[^>]+>/g, " ");
@@ -145,21 +147,40 @@ describe("the More screen's site actions", () => {
 });
 
 describe("ready pages", () => {
-  it("every Brand and Agentic page says what it will hold and gives a sentence to copy", () => {
-    for (const p of [...BRAND_PAGES, ...AGENTIC_PAGES]) {
-      const r = READY[p.id];
-      expect(r, p.id).toBeDefined();
-      expect(r!.holds.length, p.id).toBeGreaterThan(0);
-      expect(r!.sentence, p.id).toMatch(/\.$/);
-      expect([...r!.holds, r!.sentence].join(" "), p.id).not.toMatch(/[–—]/);
+  it("every Brand and Agentic page says what it will hold, and has a number in the dictionary", () => {
+    for (const [section, pages] of [["brand", BRAND_PAGES], ["agentic", AGENTIC_PAGES]] as const) {
+      for (const p of pages) {
+        const r = READY[p.id];
+        expect(r, p.id).toBeDefined();
+        expect(r!.holds.length, p.id).toBeGreaterThan(0);
+        expect(r!.holds.join(" "), p.id).not.toMatch(/[–—]/);
+        expect(entryForPage(`${section}/${p.id}`), `${section}/${p.id}`).not.toBeNull();
+      }
     }
   });
-  it("renders the sentence as the page's one primary action, and marks coming pages", () => {
-    const ready = html(createElement(ReadyState, { page: BRAND_PAGES.find((p) => p.id === "offers")! }));
+  it("renders the dictionary prompt, opening with the name, as the page's one primary action, and marks coming pages", () => {
+    const ready = html(createElement(ReadyState, { page: BRAND_PAGES.find((p) => p.id === "offers")!, section: "brand", name: "Sage" }));
     expect(ready).toContain("What this page will hold");
     expect(ready).toContain("btn-primary");
     expect(ready).not.toContain("Coming soon");
-    const soon = html(createElement(ReadyState, { page: AGENTIC_PAGES.find((p) => p.id === "routines")! }));
+    expect(text(ready)).toContain("Sage, follow 2.4 Offers from the Ninja dictionary.");
+    const soon = html(createElement(ReadyState, { page: AGENTIC_PAGES.find((p) => p.id === "routines")!, section: "agentic", name: "Sage" }));
     expect(soon).toContain("Coming soon");
+    expect(text(soon)).toContain("Sage, follow 3.4.1 Routines");
+  });
+});
+
+describe("the dictionary kicker", () => {
+  it("leads with the number in the figure face, keeps the section for a desk, and names the page", () => {
+    const h = html(createElement(DictionaryKicker, { page: "sell/leads", fallback: "Sales · Ready to set up" }));
+    expect(h).toContain('data-dictionary-number="4.2.1"');
+    expect(h).toMatch(/<span class="font-mono[^"]*text-admin-ink">4\.2\.1<\/span>/);
+    expect(h).toMatch(/<span class="hidden md:inline">Grow · <\/span>/);
+    expect(text(h)).toContain("Capture leads");
+    expect(text(h)).not.toContain("Ready to set up");
+  });
+  it("keeps the page's own words after the number when given, and its own kicker when it has no number", () => {
+    expect(text(html(createElement(DictionaryKicker, { page: "command/home", fallback: "x", label: "Wednesday, October 7" })))).toMatch(/1\.1\s+·\s+Command center · \s*Wednesday, October 7/);
+    expect(html(createElement(DictionaryKicker, { page: "nope/none", fallback: "Sales · Ready to set up" }))).toBe("Sales · Ready to set up");
   });
 });

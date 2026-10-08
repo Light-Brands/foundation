@@ -3,12 +3,13 @@ import { useState } from "react";
 import { copyText } from "@/lib/copy-text";
 import { ExternalLink, ChevronRight, Lock, Check, Stethoscope } from "./icons";
 import { lockGate } from "./lock";
+import { checkSystemPrompt } from "@/lib/dictionary/prompt";
 
 const ROW = "flex min-h-row w-full items-center gap-3 px-4 py-3 text-left text-[15px] transition-colors duration-200 ease-breath active:bg-admin-hover";
 
 // The phone's More screen ends with the three things every page offers on a desk, as rows in one group like the
-// settings above them: view the site, copy the "Check my system." sentence, and lock.
-export function SiteActions() {
+// settings above them: view the site, copy the Check my system prompt, and lock.
+export function SiteActions({ chiefName = "Claude" }: { chiefName?: string }) {
   const [copied, setCopied] = useState(false);
   const [note, setNote] = useState("");
   const [lockFailed, setLockFailed] = useState(false);
@@ -29,7 +30,7 @@ export function SiteActions() {
             className={`${ROW} text-admin-ink`}
             onClick={async () => {
               setNote("");
-              const r = await copyText("Check my system.");
+              const r = await copyText(checkSystemPrompt(chiefName));
               if (!r.ok) { setNote(r.message); return; }
               setCopied(true);
               setTimeout(() => setCopied(false), 1600);

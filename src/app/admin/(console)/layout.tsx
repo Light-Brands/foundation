@@ -3,6 +3,7 @@ import { PreviewBanner } from "@/components/PreviewBanner";
 import { buildSections, buildSettings } from "@/lib/layout/sections";
 import { storageMode } from "@/lib/db";
 import { loadBrand, loadInboxCount, loadProfile } from "@/lib/data/safe";
+import { chiefName } from "@/lib/dictionary/prompt";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
   return (
     <AdminFrame
       businessName={profile.business}
+      chiefName={chiefName(profile)}
       logoUrl={brand.logoUrl}
       sections={buildSections(badges)}
       settings={buildSettings(badges)}

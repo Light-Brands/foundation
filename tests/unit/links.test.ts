@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { lessonHref, customHref, installPrompt, connectPrompt, installCardCopy, connectCardCopy, showsHours, hoursBack, CUSTOM_CARD_COPY, DOJO_URL } from "@/lib/links";
+import { lessonHref, customHref, installCardCopy, connectCardCopy, showsHours, hoursBack, CUSTOM_CARD_COPY } from "@/lib/links";
 
 describe("Dojo links", () => {
   it("point at the Dojo with the module named", () => {
@@ -14,41 +14,13 @@ describe("Dojo links", () => {
     expect(lessonWithAmp).toContain("module=cat.sub");
     expect(lessonWithSpace).toContain("module=cat.sub");
   });
-  it("write an install prompt for the Ninja framework runner when the job has a dictionary entry", () => {
-    const p = installPrompt("deliver", "booking", "Book appointments", true);
-    expect(p).toContain("Install Book appointments (modules/deliver/booking)");
-    expect(p).toContain("ninja/runner/run.md");
-    expect(p).toContain(DOJO_URL);
-    expect(p).toContain("change nothing until I approve the plan");
-    expect(p).not.toMatch(/[\u2013\u2014;]/);
-  });
-  it("ask the runner to explain the job and what to prepare when it has no entry yet, changing nothing", () => {
-    const p = installPrompt("deliver", "booking", "Book appointments", false);
-    expect(p).not.toContain("Install Book appointments");
-    expect(p).toContain("learn verb");
-    expect(p).toContain("Book appointments (modules/deliver/booking)");
-    expect(p).toContain("what to have ready");
-    expect(p).toContain("coming dictionary update");
-    expect(p).toContain("ninja/runner/run.md");
-    expect(p).toContain("Change nothing in this project.");
-    expect(p).not.toMatch(/[\u2013\u2014;]/);
-  });
-  it("write a connect prompt that maps a connection with the learn verb and changes nothing", () => {
-    const p = connectPrompt("deliver", "booking", "Book appointments");
-    expect(p).toContain("Book appointments (modules/deliver/booking)");
-    expect(p).toContain("learn verb");
-    expect(p).toContain("coming dictionary updates");
-    expect(p).toContain("what access it would need");
-    expect(p).toContain("Change nothing in this project.");
-    expect(p).toContain("ninja/runner/run.md");
-    expect(p).toContain(DOJO_URL);
-    expect(p).not.toMatch(/[\u2013\u2014;]/);
-  });
   it("give the install card copy for both states, and the connect card copy", () => {
     expect(installCardCopy(true)).toBe("A build crew asks what you want, plans it with you, builds it, tests it and proves it works.");
-    expect(installCardCopy(false)).toBe("Until the install ships, Claude plans what it will do and what to have ready.");
+    expect(installCardCopy(false)).toBe("Until the install ships, Claude asks what you want and plans it with you. Nothing changes until you approve.");
+    expect(installCardCopy(false, "Sage")).toBe("Until the install ships, Sage asks what you want and plans it with you. Nothing changes until you approve.");
     const c = connectCardCopy("Book appointments");
     expect(c).toBe("Have Claude map how the tool you already use for Book appointments would connect. Nothing changes until you say so.");
+    expect(connectCardCopy("Book appointments", "Sage")).toContain("Have Sage map");
     for (const t of [installCardCopy(true), installCardCopy(false), c, CUSTOM_CARD_COPY]) expect(t).not.toMatch(/[\u2013\u2014;]/);
   });
   it("split the hours a job gives back so the figure can sit in the numeric face", () => {

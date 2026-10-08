@@ -12,6 +12,8 @@ import {
   clientAddress,
   clientBucket,
   clientKeyFromHeaders,
+  clientNetwork,
+  clearGateAttempts,
   dbGateLimiter,
   memoryGateLimiter,
   type GateLimiter,
@@ -40,6 +42,12 @@ describe("clientBucket", () => {
     expect(clientBucket("2001:db8:1:2::1")).toBe(a);
     expect(clientBucket("[2001:DB8:1:2:ffff::9]")).toBe(a);
     expect(clientBucket("2001:db8:1:3::1")).not.toBe(a);
+  });
+  it("spaces a slowed site by IPv4 /24 and IPv6 /48", () => {
+    expect(clientNetwork("203.0.113.9")).toBe(clientNetwork("203.0.113.200"));
+    expect(clientNetwork("203.0.113.9")).not.toBe(clientNetwork("203.0.114.9"));
+    expect(clientNetwork("2001:db8:1:2::1")).toBe(clientNetwork("2001:db8:1:ffff::1"));
+    expect(clientNetwork("2001:db8:1:2::1")).not.toBe(clientNetwork("2001:db8:2:2::1"));
   });
   it("puts anything that is not an address in one bucket", () => {
     expect(clientBucket("")).toBe("unknown");
@@ -140,17 +148,87 @@ describe("the sign-in limiter in the database", () => {
     await db.close();
   });
 
-  it("closes the whole site for a while once wrong tries from many clients pass the ceiling", async () => {
+  it("slows the site past the ceiling, spacing each network's tries, and never closes it", async () => {
     const db = await coreDb();
     const l = dbGateLimiter(db, SECRET);
+    // Thirty tries from one /24, each from its own address.
     for (let i = 0; i < GATE_LIMITS.global; i++) expect((await l.attempt(`198.51.100.${i}`, at(i))).ok).toBe(true);
-    const over = await l.attempt("203.0.113.200", at(GATE_LIMITS.global));
-    expect(over).toEqual({ ok: false, retryAfterMs: GATE_LIMITS.globalLockMs });
-    expect((await l.attempt("203.0.113.201", at(GATE_LIMITS.globalLockMs))).ok).toBe(false);
-    // Once the window ends the site opens, and the next lockout is twice as long.
-    const later = GATE_LIMITS.globalLockMs + GATE_LIMITS.global + 1;
-    for (let i = 0; i < GATE_LIMITS.global; i++) expect((await l.attempt(`192.0.2.${i}`, at(later))).ok).toBe(true);
-    expect(await l.attempt("203.0.113.202", at(later))).toEqual({ ok: false, retryAfterMs: 2 * GATE_LIMITS.globalLockMs });
+    const t = GATE_LIMITS.global;
+    // That network tried a moment ago, so it waits the spacing, never longer.
+    const over = await l.attempt("198.51.100.200", at(t));
+    expect(over.ok).toBe(false);
+    expect(!over.ok && over.retryAfterMs).toBeLessThanOrEqual(GATE_LIMITS.slowSpacingMs);
+    // Another network gets in at once, and then waits the spacing itself.
+    expect((await l.attempt("203.0.113.5", at(t))).ok).toBe(true);
+    expect(await l.attempt("203.0.113.6", at(t + 1000))).toEqual({ ok: false, retryAfterMs: GATE_LIMITS.slowSpacingMs - 1000 });
+    expect((await l.attempt("203.0.113.6", at(t + GATE_LIMITS.slowSpacingMs))).ok).toBe(true);
+    // A later slowdown doubles the spacing.
+    const later = t + GATE_LIMITS.slowMs + 1;
+    for (let i = 0; i < GATE_LIMITS.global; i++) expect((await l.attempt(`192.0.${i}.1`, at(later))).ok).toBe(true);
+    expect((await l.attempt("192.0.200.9", at(later))).ok).toBe(true);
+    expect(await l.attempt("192.0.200.10", at(later))).toEqual({ ok: false, retryAfterMs: 2 * GATE_LIMITS.slowSpacingMs });
+    await db.close();
+  });
+
+  it("never makes anyone wait longer than the capped spacing, however many slowdowns came before", async () => {
+    const db = await coreDb();
+    const l = dbGateLimiter(db, SECRET);
+    let now = 0;
+    for (let round = 0; round < 8; round++) {
+      for (let i = 0; i < GATE_LIMITS.global + 1; i++) await l.attempt(`10.${round}.${i}.1`, at(now));
+      const d = await l.attempt("10.250.0.1", at(now + 1));
+      const again = await l.attempt("10.250.0.2", at(now + 2));
+      expect(d.ok).toBe(true);
+      expect(again.ok).toBe(false);
+      expect(!again.ok && again.retryAfterMs).toBeLessThanOrEqual(GATE_LIMITS.maxSlowSpacingMs);
+      now += GATE_LIMITS.maxSlowMs + 1;
+    }
+    await db.close();
+  });
+
+  it("lets the owner in within the capped wait while a stranger exhausts the ceiling from many networks", async () => {
+    const db = await coreDb();
+    const l = dbGateLimiter(db, SECRET);
+    const env = readEnv({ FOUNDATION_PIN: "24681012", FOUNDATION_SECRET: SECRET });
+    // The stranger guesses from sixty IPv6 /48s, then keeps going while the owner signs in.
+    const stranger = (i: number) => `2001:db8:${(i + 1).toString(16)}::1`;
+    for (let i = 0; i < 60; i++) await handleGatePost({ pin: "11111111" }, env, T0 + i, { limiter: l, client: stranger(i) });
+    for (let i = 0; i < 60; i++) {
+      const r = await handleGatePost({ pin: "11111111" }, env, T0 + 100 + i, { limiter: l, client: stranger(i) });
+      expect(r.status === 429 ? r.retryAfterMs : 0).toBeLessThanOrEqual(GATE_LIMITS.maxClientLockMs);
+    }
+    const owner = { limiter: l, client: "203.0.113.9" };
+    let when = T0 + 200;
+    let r = await handleGatePost({ pin: "24681012" }, env, when, owner);
+    if (r.status === 429) {
+      expect(r.retryAfterMs).toBeLessThanOrEqual(GATE_LIMITS.maxSlowSpacingMs);
+      when += r.retryAfterMs ?? 0;
+      r = await handleGatePost({ pin: "24681012" }, env, when, owner);
+    }
+    expect(r.status).toBe(200);
+    expect(when - (T0 + 200)).toBeLessThanOrEqual(GATE_LIMITS.maxSlowSpacingMs);
+    await db.close();
+  });
+
+  it("keeps locking out the stranger's own address", async () => {
+    const db = await coreDb();
+    const l = dbGateLimiter(db, SECRET);
+    let refusedFor = 0;
+    for (let i = 0; i < 40; i++) {
+      const d = await l.attempt("2001:db8:7:7::1", at(i * 60_000));
+      if (!d.ok) refusedFor = Math.max(refusedFor, d.retryAfterMs);
+    }
+    expect(refusedFor).toBeGreaterThanOrEqual(GATE_LIMITS.clientLockMs - 60_000);
+    await db.close();
+  });
+
+  it("npm run auth:unlock's helper clears every wait", async () => {
+    const db = await coreDb();
+    const l = dbGateLimiter(db, SECRET);
+    await tries(l, "203.0.113.9", GATE_LIMITS.perClient + 1, at(0));
+    expect((await l.attempt("203.0.113.9", at(1))).ok).toBe(false);
+    expect(await clearGateAttempts(db)).toBeGreaterThan(0);
+    expect((await l.attempt("203.0.113.9", at(2))).ok).toBe(true);
     await db.close();
   });
 

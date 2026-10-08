@@ -1,16 +1,19 @@
 import type { Db } from "@/lib/db/types";
 import type { FoundationEnv } from "@/lib/env";
 
-// The sign-in limiter. Every PIN try is recorded before the PIN is compared, and refused once its client, or the
-// whole site, has used its budget:
+// The sign-in limiter. Every PIN try is recorded before the PIN is compared, and refused when its client or its
+// network has to wait:
 // - a client (one IPv4 address, or one IPv6 /64) gets five tries in ten minutes, then waits ten minutes, and each
-//   later lockout lasts twice as long as the one before, up to a day;
-// - the whole site gets thirty tries in ten minutes, then every client waits fifteen minutes, doubling the same
-//   way up to four hours, so guessing from many addresses at once stays slow too.
-// A right PIN gives its try back. The state lives in gate_attempts (core/db/migrations/0018_core_gate_attempts.sql),
-// read and written in one transaction under an advisory lock, so a burst of tries at once is counted one by one and
-// a lockout holds across restarts and every running copy of the site. Only a deploy with no database (preview)
-// keeps it in memory, per running copy.
+//   later lockout lasts twice as long as the one before, up to a day. This lockout falls only on that client.
+// - once the whole site passes thirty tries in ten minutes, it slows for fifteen minutes (doubling with each later
+//   slowdown, up to four hours): each network (an IPv4 /24 or an IPv6 /48) may try once per thirty seconds,
+//   doubling with each slowdown up to five minutes. The site itself never closes, so a stranger guessing from many
+//   addresses can make no one wait longer than that capped spacing, and the owner's own network is never held
+//   behind someone else's tries.
+// A right PIN clears its client and gives the site's count its try back. The state lives in gate_attempts
+// (core/db/migrations/0018_core_gate_attempts.sql), read and written in one transaction under an advisory lock, so a
+// burst of tries at once is counted one by one and every wait holds across restarts and every running copy of the
+// site. Only a deploy with no database (preview) keeps it in memory, per running copy. npm run auth:unlock clears it.
 
 export const GATE_LIMITS = {
   perClient: 5,
@@ -18,9 +21,11 @@ export const GATE_LIMITS = {
   clientLockMs: 10 * 60_000,
   maxClientLockMs: 24 * 3600_000,
   global: 30,
-  globalLockMs: 15 * 60_000,
-  maxGlobalLockMs: 4 * 3600_000,
-  /** A row is forgotten, strikes and all, this long after its last try or the end of its last lockout. */
+  slowMs: 15 * 60_000,
+  maxSlowMs: 4 * 3600_000,
+  slowSpacingMs: 30_000,
+  maxSlowSpacingMs: 5 * 60_000,
+  /** A row is forgotten, strikes and all, this long after its last try or the end of its last wait. */
   forgetMs: 24 * 3600_000,
 } as const;
 
@@ -35,37 +40,53 @@ export interface GateLimiter {
 }
 
 type Row = { fails: number; windowStart: number; lockedUntil: number; strikes: number; touched: number };
-type Budget = { limit: number; lockMs: number; maxLockMs: number };
+type Rows = { client?: Row; network?: Row; site?: Row };
 
-const GLOBAL = "*";
+const fresh = (now: number): Row => ({ fails: 0, windowStart: now, lockedUntil: 0, strikes: 0, touched: now });
+const forgotten = (r: Row, now: number, l: GateLimits) => now - Math.max(r.touched, r.lockedUntil) >= l.forgetMs;
 
-/** One try against one row. Pure: the stores below only load and save what it returns. */
-export function step(row: Row | undefined, now: number, b: Budget, limits: GateLimits): { row: Row; ok: boolean; retryAfterMs: number; changed: boolean } {
-  let r: Row = row ?? { fails: 0, windowStart: now, lockedUntil: 0, strikes: 0, touched: now };
+/** One try against a client's row: five per window, then a lockout that doubles each time. */
+export function clientStep(row: Row | undefined, now: number, l: GateLimits): { row: Row; ok: boolean; retryAfterMs: number; changed: boolean } {
+  let r = row ?? fresh(now);
   if (r.lockedUntil > now) return { row: r, ok: false, retryAfterMs: r.lockedUntil - now, changed: false };
-  if (now - Math.max(r.touched, r.lockedUntil) >= limits.forgetMs) r = { fails: 0, windowStart: now, lockedUntil: 0, strikes: 0, touched: now };
-  if (now - r.windowStart >= limits.windowMs) r = { ...r, fails: 0, windowStart: now };
-  if (r.fails >= b.limit) {
-    const lockMs = Math.min(b.lockMs * 2 ** r.strikes, b.maxLockMs);
+  if (forgotten(r, now, l)) r = fresh(now);
+  if (now - r.windowStart >= l.windowMs) r = { ...r, fails: 0, windowStart: now };
+  if (r.fails >= l.perClient) {
+    const lockMs = Math.min(l.clientLockMs * 2 ** r.strikes, l.maxClientLockMs);
     return { row: { fails: 0, windowStart: now, lockedUntil: now + lockMs, strikes: r.strikes + 1, touched: now }, ok: false, retryAfterMs: lockMs, changed: true };
   }
   return { row: { ...r, fails: r.fails + 1, touched: now }, ok: true, retryAfterMs: 0, changed: true };
 }
 
-const budgets = (l: GateLimits): { client: Budget; site: Budget } => ({
-  client: { limit: l.perClient, lockMs: l.clientLockMs, maxLockMs: l.maxClientLockMs },
-  site: { limit: l.global, lockMs: l.globalLockMs, maxLockMs: l.maxGlobalLockMs },
-});
+/**
+ * One try against the site's row. The site never refuses: it counts tries, and past the ceiling it slows, saying
+ * how far apart each network's tries must be (0 when it is not slowed). lockedUntil is the end of the slowdown.
+ */
+export function siteStep(row: Row | undefined, now: number, l: GateLimits): { row: Row; spacingMs: number; changed: boolean } {
+  let r = row ?? fresh(now);
+  const spacing = (strikes: number) => Math.min(l.slowSpacingMs * 2 ** Math.max(0, strikes - 1), l.maxSlowSpacingMs);
+  if (r.lockedUntil > now) return { row: r, spacingMs: spacing(r.strikes), changed: false };
+  if (forgotten(r, now, l)) r = fresh(now);
+  if (now - r.windowStart >= l.windowMs) r = { ...r, fails: 0, windowStart: now };
+  if (r.fails >= l.global) {
+    const slowMs = Math.min(l.slowMs * 2 ** r.strikes, l.maxSlowMs);
+    const next = { fails: 0, windowStart: now, lockedUntil: now + slowMs, strikes: r.strikes + 1, touched: now };
+    return { row: next, spacingMs: spacing(next.strikes), changed: true };
+  }
+  return { row: { ...r, fails: r.fails + 1, touched: now }, spacingMs: 0, changed: true };
+}
 
-/** Decides one try from the client's row and the site's row, and says which rows to save. */
-function decide(client: Row | undefined, site: Row | undefined, now: number, limits: GateLimits) {
-  const b = budgets(limits);
-  const c = step(client, now, b.client, limits);
-  if (!c.ok) return { decision: { ok: false, retryAfterMs: c.retryAfterMs } as GateDecision, save: c.changed ? { client: c.row } : {} };
-  const s = step(site, now, b.site, limits);
-  // The site refused, so no PIN is compared and the client's try is not spent.
-  if (!s.ok) return { decision: { ok: false, retryAfterMs: s.retryAfterMs } as GateDecision, save: s.changed ? { site: s.row } : {} };
-  return { decision: { ok: true } as GateDecision, save: { client: c.row, site: s.row } };
+/** Decides one try from the client's, its network's and the site's rows, and says which rows to save. */
+export function decide(rows: Rows, now: number, l: GateLimits): { decision: GateDecision; save: Rows } {
+  const c = clientStep(rows.client, now, l);
+  if (!c.ok) return { decision: { ok: false, retryAfterMs: c.retryAfterMs }, save: c.changed ? { client: c.row } : {} };
+  const s = siteStep(rows.site, now, l);
+  const since = rows.network ? now - rows.network.touched : Infinity;
+  if (s.spacingMs > 0 && since < s.spacingMs) {
+    // The site is slowed and this network tried a moment ago. No PIN is compared, so the client's try is not spent.
+    return { decision: { ok: false, retryAfterMs: s.spacingMs - since }, save: s.changed ? { site: s.row } : {} };
+  }
+  return { decision: { ok: true }, save: { client: c.row, site: s.row, network: { ...fresh(now) } } };
 }
 
 const giveBack = (site: Row | undefined): Row | undefined => (site && site.fails > 0 ? { ...site, fails: site.fails - 1 } : undefined);
@@ -89,41 +110,56 @@ export function clientAddress(h: { get(name: string): string | null }, env: Pick
 
 const V4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
 
-/** The bucket a limit counts in: a whole IPv4 address, an IPv6 address's /64, or one bucket for anything else. */
-export function clientBucket(address: string): string {
+type Parsed = { v4: string } | { v6: string[] } | null;
+
+function parse(address: string): Parsed {
   let a = address.trim().toLowerCase();
   if (a.startsWith("[") && a.endsWith("]")) a = a.slice(1, -1);
   a = a.replace(/%.*$/, "");
   const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(a);
   if (mapped) a = mapped[1];
-  if (V4.test(a)) return `v4:${a}`;
-  if (!a.includes(":") || !/^[0-9a-f:.]+$/.test(a)) return "unknown";
+  if (V4.test(a)) return { v4: a };
+  if (!a.includes(":") || !/^[0-9a-f:.]+$/.test(a)) return null;
   let canonical: string;
   try {
     canonical = new URL(`http://[${a}]/`).hostname.slice(1, -1);
   } catch {
-    return "unknown";
+    return null;
   }
   const [head, tail = ""] = canonical.split("::");
   const left = head ? head.split(":") : [];
   const right = canonical.includes("::") && tail ? tail.split(":") : [];
   const groups = canonical.includes("::") ? [...left, ...Array(8 - left.length - right.length).fill("0"), ...right] : left;
-  if (groups.length !== 8) return "unknown";
-  return `v6:${groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":")}::/64`;
+  return groups.length === 8 ? { v6: groups.map((g) => g.replace(/^0+(?=.)/, "")) } : null;
+}
+
+/** The bucket a client's own limit counts in: a whole IPv4 address, an IPv6 address's /64, or one bucket for anything else. */
+export function clientBucket(address: string): string {
+  const p = parse(address);
+  if (!p) return "unknown";
+  return "v4" in p ? `v4:${p.v4}` : `v6:${p.v6.slice(0, 4).join(":")}::/64`;
+}
+
+/** The network a slowed site spaces tries by: an IPv4 /24, an IPv6 /48, or one bucket for anything else. */
+export function clientNetwork(address: string): string {
+  const p = parse(address);
+  if (!p) return "net:unknown";
+  return "v4" in p ? `net:${p.v4.split(".").slice(0, 3).join(".")}.0/24` : `net:${p.v6.slice(0, 3).join(":")}::/48`;
 }
 
 const enc = new TextEncoder();
 
-/** The stored key for a client: an HMAC of its bucket, so the table never holds an address. */
-export async function clientRowKey(address: string, secret: string): Promise<string> {
+/** The stored key for a bucket: an HMAC of it, so the table never holds an address. */
+async function rowKey(bucket: string, secret: string): Promise<string> {
   const key = await crypto.subtle.importKey("raw", enc.encode(`foundation:gate-attempts:v1:${secret}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(clientBucket(address)));
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(bucket));
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // ---------------------------------------------------------------------------------------------------------------
 // The stores.
 
+const SITE = "*";
 const LOCK = "foundation:gate-attempts";
 const ms = (v: unknown): number => (v == null ? 0 : new Date(v as string | Date).getTime());
 const date = (n: number): Date | null => (n ? new Date(n) : null);
@@ -134,41 +170,46 @@ const UPSERT = `insert into gate_attempts (key, fails, window_start, locked_unti
   on conflict (key) do update set fails = excluded.fails, window_start = excluded.window_start,
   locked_until = excluded.locked_until, strikes = excluded.strikes, touched = excluded.touched`;
 
-/** The limiter kept in gate_attempts. secret keys the client rows; the same secret must be used on every copy. */
+/** The limiter kept in gate_attempts. secret keys the client and network rows; every copy must use the same one. */
 export function dbGateLimiter(db: Db, secret: string, limits: GateLimits = GATE_LIMITS): GateLimiter {
-  async function withRows<T>(clientKey: string, now: number, fn: (client: Row | undefined, site: Row | undefined) => { result: T; save: { client?: Row; site?: Row }; dropClient?: boolean }): Promise<T> {
+  async function withRows<T>(address: string, now: number, fn: (rows: Rows) => { result: T; save: Rows; dropClient?: boolean }): Promise<T> {
+    const [client, network] = await Promise.all([rowKey(clientBucket(address), secret), rowKey(clientNetwork(address), secret)]);
     return db.transaction(async (tx) => {
       await tx.query("select pg_advisory_xact_lock(hashtext($1))", [LOCK]);
       await tx.query("delete from gate_attempts where greatest(touched, coalesce(locked_until, touched)) < $1", [new Date(now - limits.forgetMs)]);
-      const rows = await tx.query<DbRow>("select key, fails, window_start, locked_until, strikes, touched from gate_attempts where key in ($1, $2)", [clientKey, GLOBAL]);
+      const found = await tx.query<DbRow>("select key, fails, window_start, locked_until, strikes, touched from gate_attempts where key in ($1, $2, $3)", [client, network, SITE]);
       const read = (k: string): Row | undefined => {
-        const r = rows.find((x) => x.key === k);
+        const r = found.find((x) => x.key === k);
         return r && { fails: Number(r.fails), windowStart: ms(r.window_start), lockedUntil: ms(r.locked_until), strikes: Number(r.strikes), touched: ms(r.touched) };
       };
-      const out = fn(read(clientKey), read(GLOBAL));
+      const out = fn({ client: read(client), network: read(network), site: read(SITE) });
       const write = (k: string, r: Row) => tx.query(UPSERT, [k, r.fails, new Date(r.windowStart), date(r.lockedUntil), r.strikes, new Date(r.touched)]);
-      if (out.dropClient) await tx.query("delete from gate_attempts where key = $1", [clientKey]);
-      if (out.save.client) await write(clientKey, out.save.client);
-      if (out.save.site) await write(GLOBAL, out.save.site);
+      if (out.dropClient) await tx.query("delete from gate_attempts where key = $1", [client]);
+      if (out.save.client) await write(client, out.save.client);
+      if (out.save.network) await write(network, out.save.network);
+      if (out.save.site) await write(SITE, out.save.site);
       return out.result;
     });
   }
   return {
-    async attempt(address, now) {
-      const key = await clientRowKey(address, secret);
-      return withRows(key, now.getTime(), (client, site) => {
-        const { decision, save } = decide(client, site, now.getTime(), limits);
+    attempt: (address, now) =>
+      withRows(address, now.getTime(), (rows) => {
+        const { decision, save } = decide(rows, now.getTime(), limits);
         return { result: decision, save };
-      });
-    },
-    async succeed(address, now) {
-      const key = await clientRowKey(address, secret);
-      await withRows(key, now.getTime(), (_client, site) => {
-        const back = giveBack(site);
+      }),
+    succeed: async (address, now) => {
+      await withRows(address, now.getTime(), (rows) => {
+        const back = giveBack(rows.site);
         return { result: undefined, save: back ? { site: back } : {}, dropClient: true };
       });
     },
   };
+}
+
+/** Forgets every client, network and site row: the owner's way in when sign-in is waiting. Returns the rows removed. */
+export async function clearGateAttempts(db: Pick<Db, "query">): Promise<number> {
+  const rows = await db.query<{ key: string }>("delete from gate_attempts returning key");
+  return rows.length;
 }
 
 /** The same limiter in memory, for a deploy with no database. Each running copy keeps its own. */
@@ -180,25 +221,24 @@ export function memoryGateLimiter(limits: GateLimits = GATE_LIMITS): GateLimiter
     queue = next.catch(() => {});
     return next;
   };
-  const prune = (now: number) => {
-    for (const [k, r] of rows) if (now - Math.max(r.touched, r.lockedUntil) >= limits.forgetMs) rows.delete(k);
-  };
   return {
     attempt: (address, now) =>
       serial(() => {
         const t = now.getTime();
-        prune(t);
-        const key = clientBucket(address);
-        const { decision, save } = decide(rows.get(key), rows.get(GLOBAL), t, limits);
-        if (save.client) rows.set(key, save.client);
-        if (save.site) rows.set(GLOBAL, save.site);
+        for (const [k, r] of rows) if (forgotten(r, t, limits)) rows.delete(k);
+        const client = clientBucket(address);
+        const network = clientNetwork(address);
+        const { decision, save } = decide({ client: rows.get(client), network: rows.get(network), site: rows.get(SITE) }, t, limits);
+        if (save.client) rows.set(client, save.client);
+        if (save.network) rows.set(network, save.network);
+        if (save.site) rows.set(SITE, save.site);
         return decision;
       }),
     succeed: (address) =>
       serial(() => {
         rows.delete(clientBucket(address));
-        const back = giveBack(rows.get(GLOBAL));
-        if (back) rows.set(GLOBAL, back);
+        const back = giveBack(rows.get(SITE));
+        if (back) rows.set(SITE, back);
       }),
   };
 }

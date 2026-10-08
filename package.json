@@ -26,7 +26,9 @@
     "preconnection:set": "node scripts/gen-build-secret.mjs",
     "connection:set": "tsx --conditions=react-server scripts/connection-set.ts",
     "preperson": "node scripts/gen-build-secret.mjs",
-    "person": "tsx --conditions=react-server scripts/person.ts"
+    "person": "tsx --conditions=react-server scripts/person.ts",
+    "preauth:unlock": "node scripts/gen-build-secret.mjs",
+    "auth:unlock": "tsx --conditions=react-server scripts/auth-unlock.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

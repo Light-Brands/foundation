@@ -91,14 +91,14 @@ Every run is one verb acting on one entry.
 - take out, turn off, delete: **remove**
 - how does, why, explain, teach me: **learn**
 - connect, make them work together: **weave**
-- follow, as in "follow 2.3 Story and voice": look the number up in [numbers.yaml](../foundation/numbers.yaml). When its row names an entry, the verb is **install** if that entry is not in `installed`, and **upgrade** or **modify** if it is, asking which one the owner wants. When the row names no entry yet, plan the job with the owner the dictionary's way, as step 4 of [the library](../library.md) describes.
+- follow, as in "follow Story and voice": look the job up by name, or by the number on its command center page or in [the directory](../foundation/directory.md), in [numbers.yaml](../foundation/numbers.yaml). When its row names an entry, the verb is **install** if that entry is not in `installed`, and **upgrade** or **modify** if it is, asking which one the owner wants. When the row names no entry yet, plan the job with the owner the dictionary's way, as step 4 of [the library](../library.md) describes.
 
 When the words fit more than one verb, ask which one they mean, naming both.
 
 **The entry.** Every entry has an id, its kind folder and its name, such as `routines/monday-brief` or `modules/sell/leads`. Find it from [the index](../index.md):
 
 - By id, when the request names one. The Foundation's "ready to set up" doors name it in brackets.
-- By number, such as 2.3, from [numbers.yaml](../foundation/numbers.yaml). Its row names the entry that does that job. A row with no entry means the local copy has nothing for that job yet, so follow [the library](../library.md) from its step 2.
+- By name, or by the number on a command center page or in [the directory](../foundation/directory.md), from [numbers.yaml](../foundation/numbers.yaml). Its row names the entry that does that job. A row with no entry means the local copy has nothing for that job yet, so follow [the library](../library.md) from its step 2.
 - By title, such as "Monday brief".
 - By department and job, from [departments.yaml](../foundation/departments.yaml): the job "Capture leads" in the Sales department is the module `modules/sell/leads`.
 - By meaning. "Something that sums up my week" is the Monday brief.

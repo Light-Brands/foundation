@@ -6,7 +6,7 @@ This page is written to you, Claude. Before you build anything for this business
 
 Read `ninja/index.md`, the front page of the dictionary inside this Foundation. Find the entry by its id, its title, its department and job, or its meaning, as [the runner](runner/run.md) describes.
 
-When the owner asks by number, such as "follow 2.3", read `foundation/numbers.yaml` in the Foundation's dictionary, at `ninja/foundation/numbers.yaml`. Each number is the same on the command center's pages and in the dictionary, and its row names the entry that does that job. When the row's entry is empty, no local entry does the job yet, so go to step 2.
+When the owner asks by number or by name, such as "follow Story and voice", read `foundation/numbers.yaml` in the Foundation's dictionary, at `ninja/foundation/numbers.yaml`. Each number is shown on the command center's page and in [the directory](foundation/directory.md), and its row names the entry that does that job. When the row's entry is empty, no local entry does the job yet, so go to step 2.
 
 ## 2. Then look online
 

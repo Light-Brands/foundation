@@ -2,7 +2,6 @@
 id: frameworks/foundation
 kind: framework
 title: Foundation
-number: "0.3"
 lead: null
 state: live
 target: any

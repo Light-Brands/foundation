@@ -4,7 +4,7 @@ Your business is a set of departments, and each department is a set of jobs. The
 
 Start with [the guide](guide.md). It is short, and it shows you how to ask.
 
-Dictionary version 0.2.0.
+Dictionary version 0.3.0.
 
 ## How to ask for anything
 
@@ -20,7 +20,7 @@ Say what you want to your AI assistant, in plain words. Seven verbs cover everyt
 
 Every request runs the same way: a few questions, one plan you approve, then the crew builds, reviews, tests and proves it. Nothing is written until you approve the plan. The [runner](runner/run.md) is the full set of steps.
 
-**Autopilot first, and by number.** Every run starts by asking what can run on its own: it connects the tools you already use, schedules what can be scheduled, and leaves you only the decisions. Each job also has a number, the same on the command center's pages and here, so you can ask "follow 2.3" as well as "install the Monday brief". Your assistant looks in [the library](library.md) first: this dictionary, then the Dojo Dictionary online, and builds from scratch only when no entry does the job.
+**Autopilot first, and by number.** Every run starts by asking what can run on its own: it connects the tools you already use, schedules what can be scheduled, and leaves you only the decisions. Each job also has a number, shown on the command center's page and listed in [the directory](foundation/directory.md), so you can ask "follow" with a job's name or number as well as "install the Monday brief". Your assistant looks in [the library](library.md) first: this dictionary, then the Dojo Dictionary online, and builds from scratch only when no entry does the job.
 
 ## The path
 
@@ -63,7 +63,7 @@ Recurring work on a schedule or a trigger.
 
 A whole job, with its screen, its data and the work that runs on its own.
 
-- [2.3 Story and voice](modules/brand/story.md): your story and your voice in one guide, with every draft your business writes checked against it.
+- [Story and voice](modules/brand/story.md): your story and your voice in one guide, with every draft your business writes checked against it.
 
 ### Coming later
 
@@ -74,6 +74,7 @@ Blueprints, connections and more modules are coming in a later release. Installs
 - [What a Foundation is](foundation/primer.md): its structure, the Key, the app and the commands.
 - [The Ninja home](foundation/ninja-home.md): the folder your business lives in before the Foundation.
 - [The rules](foundation/rules.md): what every run obeys, and why.
+- [The directory](foundation/directory.md): every number, the same as your command center's pages.
 
 ### The crew
 

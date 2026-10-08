@@ -2,7 +2,6 @@
 id: frameworks/home
 kind: framework
 title: Home
-number: "0.2"
 lead: null
 state: live
 target: any

@@ -2,7 +2,6 @@
 id: skills/write-the-brief
 kind: skill
 title: Write the brief
-number: null
 lead: null
 state: live
 target: foundation

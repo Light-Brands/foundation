@@ -32,7 +32,7 @@ The Key is the `key/` folder. It holds the business's knowledge, roles, skills, 
 |---|---|
 | `key/key.yaml` | The ring: the list of everything the Key holds |
 | `key/CLAUDE.md` | One line telling the assistant to read `knowledge/context-block.yaml` and `knowledge/system.md` first, because they are the business and everything built for it so far |
-| `key/knowledge/` | `context-block.yaml` (the business facts), `system.md` (the plain-words record of what is built) and, once [2.3 Story and voice](../modules/brand/story.md) is installed, `voice.md` (the voice guide every draft is written and checked against, shown on the Brand page Story and voice) |
+| `key/knowledge/` | `context-block.yaml` (the business facts), `system.md` (the plain-words record of what is built) and, once [Story and voice](../modules/brand/story.md) is installed, `voice.md` (the voice guide every draft is written and checked against, shown on the Story and voice page in the Brand group of Context) |
 | `key/agents/<role>/charter.md` | One charter per role, eight sections |
 | `key/skills/<slug>/SKILL.md` | One skill per folder: front matter, then Input, Steps, Output, Check |
 | `key/routines/<slug>.md` | One routine per file: front matter with a trigger, then Goal, Steps, Expected output, Check, When blocked |

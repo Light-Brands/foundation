@@ -23,7 +23,7 @@ And one that is coming: "Weave Sales and Delivery so a signed contract starts a 
 
 You never need the exact name. "Something that sums up my week" finds the Monday brief. If two entries fit, your assistant asks which one you mean.
 
-You can also ask by number with the word follow. Every job has one, shown on its page in your command center and in the dictionary, so "follow 2.3 Story and voice" works as well as "install". Your assistant looks the number up: it installs the entry when you do not have it yet, offers to upgrade or modify it when you do, and plans the job with you when the dictionary has no entry for it yet. Whatever you ask, your assistant starts with autopilot first: it asks which tools you use for the job today, connects them, puts what can run on its own on a schedule, and leaves you only the decisions. Before it builds anything, it looks in [the library](library.md) for an entry that already does the job.
+You can also ask by number with the word follow. Every job has one, shown on its page in your command center and in [the directory](foundation/directory.md), so "follow Story and voice" works as well as "install". Your assistant looks the job up by its name or its number: it installs the entry when you do not have it yet, offers to upgrade or modify it when you do, and plans the job with you when the dictionary has no entry for it yet. Whatever you ask, your assistant starts with autopilot first: it asks which tools you use for the job today, connects them, puts what can run on its own on a schedule, and leaves you only the decisions. Before it builds anything, it looks in [the library](library.md) for an entry that already does the job.
 
 ## What happens next
 

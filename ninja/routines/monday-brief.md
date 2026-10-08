@@ -2,7 +2,6 @@
 id: routines/monday-brief
 kind: routine
 title: Monday brief
-number: null
 lead: null
 state: live
 target: foundation
@@ -223,7 +222,7 @@ Write no brief. Run `npm run brief -- blocked --step <the step that stopped> --r
 
 ## Connections
 
-Essentials uses none. Complete and Mastery use email sending, with its two doors: connect your own, or Light Brands builds it custom. Complete drafts the copy into the brief's row and never puts it in the outbox, so nothing is sent, even when email sending is connected in 7.1.1 Connect your tools. The receipt says the copy is drafted and waiting.
+Essentials uses none. Complete and Mastery use email sending, with its two doors: connect your own, or Light Brands builds it custom. Complete drafts the copy into the brief's row and never puts it in the outbox, so nothing is sent, even when email sending is connected on the Connect your tools page. The receipt says the copy is drafted and waiting.
 
 ## Autopilot
 
@@ -233,7 +232,7 @@ Essentials uses none. Complete and Mastery use email sending, with its two doors
 
 **The rung.** Runs and reports. The brief is written and delivered on its own, and the owner reads it. A run that stops reports too, as a card of its own, so a missed week shows up in the Inbox.
 
-**The next rung.** The brief itself is already on the top rung, so the next climb belongs to its email copy at Complete. Today the copy is drafted and waits, which is Drafts for approval. Once email sending is connected in 7.1.1 Connect your tools, a standing rule the owner sets, such as sending the copy to their own address every week, moves it to Acts within policy. That climb also puts the copy in the outbox, which a later version of this entry adds.
+**The next rung.** The brief itself is already on the top rung, so the next climb belongs to its email copy at Complete. Today the copy is drafted and waits, which is Drafts for approval. Once email sending is connected on the Connect your tools page, a standing rule the owner sets, such as sending the copy to their own address every week, moves it to Acts within policy. That climb also puts the copy in the outbox, which a later version of this entry adds.
 
 **What stays with the owner.** What to do about the brief. It reports and suggests, and it never sends a message to a customer, moves money or changes a record.
 
@@ -361,7 +360,7 @@ The week still starts on Monday whatever day the brief arrives, so `week` stays 
 - `npm run brief -- check --week <the week>` reads what is saved for a week: its brief and its card.
 - `npm run brief -- save --week <the week>` writes a week's brief and its card together, with the brief on standard input.
 
-The day, the time, the name, the sections and who runs it change the way the table above says: Claude edits the Key file it names, and `npm test` checks the edit. The command center shows each brief where the owner already looks. Its card on Handle what needs you is read from `inbox_items`, so a brief saved from the command line is there on the next load once the Foundation is open again, and its title is in the What needs you panel on See your day. The command center's Routines page, 3.4.1 in Agentic, is marked coming soon, so for now the schedule is read and changed in `key/routines/monday-brief.md`, and a run that stops names the day from that file in its card's title.
+The day, the time, the name, the sections and who runs it change the way the table above says: Claude edits the Key file it names, and `npm test` checks the edit. The command center shows each brief where the owner already looks. Its card on Handle what needs you is read from `inbox_items`, so a brief saved from the command line is there on the next load once the Foundation is open again, and its title is in the What needs you panel on See your day. The command center's Routines page, in Agentic, is marked coming soon, so for now the schedule is read and changed in `key/routines/monday-brief.md`, and a run that stops names the day from that file in its card's title.
 
 **What upgrade adds, tier by tier.** Upgrading the routine upgrades its parts first, each to the routine's tier, in its own run, with its own `installed` row: [Chief of staff](../agents/chief-of-staff.md), then [Write the brief](../skills/write-the-brief.md). Each part's file is listed and compared under its own run, as its own entry describes. A Monday brief installed from dictionary 0.1.0 lists the chief of staff's charter in the routine's row: the chief of staff's run takes the charter into its own row, and the routine's run drops it from the routine's row, as [upgrade](../runner/verbs/upgrade.md) describes. Then the routine's run compares each file in its row's `files` and `code` three ways, the original from the commit that added the routine's newest install or upgrade brief, and the migrations already applied stay as they are.
 

@@ -2,7 +2,6 @@
 id: modules/brand/story
 kind: module
 title: Story and voice
-number: "2.3"
 lead: brand-lead
 state: drafted
 target: foundation
@@ -16,7 +15,7 @@ version: 1
 
 # Story and voice
 
-Section: Brand. Page: Story and voice (2.3).
+Section: Context.
 
 **The job it takes off your plate:** sounding like yourself, every time. Your story and your voice are drawn out of your own words into one voice guide, and every draft your Foundation's routines write is checked against that guide before it reaches you.
 
@@ -44,7 +43,7 @@ The world-class version is the voice guide a top brand strategist hands over at 
 
 Adds: the guide, the voice check, the monthly review, a table of check results and the Story and voice page. The files are listed under Data, with the tests.
 
-**Complete.** Adds your other channels. Each tool you named at question 5 is connected through 7.1.1 Connect your tools, so the guide and the monthly review also read your newsletter, your social posts and your sent email, with your yes for each. The guide gains a rule for each channel, and the blind test gains one piece per connected channel.
+**Complete.** Adds your other channels. Each tool you named at question 5 is connected through the Connect your tools page, so the guide and the monthly review also read your newsletter, your social posts and your sent email, with your yes for each. The guide gains a rule for each channel, and the blind test gains one piece per connected channel.
 
 Adds: the connected channels as sources, and one channel rule each. No new table.
 
@@ -97,7 +96,7 @@ The Brand lead and its Story and voice specialist direct this entry when the own
 
 ## Data
 
-One app, `voice`, kept under Marketing (`attract`), because the Key's categories are the eleven departments and Brand is a section of the command center with no category id of its own. Create content is where most drafts are written. Its table keeps one row per draft checked. The guide itself is knowledge, so it lives in the Key.
+One app, `voice`, kept under Marketing (`attract`), because the Key's categories are the eleven departments and Brand is a group in the Context section of the command center with no category id of its own. Create content is where most drafts are written. Its table keeps one row per draft checked. The guide itself is knowledge, so it lives in the Key.
 
 **Source of truth.** Each piece of Story and voice lives in one place, and nothing keeps a second copy:
 
@@ -111,7 +110,7 @@ One app, `voice`, kept under Marketing (`attract`), because the Key's categories
 What the entry builds at Essentials:
 
 - **Key files:** `key/knowledge/voice.md`, `key/skills/voice-check/SKILL.md`, `key/routines/voice-review.md` (which declares the drafting steps and the four card kinds), `key/apps/voice/definition.yaml` and `key/apps/voice/migrations/0001_voice_create.sql`.
-- **Code:** `src/lib/voice/guide.ts` (reads the guide's sections and checks its shape), `src/lib/voice/command.ts` (the steps `guide`, `check`, `apply`, `sources`, `propose`, `status` and `blocked`), and the page `src/app/admin/(console)/brand/story/page.tsx`.
+- **Code:** `src/lib/voice/guide.ts` (reads the guide's sections and checks its shape), `src/lib/voice/command.ts` (the steps `guide`, `check`, `apply`, `sources`, `propose`, `status` and `blocked`), and the page `src/app/admin/(console)/context/story/page.tsx`.
 - **Tests:** `tests/unit/voice.test.ts`, which also reads the real `key/knowledge/voice.md` and fails on a broken shape, and `tests/e2e/voice.spec.ts`, which signs in through the PIN gate and finds Story and voice with a fixture guide, one check row and one waiting card, at phone width and at desktop width.
 - **Shared edits named in the plan:** the `story` row of `BRAND_PAGES` in `src/lib/layout/sections.ts` changes its `state` to `built`. When the Monday brief is installed, its routine gains the voice step, and the chief of staff's charter gains one line under What I know pointing at the guide's master prompt.
 
@@ -264,7 +263,7 @@ installed:
     tier: essentials
     version: 1
     files: [knowledge/voice.md, skills/voice-check/SKILL.md, routines/voice-review.md, apps/voice/definition.yaml, apps/voice/migrations/0001_voice_create.sql]
-    code: [src/lib/voice/guide.ts, src/lib/voice/command.ts, src/app/admin/(console)/brand/story/page.tsx]
+    code: [src/lib/voice/guide.ts, src/lib/voice/command.ts, src/app/admin/(console)/context/story/page.tsx]
     installed: 2026-10-07
 ```
 
@@ -273,14 +272,14 @@ installed:
 
 ## Screens and panels
 
-**Story and voice** (`/admin/brand/story`), the Brand page with the number 2.3, replaces its "ready to set up" state with four panels, each with its empty and error states:
+**Story and voice** (`/admin/context/story`), the Story and voice page in the Brand group of Context, replaces its "ready to set up" state with four panels, each with its empty and error states:
 
 - **Your voice guide.** The guide as written in `key/knowledge/voice.md`, read from the file on every load, with the essence line at the top. Each line still marked **Proposed** carries a small Proposed label. With no guide yet, the page shows its ready state and its Copy prompt. A guide that has lost one of its fixed headings, as after a hand edit, shows what `guide` found missing and the Copy prompt that repairs it.
 - **How you sound.** The profile's three words beside the guide's keys. When they match, the panel says so in one line. When they differ, it names the word that moved and links to Settings, then Preferences. With no words in the profile yet, it says so and links there too.
 - **Recent checks.** The last 20 rows of `voice_checks`, newest first: the draft, the channel, the result and the date, with the drifted lines and their rewrites one tap away. With none yet: "No drafts checked yet. The first is checked the next time a writing routine runs, such as your Monday brief." Above the list: "Writing routines checked: <n> of <m>", naming any routine without the voice step, with a Copy prompt: "<Name>, add the voice step to <routine>." On a deployed copy on a hosted database, the panel says the checks are on your own computer.
 - **Waiting for you.** Each open voice card by title and age, each linking to its card, then the count of open voice cards, linked to **Handle what needs you** (`/admin/command/inbox`), and the count of approved changes not yet written into the guide, with "Run my voice review" to copy. On a deployed copy, the panel says the voice cards are on your own computer.
 
-The page keeps its Copy prompt, so a change to the guide is always one sentence away. It keeps the same kicker, `DictionaryKicker` with `page="brand/story"`, and builds its Copy prompt with `pagePrompt` and `chiefName`, so it still opens with the chief of staff's name and reads `2.3 · Brand · Story and voice`. On your own computer, the cards also show where the Foundation already shows the Inbox: on Handle what needs you, and by title in the What needs you panel on **See your day** (`/admin`). The navigation shows Story and voice as running.
+The page keeps its Copy prompt, so a change to the guide is always one sentence away. It keeps the same kicker, `DictionaryKicker` with `page="context/story"`, and builds its Copy prompt with `pagePrompt` and `chiefName`, so it still opens with the chief of staff's name and the page's kicker: its number from the map, then its section and name. On your own computer, the cards also show where the Foundation already shows the Inbox: on Handle what needs you, and by title in the What needs you panel on **See your day** (`/admin`). The navigation shows Story and voice as running.
 
 ## Routines and Inbox cards
 
@@ -382,7 +381,7 @@ Every mark is 4 or more, and the check found no avoid word, no unconfirmed Propo
 
 Essentials uses none. It reads the owner's public website pages and the owner's answers. With the owner's yes at question 5, it also reads the replies the Foundation has already sent, from the core `outbox` table where the status is `sent`, as a test set only: the review runs each through the voice check to see where approved copy and the guide disagree, and it never proposes a guide line from them, because the Foundation wrote them. New lines come only from words the owner wrote: the site, the answers, and at Complete the owner's own sent mail and posts.
 
-Complete and Mastery read the tools the owner named at question 5, each through 7.1.1 Connect your tools, with its two doors: connect your own, or Light Brands builds it custom.
+Complete and Mastery read the tools the owner named at question 5, each through the Connect your tools page, with its two doors: connect your own, or Light Brands builds it custom.
 
 - **The newsletter and sent email.** The email platform, or the mailbox's sent folder. Gmail, for one, lets a connected app list sent mail by date, such as `in:sent after:2026/09/01` ([Gmail search](https://developers.google.com/gmail/api/guides/filtering)).
 - **Social accounts.** A Facebook Page's published posts through its connection ([published posts](https://developers.facebook.com/docs/graph-api/reference/page/published_posts/)). For Instagram, until a connection exists, the owner requests the account's own "Download your information" export, chooses posts only, so messages and other people's comments stay out, and saves it in `.data/imports/instagram/`, which git ignores, for the review to read.
@@ -400,7 +399,7 @@ Each connection is read only. Nothing this entry does posts, sends or replies.
 
 **The next rung.** Acts within policy, for the check. Once the suggested rewrites have been the right call for a month of drafts, the owner sets the guide's `Rung:` line to `Acts within policy`. From then on the writer applies the rewrites itself, marks the rewritten draft, and runs the check once with `--rewritten`: a draft that passes is recorded `rewritten` with what changed, and only one that still misses reaches the owner with a drift card. The guide itself stays on Drafts for approval at every rung: every change to it is the owner's to approve.
 
-**What stays with the owner.** Approving the guide and every change to it. The origin story and the mission. Any new claim about the business, which stays **Proposed** until the owner confirms it, and any change to a business fact, made in Settings, then Preferences. Any use of a customer's words, which belongs to 2.6 Proof and its consent records.
+**What stays with the owner.** Approving the guide and every change to it. The origin story and the mission. Any new claim about the business, which stays **Proposed** until the owner confirms it, and any change to a business fact, made in Settings, then Preferences. Any use of a customer's words, which belongs to the Proof page and its consent records.
 
 ## Proof
 
@@ -435,7 +434,7 @@ Compare by value. Any status is a real result: a drift prints `"status": "drift"
 
 ### Complete
 
-**Setup.** The Essentials proof, then each tool the owner named connected through 7.1.1 Connect your tools, its status `connected`.
+**Setup.** The Essentials proof, then each tool the owner named connected through the Connect your tools page, its status `connected`.
 
 **The run.** `sources` lists one line per connected channel, the review reads them, and the blind test adds one piece per connected channel, each through the voice check. The completion test: every connected channel has its rule in `## Channels`, every added piece passed, and nothing was posted or sent.
 
@@ -485,7 +484,7 @@ Compare by value. Any status is a real result: a drift prints `"status": "drift"
 | Who runs it | `key/routines/voice-review.md` and `key/key.yaml` | The `agent` line, and the `agent` of the routine's and the skill's rows. |
 | How a draft is marked | `key/skills/voice-check/SKILL.md` | Steps 3 and 4: what is marked and the scale. The pass rule in Check stays: every mark 4 or more, and no hits. |
 
-Anything beyond the table is an upgrade or a different entry: the `voice_checks` table and the code change only by upgrade, and the owner's offers and audience belong to 2.4 Offers and 2.5 Audience, which build on the profile's `what_we_do` and `who_we_serve` the same way this entry builds on `how_we_sound`.
+Anything beyond the table is an upgrade or a different entry: the `voice_checks` table and the code change only by upgrade, and the owner's offers and audience belong to the Offers and Audience pages, which build on the profile's `what_we_do` and `who_we_serve` the same way this entry builds on `how_we_sound`.
 
 **From the command line.** In Claude Code or Claude Desktop, with the command center stopped, the drafting command, the one command the Foundation runs every routine's steps through, reads and writes the same rows the command center shows on the owner's own computer. It opens the local database only, so a hosted database is out of its reach today:
 
@@ -547,5 +546,5 @@ The pass rule, every mark 4 or more and no hits, is this entry's own rule, and m
 - Install the [Monday brief](../../routines/monday-brief.md) when it is not installed yet, so the voice check has a draft to check every week: "Install the Monday brief."
 - [Modify](../../runner/verbs/modify.md) the guide as the business changes: "Modify my voice guide to avoid the word 'journey'."
 - [Upgrade](../../runner/verbs/upgrade.md) it to Complete, so the newsletter and social posts feed the guide: "Upgrade Story and voice to Complete."
-- 2.4 Offers and 2.5 Audience, when they arrive in the dictionary, build on the same profile the guide builds on, and every page they write passes the voice check. 2.4 Offers gives the claims mark a confirmed source for every price.
+- The Offers and Audience pages, when they arrive in the dictionary, build on the same profile the guide builds on, and every page they write passes the voice check. The Offers page gives the claims mark a confirmed source for every price.
 - [Check](../../runner/verbs/check.md) the system to see which writing jobs can now run in the business's voice, such as social posts, email replies and proposals.

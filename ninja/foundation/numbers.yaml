@@ -4,24 +4,24 @@ numbers:
   - {number: "0.1", title: Prep, entry: frameworks/prep, page: null}
   - {number: "0.2", title: Home, entry: frameworks/home, page: null}
   - {number: "0.3", title: Foundation, entry: frameworks/foundation, page: null}
-  - {number: "1.1", title: See your day, entry: null, page: command/home}
-  - {number: "1.2", title: Handle what needs you, entry: null, page: command/inbox}
-  - {number: "1.3", title: Get alerted, entry: null, page: command/alerts}
-  - {number: "2.1", title: Overview, entry: null, page: brand/overview}
-  - {number: "2.2", title: Identity, entry: null, page: brand/identity}
-  - {number: "2.3", title: Story and voice, entry: modules/brand/story, page: brand/story}
-  - {number: "2.4", title: Offers, entry: null, page: brand/offers}
-  - {number: "2.5", title: Audience, entry: null, page: brand/audience}
-  - {number: "2.6", title: Proof, entry: null, page: brand/proof}
-  - {number: "2.7.1", title: "Assets · Library", entry: null, page: brand/assets-library}
-  - {number: "2.7.2", title: "Assets · Upload", entry: null, page: brand/assets-upload}
-  - {number: "2.7.3", title: "Assets · Brand kit", entry: null, page: brand/assets-kit}
-  - {number: "2.7.4", title: "Assets · From my website", entry: null, page: brand/assets-website}
-  - {number: "2.7.5", title: "Assets · Generate", entry: null, page: brand/assets-generate}
-  - {number: "2.7.6", title: "Assets · Rights", entry: null, page: brand/assets-rights}
-  - {number: "3.1", title: Agents, entry: null, page: agentic/agents}
-  - {number: "3.2", title: Skills, entry: null, page: agentic/skills}
-  - {number: "3.3", title: Recipes, entry: null, page: agentic/recipes}
+  - {number: "1.1", title: See your day, entry: null, page: command/home, retired: true}
+  - {number: "1.2", title: Handle what needs you, entry: null, page: command/inbox, retired: true}
+  - {number: "1.3", title: Get alerted, entry: null, page: command/alerts, retired: true}
+  - {number: "2.1", title: Overview, entry: null, page: brand/overview, retired: true}
+  - {number: "2.2", title: Identity, entry: null, page: brand/identity, retired: true}
+  - {number: "2.3", title: Story and voice, entry: modules/brand/story, page: brand/story, retired: true}
+  - {number: "2.4", title: Offers, entry: null, page: brand/offers, retired: true}
+  - {number: "2.5", title: Audience, entry: null, page: brand/audience, retired: true}
+  - {number: "2.6", title: Proof, entry: null, page: brand/proof, retired: true}
+  - {number: "2.7.1", title: "Assets · Library", entry: null, page: brand/assets-library, retired: true}
+  - {number: "2.7.2", title: "Assets · Upload", entry: null, page: brand/assets-upload, retired: true}
+  - {number: "2.7.3", title: "Assets · Brand kit", entry: null, page: brand/assets-kit, retired: true}
+  - {number: "2.7.4", title: "Assets · From my website", entry: null, page: brand/assets-website, retired: true}
+  - {number: "2.7.5", title: "Assets · Generate", entry: null, page: brand/assets-generate, retired: true}
+  - {number: "2.7.6", title: "Assets · Rights", entry: null, page: brand/assets-rights, retired: true}
+  - {number: "3.1", title: Agents, entry: null, page: agentic/agents, retired: true}
+  - {number: "3.2", title: Skills, entry: null, page: agentic/skills, retired: true}
+  - {number: "3.3", title: Recipes, entry: null, page: agentic/recipes, retired: true}
   - {number: "3.4.1", title: Routines, entry: null, page: agentic/routines}
   - {number: "3.4.2", title: Runs, entry: null, page: agentic/runs}
   - {number: "3.4.3", title: Workflows, entry: null, page: agentic/workflows}
@@ -66,3 +66,33 @@ numbers:
   - {number: "7.2.1", title: Stay compliant, entry: null, page: risk/compliance}
   - {number: "7.2.2", title: Control access, entry: null, page: risk/access}
   - {number: "7.2.3", title: Back up your data, entry: null, page: risk/backups}
+  - {number: "0.4", title: Work with Claude, entry: null, page: null}
+  - {number: "1.1.1", title: See your day, entry: null, page: command/home}
+  - {number: "1.1.2", title: Handle what needs you, entry: null, page: command/inbox}
+  - {number: "1.1.3", title: Get alerted, entry: null, page: command/alerts}
+  - {number: "2.1.1", title: Overview, entry: null, page: context/overview}
+  - {number: "2.1.2", title: Identity, entry: null, page: context/identity}
+  - {number: "2.1.3", title: Story and voice, entry: modules/brand/story, page: context/story}
+  - {number: "2.1.4", title: Offers, entry: null, page: context/offers}
+  - {number: "2.1.5", title: Audience, entry: null, page: context/audience}
+  - {number: "2.1.6", title: Proof, entry: null, page: context/proof}
+  - {number: "2.2.1", title: Library, entry: null, page: context/assets-library}
+  - {number: "2.2.2", title: Upload, entry: null, page: context/assets-upload}
+  - {number: "2.2.3", title: Brand kit, entry: null, page: context/assets-kit}
+  - {number: "2.2.4", title: From my website, entry: null, page: context/assets-website}
+  - {number: "2.2.5", title: Generate, entry: null, page: context/assets-generate}
+  - {number: "2.2.6", title: Rights, entry: null, page: context/assets-rights}
+  - {number: "3.1.1", title: Your team, entry: null, page: agentic/agents}
+  - {number: "3.1.2", title: Chief of staff, entry: null, page: agentic/chief-of-staff}
+  - {number: "3.1.3", title: Department leads, entry: null, page: agentic/department-leads}
+  - {number: "3.1.4", title: Specialists, entry: null, page: agentic/specialists}
+  - {number: "3.1.5", title: Build crew, entry: null, page: agentic/build-crew}
+  - {number: "3.2.1", title: Your skills, entry: null, page: agentic/skills}
+  - {number: "3.2.2", title: Voice and writing, entry: null, page: agentic/voice-and-writing}
+  - {number: "3.2.3", title: Research, entry: null, page: agentic/research}
+  - {number: "3.2.4", title: Numbers, entry: null, page: agentic/numbers}
+  - {number: "3.2.5", title: Tools, entry: null, page: agentic/tools}
+  - {number: "3.3.1", title: Library, entry: null, page: agentic/recipes}
+  - {number: "3.3.2", title: Quick wins, entry: null, page: agentic/quick-wins}
+  - {number: "3.3.3", title: Department kits, entry: null, page: agentic/department-kits}
+  - {number: "3.3.4", title: Your recipes, entry: null, page: agentic/your-recipes}

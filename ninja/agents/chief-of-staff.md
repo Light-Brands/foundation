@@ -2,7 +2,6 @@
 id: agents/chief-of-staff
 kind: agent
 title: Chief of staff
-number: null
 lead: null
 state: live
 target: foundation

@@ -45,12 +45,13 @@ test.describe("phone", () => {
   test("the Claude menu stays inside a 375px screen", async ({ page }) => {
     await signIn(page);
     // The Claude icon is a link on a local server; the chevron beside it opens the menu.
-    const icon = page.getByRole("link", { name: "Open Claude" }).or(page.getByRole("button", { name: "Open Claude" })).first();
+    const icon = page.getByRole("banner").getByRole("link", { name: "Open Claude" });
     await expect(icon).toBeVisible();
     await icon.locator("xpath=following-sibling::button[@aria-label='Choose where to open']").click();
     const menu = page.getByRole("menu");
     await expect(menu).toBeVisible();
-    const box = await menu.boundingBox();
+    // Measure the popup surface around the list, which carries the padding.
+    const box = await menu.locator("xpath=..").boundingBox();
     expect(box).not.toBeNull();
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(375);
@@ -80,7 +81,9 @@ test("every sidebar group has a label", async ({ page }) => {
   const nav = page.getByRole("navigation", { name: "Command center" });
   const sections = ["Command center", "Context", "Agentic", "Grow", "Serve", "Run"];
   for (const label of sections) {
-    await nav.getByRole("button", { name: label }).click();
+    const toggle = nav.getByRole("button", { name: label });
+    // Open only sections that are closed, so an already open one is read as it stands.
+    if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
     const unlabeled = await page.evaluate((name) => {
       const navEl = document.querySelector('nav[aria-label="Command center"]')!;
       const btn = Array.from(navEl.querySelectorAll("button")).find((b) => b.textContent?.trim().startsWith(name));
@@ -89,6 +92,7 @@ test("every sidebar group has a label", async ({ page }) => {
       const bad = lists.filter((ul) => !(ul.parentElement?.querySelector(":scope > [data-group]")?.getAttribute("data-group") ?? "").trim());
       return { lists: lists.length, bad: bad.length };
     }, label);
+    expect(unlabeled.lists, `${label} has no lists to check`).toBeGreaterThan(0);
     expect(unlabeled.bad, `${label} has an unlabeled group`).toBe(0);
   }
 });

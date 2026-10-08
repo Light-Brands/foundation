@@ -79,3 +79,18 @@ describe("the icon route", () => {
     expect(res.headers.get("content-type")).toContain("image/png");
   });
 });
+
+describe("the monogram face", () => {
+  it("carries a parseable cut of every pairing's display face, holding every letter and digit", async () => {
+    const { MONOGRAM_FONTS, MONOGRAM_GLYPHS } = await import("@/lib/pwa/monogram-fonts");
+    const { PAIRING_IDS } = await import("@/lib/brand/pairings");
+    for (const id of PAIRING_IDS) {
+      const bytes = Buffer.from(MONOGRAM_FONTS[id].data, "base64");
+      // A TrueType font starts with version 1.0 (00 01 00 00); an OpenType CFF font with "OTTO".
+      expect([bytes.readUInt32BE(0) === 0x00010000, bytes.subarray(0, 4).toString() === "OTTO"], id).toContain(true);
+      expect(bytes.length, id).toBeLessThan(16_000);
+    }
+    expect(MONOGRAM_GLYPHS.test("HS")).toBe(true);
+    expect(MONOGRAM_GLYPHS.test("ÉS")).toBe(false);
+  });
+});

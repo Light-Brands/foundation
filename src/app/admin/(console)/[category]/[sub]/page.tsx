@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { outcomesFor } from "@/lib/layout/categories";
 import { findSubcategory } from "@/lib/layout/registry";
 import { hoursBack } from "@/lib/links";
 import { Doors } from "@/components/Doors";
@@ -31,6 +32,17 @@ export default async function ReadyPage({ params }: { params: Promise<{ category
         }
       />
       <Doors categoryId={found.category.id} subId={found.sub.id} subLabel={found.sub.label} hasEntry={hasInstallEntry(found.category.id, found.sub.id)} />
+      <section className="surface rise mt-6 max-w-3xl p-card-lg" style={{ "--i": 2 } as React.CSSProperties} aria-labelledby="outcomes-title">
+        <h2 id="outcomes-title" className="kicker">What changes once it runs</h2>
+        <ul className="mt-4 space-y-3">
+          {outcomesFor(found.sub).map((line) => (
+            <li key={line} className="flex gap-3 text-sm leading-relaxed text-admin-ink md:text-[15px]">
+              <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+              <span>{line}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }

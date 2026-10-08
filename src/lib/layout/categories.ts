@@ -4,10 +4,53 @@ export type CategoryId =
 
 export type IconName = CategoryId;
 
-export type Subcategory = { id: string; label: string; blurb: string; hours: string };
+export type Subcategory = { id: string; label: string; blurb: string; hours: string; outcomes?: string[] };
 export type Category = { id: CategoryId; label: string; icon: IconName; subcategories: Subcategory[] };
 
-const s = (id: string, label: string, blurb: string, hours: string): Subcategory => ({ id, label, blurb, hours });
+const OUTCOMES: Record<string, string[]> = {
+  "alerts": ["A number that crosses your line reaches you the same hour.", "You decide where each line sits, and you change it any time."],
+  "content": ["Drafts arrive ready for your review, written in your voice.", "Approved pieces publish on the schedule you set.", "Your knowledge base becomes pages and posts without a blank page to start from."],
+  "social": ["Each day has a post drafted and waiting for your approval.", "Every channel stays active while you stay on the work."],
+  "ads": ["Every campaign tracks from click to sale, so you see what pays.", "A daily check holds spend inside the guardrails you set."],
+  "referrals": ["Every referrer is tracked, credited and thanked on time.", "You see which partners send the best customers."],
+  "events": ["Registration, reminders and replays run on their own.", "Every attendee gets a follow-up while the event is fresh."],
+  "leads": ["Every inquiry lands in one place and gets a quick answer.", "Each lead carries its next action."],
+  "pipeline": ["Every open deal shows its stage and its next step.", "A stalled deal gets a nudge before it goes cold."],
+  "proposals": ["A scoped proposal is drafted from your discovery notes.", "You review, adjust and send."],
+  "checkout": ["Payments are recorded and matched to the client and the offer.", "Your books reflect each sale the day it happens."],
+  "contracts": ["Agreements start from your templates and move to signature.", "Renewals show up before they come due."],
+  "booking": ["Bookings are confirmed and reminded for you.", "Reschedules and attendance are tracked in one place."],
+  "projects": ["Every project shows its status from kickoff to delivery.", "Clients get updates without you writing each one."],
+  "programs": ["Enrollment, curriculum and progress sit together.", "You see how each member is moving through the program."],
+  "orders": ["Orders, fulfillment updates and stock counts stay in step.", "Customers hear about their order as it moves."],
+  "support": ["One queue holds every channel.", "Answers are drafted from your knowledge base for you to approve."],
+  "client-success": ["Check-ins go out on schedule.", "Health signals and renewals surface before anyone has to ask."],
+  "community": ["New members are welcomed the day they join.", "Member questions get answered in a calm, well-kept space."],
+  "reviews": ["Reviews are asked for at the right moment.", "Replies are drafted, and testimonials are kept with consent."],
+  "invoicing": ["Invoices are drafted from the work and sent on your approval.", "Payments are matched when they arrive."],
+  "books": ["Transactions are categorized and receipts matched.", "Each month arrives ready for close."],
+  "bills": ["Bills are filed for your approval as they arrive.", "Renewals are flagged ahead of time."],
+  "pay-prep": ["Hours and changes are compiled for each pay period.", "Your payroll provider receives a clean handoff."],
+  "people": ["Your roster, schedule and time off live in one place.", "Everyone sees the same current picture."],
+  "hiring": ["Job posts, applicants and interviews stay organized.", "Every hiring decision stays with you."],
+  "tasks": ["Hand-offs and team tasks have an owner and a due date.", "Your how-we-do-it library is searchable by the whole team."],
+  "scorecard": ["The numbers that matter are pulled in automatically.", "Each number has a line that tells you when to look."],
+  "priorities": ["Quarterly priorities have owners.", "The weekly meeting is prepared before it starts."],
+  "reports": ["Monthly and quarterly reviews are written from your own records.", "You start from a draft that is already written."],
+  "vendors": ["Every tool and supplier you pay is listed in one place.", "Renewals are watched and spend is reviewed."],
+  "stock": ["Reorder points are set for each item.", "A draft purchase order appears when stock runs low."],
+  "equipment": ["Equipment and facilities are listed with their upkeep.", "Maintenance comes due on a schedule you can see."],
+  "compliance": ["Filings, licenses and renewals share one calendar.", "A prep packet is ready ahead of each one."],
+  "access": ["You can see who can get into what.", "Joiners and leavers follow a checklist."],
+  "backups": ["Backups are proven on a schedule.", "One switch pauses everything when you need it."],
+};
+
+const s = (id: string, label: string, blurb: string, hours: string): Subcategory => ({ id, label, blurb, hours, outcomes: OUTCOMES[id] });
+
+/** What changes once a job runs: plain, honest lines with no figures. A job without them falls back to its blurb. */
+export function outcomesFor(sub: Subcategory): string[] {
+  return sub.outcomes && sub.outcomes.length > 0 ? sub.outcomes : [sub.blurb];
+}
 
 export const CATEGORIES: Category[] = [
   { id: "command", label: "Command center", icon: "command", subcategories: [

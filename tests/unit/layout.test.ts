@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CATEGORIES } from "@/lib/layout/categories";
+import { CATEGORIES, outcomesFor } from "@/lib/layout/categories";
 import { hrefFor, findSubcategory } from "@/lib/layout/registry";
 
 describe("the eleven categories", () => {
@@ -56,5 +56,26 @@ describe("the nav", () => {
 describe("Connect your tools", () => {
   it("is a built screen at /system/connections", () => {
     expect(hrefFor("system", "connections")).toBe("/admin/system/connections");
+  });
+});
+
+describe("what changes once a job runs", () => {
+  const jobs = CATEGORIES.flatMap((c) => c.subcategories.map((s) => ({ key: `${c.id}.${s.id}`, s })));
+  it("gives every job with an hours figure two or three plain outcome lines", () => {
+    for (const { key, s } of jobs.filter((j) => j.s.hours !== "Core")) {
+      expect(s.outcomes?.length, key).toBeGreaterThanOrEqual(2);
+      expect(s.outcomes?.length, key).toBeLessThanOrEqual(3);
+    }
+  });
+  it("keeps the lines honest: no numbers, no dashes, nothing defined by what it is not", () => {
+    for (const { key, s } of jobs) for (const line of s.outcomes ?? []) {
+      expect(line, key).not.toMatch(/[\d\u2013\u2014]/);
+      expect(line, key).not.toMatch(/\b(not|isn't|aren't|never|rather than|instead of)\b/i);
+      expect(line.endsWith("."), key).toBe(true);
+    }
+  });
+  it("falls back to the blurb when a job has none", () => {
+    expect(outcomesFor({ ...jobs[0]!.s, outcomes: undefined })).toEqual([jobs[0]!.s.blurb]);
+    expect(outcomesFor({ ...jobs[0]!.s, outcomes: ["One."] })).toEqual(["One."]);
   });
 });

@@ -4,7 +4,7 @@ import type { GateLimiter } from "@/lib/auth/limit";
 
 export const ADMIN = "/admin";
 
-const PUBLIC = [/^\/$/, /^\/admin\/login$/, /^\/api\/gate$/, /^\/contact$/, /^\/f\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/api\/hooks\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/u\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}$/, /^\/_next\//, /^\/favicon\.ico$/, /^\/manifest\.webmanifest$/, /^\/pwa\/(?:icon-192|icon-512|icon-maskable|apple-touch-icon)\.png$/, /^\/sw\.js$/, /^\/offline$/];
+const PUBLIC = [/^\/$/, /^\/admin\/login$/, /^\/api\/gate$/, /^\/contact$/, /^\/f\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/api\/hooks\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/u\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}$/, /^\/_next\/static\//, /^\/_next\/image$/, /^\/favicon\.ico$/, /^\/manifest\.webmanifest$/, /^\/pwa\/(?:icon-192|icon-512|icon-maskable|apple-touch-icon)\.png$/, /^\/sw\.js$/, /^\/offline$/];
 
 const LEGACY = /^\/(command|attract|sell|deliver|keep|money|team|plan|vendors|risk|system)(\/.*)?$/;
 
@@ -53,7 +53,8 @@ export function safeNext(next: string | null | undefined): string {
   }
   if (url.origin !== ORIGIN) return ADMIN;
   const path = url.pathname + url.search + url.hash;
-  return path.startsWith("//") || url.pathname === "/" ? ADMIN : path;
+  // The site's root and the sign-in page itself are never where a sign-in lands.
+  return path.startsWith("//") || url.pathname === "/" || url.pathname === `${ADMIN}/login` ? ADMIN : path;
 }
 
 /**

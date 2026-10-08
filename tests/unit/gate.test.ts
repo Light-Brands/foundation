@@ -113,3 +113,20 @@ describe("the cron route", () => {
     expect(cronAuthorized("Bearer null", null)).toBe(false);
   });
 });
+
+describe("fix wave E: the gate's edges", () => {
+  it("never sends a fresh sign-in back to the sign-in page", () => {
+    for (const p of ["/admin/login", "/admin/login?next=/x", "/admin/login#y"]) expect(safeNext(p)).toBe("/admin");
+  });
+  it("keeps only Next's static files and images public under /_next/", () => {
+    expect(isPublicPath("/_next/static/chunks/a.js")).toBe(true);
+    expect(isPublicPath("/_next/image")).toBe(true);
+    for (const p of ["/_next/data/x.json", "/_next/staticx", "/_next/", "/favicon.icox"]) expect(isPublicPath(p), p).toBe(false);
+  });
+  it("runs the proxy for every path but Next's own static files", async () => {
+    const { config } = await import("@/proxy");
+    const re = new RegExp(`^${config.matcher[0]}$`);
+    for (const p of ["/_next/data/x.json", "/_next/staticx", "/favicon.icox", "/admin"]) expect(re.test(p), p).toBe(true);
+    for (const p of ["/_next/static/a.js", "/_next/image", "/_next/image?url=x", "/favicon.ico"]) expect(re.test(p), p).toBe(false);
+  });
+});

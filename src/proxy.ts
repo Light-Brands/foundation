@@ -33,4 +33,5 @@ export async function proxy(req: NextRequest) {
   return NextResponse.redirect(url);
 }
 
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };
+// Every path runs the gate except Next's own static files, its image route and the favicon, each matched exactly.
+export const config = { matcher: ["/((?!_next/static/|_next/image(?:/|\\?|$)|favicon\\.ico$).*)"] };

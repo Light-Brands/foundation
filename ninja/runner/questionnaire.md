@@ -1,6 +1,6 @@
 # The questionnaire
 
-Stage 2 of [the runner](run.md). Five shared questions open every run that builds or changes something. Ask them word for word, one per message, and wait for each answer. `learn` and `check` ask only the first.
+Stage 2 of [the runner](run.md). Six shared questions open every run that builds or changes something. Ask them word for word, one per message, and wait for each answer. `learn` and `check` ask only the first.
 
 ## The skip rule
 
@@ -8,7 +8,7 @@ Skip any question already answered by the request, the Key, or anything the owne
 
 **One request, asked once.** When an install or upgrade runs an entry's parts first, as [the runner](run.md) describes, the parts and the entry are one request. The tier, anything else at the same time and each consent are asked in the first run that needs them, and hold for every run in the request. Every other answer the owner gave carries forward too, so a later run never asks it again.
 
-## The five questions
+## The six questions
 
 **1. The verb and the entry.**
 
@@ -56,7 +56,13 @@ When the entry's Questions section has its own write consent, as [Home](../frame
 
 Ask the preview question only in a Foundation, and the messages question only when the entry sends messages. Going live is never asked here: it is asked at the moment it would happen.
 
-**5. The entry's own questions.** Ask the questions in the entry's Questions section, in its order, one per message, with the entry's default for each.
+**5. Your tools.**
+
+> Which tools do you use for this today?
+
+Each tool the owner names is a connection to try before anything is built: the run connects what the owner already uses first, and builds only what no connection does. The answers go in the run brief, and the target at stage 3 starts from them. When the entry's Questions section has its own "Your tools" question, as [the Monday brief](../routines/monday-brief.md) does, skip this one: the entry's question replaces it, and it is asked in its place among the entry's questions. "None yet" is a full answer, and the run builds what the job needs. For `remove`, skip this question, the same way the tier is skipped. For an entry whose Questions already ask about tools, as Prep does, skip this one too.
+
+**6. The entry's own questions.** Ask the questions in the entry's Questions section, in its order, one per message, with the entry's default for each.
 
 ## The default tier
 
@@ -72,4 +78,4 @@ When the default is a tier the entry does not offer, suggest the deepest tier it
 
 ## What it produces
 
-The answers become the run brief: the verb, the entry, the tier, the three consents and the brief in the owner's words. Its format and where it is kept are in [resuming a run](resume.md).
+The answers become the run brief: the verb, the entry, the tier, the three consents, the owner's tools and the brief in the owner's words. Its format and where it is kept are in [resuming a run](resume.md).

@@ -23,6 +23,8 @@ And one that is coming: "Weave Sales and Delivery so a signed contract starts a 
 
 You never need the exact name. "Something that sums up my week" finds the Monday brief. If two entries fit, your assistant asks which one you mean.
 
+You can also ask by number. Every job has one, shown on its page in your command center and in the dictionary, so "follow 2.3" works as well as "install". Whatever you ask, your assistant starts with autopilot first: it asks which tools you use for the job today, connects them, puts what can run on its own on a schedule, and leaves you only the decisions. Before it builds anything, it looks in [the library](library.md) for an entry that already does the job.
+
 ## What happens next
 
 Your assistant asks a few short questions, one at a time, and skips anything it already knows. Then it shows you one plan: every file it will create or change, and how it will prove the work. Nothing is written until you say yes to that plan. Then the crew builds it, reviews it, tests it and runs one real item through it. You decide anything that goes outside your folder, such as a preview, a test message, or going live.

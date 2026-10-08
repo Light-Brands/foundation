@@ -23,7 +23,7 @@ The owner, who reads the receipt and the system record, the next session, which 
 - At stage 10, only after the log-only commit and the owner's answer to the go live question, I write the closing record: the proof in the brief, the commit, the proof and going live ticked, going live only on the owner's yes, and `stage: 10`. The run lead commits the brief alone. A later upgrade finds this run by the commit that added its install or upgrade brief.
 - In a Ninja home, I write `key.yaml` directly: the new rows, an `installed` row with `version` and with `files` as paths relative to the home folder, and a `runs` row for a task that ran and passed its check. Then I rebuild `starter-kit.html`.
 - In a chat without file access, I ask the owner to paste `key.yaml` and any existing file before I change it, and return every file whole, in a code block with its path on the first line, one file per message.
-- The receipt says what changed, at which tier, and what it costs to run, as the entry states it. For an entry with no running cost, such as Prep or Home, it says "no running cost".
+- The receipt says what changed, at which tier, whether it is live, and what it costs to run, as the entry states it. For an entry with no running cost, such as Prep or Home, it says "no running cost". For an entry that runs on a schedule or an event, it also says what now runs on its own and how often, the hours it returns each week, from the hours the entry states and the owner's answers and never invented, and the next automation it unlocks.
 
 ## What I know
 

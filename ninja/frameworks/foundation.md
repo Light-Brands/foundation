@@ -2,6 +2,9 @@
 id: frameworks/foundation
 kind: framework
 title: Foundation
+number: "0.3"
+lead: null
+state: live
 target: any
 tiers: [essentials, complete, mastery]
 uses: []
@@ -58,7 +61,7 @@ Not part of this entry.
 ## Data
 
 - **The database.** Every business has three tables from the start: contacts, the Inbox cards and the business profile, in `core/db/migrations/`. On the owner's computer they live in PGlite, real Postgres stored in `.data/`. On Vercel without a database the app runs as a preview that does not save. Supabase, the cloud database, arrives as an update from Light Brands.
-- **The Key.** `key/key.yaml` says `home: repo` and carries `roster`, `skills`, `apps`, `routines`, `runs` and `installed`. The business facts are in `key/knowledge/context-block.yaml`, and the Preferences save is its only writer.
+- **The Key.** `key/key.yaml` says `home: repo` and carries `roster`, `skills`, `apps`, `routines`, `runs` and `installed`. The business facts are in `key/knowledge/context-block.yaml`, and after setup, the Preferences save is its one writer.
 - **The environment.** `FOUNDATION_PIN` and `FOUNDATION_BUSINESS_NAME` on Vercel, and `.env.local` on the owner's computer, written by the setup command. Secrets never go in the Key.
 
 ## Screens and panels
@@ -83,6 +86,10 @@ Each connection has two doors: the owner connects their own account, or Light Br
 - **Vercel.** The hosting. The Deploy button asks for the PIN and the business name, and the owner types both into Vercel themselves.
 - **The domain** (Mastery). The owner adds the full subdomain in Vercel, Settings, Domains, then adds the DNS record Vercel shows at their domain provider. On Cloudflare, the record's proxy status is DNS only.
 
+## Autopilot
+
+A message sent from the public contact page lands in the Inbox as a card on its own, and every routine installed later runs inside the Foundation, starting with the Monday brief.
+
 ## Proof
 
 The command center opens behind the PIN, and "See your day" shows the business name.
@@ -90,9 +97,33 @@ The command center opens behind the PIN, and "See your day" shows the business n
 - **Complete adds:** on the owner's computer at http://localhost:3000, the PIN opens the command center, Settings, Preferences says "Saved" after Save, and a test message sent from http://localhost:3000/contact arrives in Handle what needs you. When a home moved in, `npm test` passes, with the Key checks reading every file.
 - **Mastery adds:** the owner's own address shows Valid Configuration in Vercel, and opens behind the PIN.
 
+## Complete when
+
+**Fitted.** passes when the business name, where it runs and, at Mastery, the address are the ones the owner gave.
+
+**Autopiloted.** passes, from Complete, when a message sent from the public contact page lands in the Inbox as a card with no step taken by hand.
+
+**Visible.** passes when "See your day" greets the business by its name behind the owner's PIN.
+
+**Connected.** passes, from Complete, when a test message sent from the contact page arrives in Handle what needs you as one card.
+
+**Recorded.** passes, from Complete, when each setup step has its work commit on `main` and its build log entry with `Kind: setup`, and the run brief is committed last. The Deploy path alone leaves no record, and the receipt says so.
+
+**Tested.** passes, from Complete, when `npm test` passes on the owner's computer, with the Key checks reading every file the home brought in.
+
+**Proven.** passes when the command center opens behind the owner's own PIN and shows their business, and at Complete, Preferences says "Saved" on their own computer.
+
+**Coherent.** passes when, after setup, the Preferences save is the one writer of the business facts, so what the owner saves in the command center is what `key/knowledge/context-block.yaml` holds for Claude to read next.
+
+**Reversible.** passes when remove exports the business profile, contacts and Inbox to a file outside `key/` first, and the repository, the Vercel project and the domain stay the owner's to delete.
+
+**Explained.** passes when the owner can say in one sentence where their command center runs, what it saves, and what they decide.
+
+**Private PIN.** passes when the PIN was typed only into Vercel or the owner's own terminal, and never into the chat.
+
 ## Changing it
 
-- **Modify.** Change the PIN: on Vercel in Settings, Environment Variables, then a redeploy from the Deployments tab, or on the owner's computer with `npm run setup -- --pin-prompt --force` in their own terminal. Changing the PIN signs everyone out. On Vercel, the business name changes the same way: edit `FOUNDATION_BUSINESS_NAME` in the project's Settings, Environment Variables, then redeploy. Business facts change in Settings, Preferences, with Save, which saves only when the command center runs on the owner's own computer. On Vercel without a database, a save says "Your live site is not saving yet".
+- **Modify.** Change the PIN: on Vercel in Settings, Environment Variables, then a redeploy from the Deployments tab, or on the owner's computer with `npm run setup -- --pin-prompt --force` in their own terminal. Changing the PIN signs everyone out. On Vercel, the business name changes the same way: edit `FOUNDATION_BUSINESS_NAME` in the project's Settings, Environment Variables, then redeploy. Business facts change in Settings, Preferences, with Save, which saves wherever the command center has a database: on the owner's own computer, or on Vercel once a Neon database is connected from Setup. On Vercel without a database, a save says "Your live site is not saving yet".
 - **Upgrade.** Foundation leaves no row of its own in `installed`. To go deeper, ask for Foundation again at the next tier: the run skips what is already done, then adds what the new tier lists. A newer dictionary arrives as an update from Light Brands for the owner to accept, and it replaces only the `ninja/` folder, never the Key.
 - **Remove.** The records live in the database, so remove exports the business profile, contacts and Inbox first, to a file inside the folder, outside `key/` and never committed. The repository, the Vercel project and the domain belong to the owner, who deletes them in their own dashboards. The run never deletes them.
 
@@ -130,7 +161,7 @@ Always run the tools through npm, because the build secret is made before `dev`,
 2. Read the copied `key/knowledge/context-block.yaml` and compare it with the Foundation's fields: `business`, `short_name`, `what_we_do`, `who_we_serve`, `how_we_sound`, `website`, `email`, `phone`, `city`, `timezone`, `owner` (`name`, `first`, `role`), `stated_by` and `recorded`. A home built by the original Ninja framework session holds only `business`, `what_we_do`, `who_we_serve`, `how_we_sound`, `website`, `owner` (`name`, `role`), `stated_by` and `recorded`. Ask for each missing field, one per message, with a default the owner confirms: `short_name` from the business name, `owner.first` from `owner.name`, and the time zone from the city. Then write the full shape, before the save in Settings, Preferences. Every value the old block holds is kept as it is.
 3. Merge the home's `key.yaml` into `key/key.yaml`. Take the home's `roster`, `skills`, `runs` and `installed` as they are, and the home's `provenance` fields `stated_by`, `recorded` and `guide`. Keep the Foundation's own `client`, `home: repo`, `apps`, `routines` and `provenance.base`, the commit setup recorded, where the build log starts.
 4. A skill file begins with its front matter. A path comment above the opening `---` moves below the front matter.
-5. The owner enters the business facts from the home's context block in Settings, Preferences, and presses Save, because that save is the only writer of the Foundation's context block.
+5. The owner enters the business facts from the home's context block in Settings, Preferences, and presses Save, because after setup, that save is the one writer of the Foundation's context block.
 6. The home's `CLAUDE.md` and starter kit stay with the home folder, because the Foundation has its own `CLAUDE.md` and the kit is a view of the home.
 7. `npm test` reads every file and names anything to fix. Then `npm run key:sync`, the move-in's own work commit on `main`, and its build log entry, `Kind: setup`, in its own log-only commit.
 

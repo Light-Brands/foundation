@@ -2,6 +2,9 @@
 id: frameworks/prep
 kind: framework
 title: Prep
+number: "0.1"
+lead: null
+state: live
 target: any
 tiers: [essentials, complete, mastery]
 uses: []
@@ -80,6 +83,10 @@ Every connection here uses the first door: the owner connects their own account,
 - **GitHub** (Complete). An account at github.com, then Claude Code on the web at claude.ai/code, given access to the business repository.
 - **The GitHub CLI and Vercel** (Mastery). `gh auth login` with GitHub.com, HTTPS and the web browser sign in, and `vercel login`, finished in the browser.
 
+## Autopilot
+
+Every step of Prep is one the owner takes and confirms on their own screen, and the tools it signs in are the ones every later automation runs on.
+
 ## Proof
 
 The check of the chosen level, seen on the owner's screen:
@@ -89,6 +96,30 @@ The check of the chosen level, seen on the owner's screen:
 - **Mastery.** From `~/code`, the Complete repository is cloned with `gh repo clone <their-username>/<repository>`, an `index.html` page that introduces the business is added, committed and pushed, and `vercel` deploys it. The owner opens the live link and the page loads.
 
 Before a deeper level, the check of each level below it passes again, quickly.
+
+## Complete when
+
+**Fitted.** passes when the level, the assistant and, at Mastery, the computer the owner named are the ones set up, and only the missing steps are taught.
+
+**Autopiloted.** passes when every tool the chosen level lists is signed in to the owner's own account, so nothing waits on setup when the first routine is installed.
+
+**Visible.** passes when the owner sees the level's check on their own screen: the Project's answer, the merged file on GitHub, or the live page.
+
+**Connected.** passes when each change AI makes reaches the owner to approve first: at Complete, Claude Code's change arrives as a pull request the owner reads and merges.
+
+**Recorded.** passes when the receipt names what the owner now has at each level, because Prep leaves no `installed` row while the Key does not exist yet.
+
+**Tested.** passes when the check of each level below the chosen one passes again before the new level starts.
+
+**Proven.** passes when the chosen level's check runs on the owner's own business: a real question from their week, their own repository, their own live page.
+
+**Coherent.** passes when every tool is signed in to the accounts the owner uses in their browser, so what Claude changes in the repository is what the owner sees on GitHub.
+
+**Reversible.** passes when the owner knows where to sign out of or cancel each tool in their own browser, and the run has deleted nothing.
+
+**Explained.** passes when the owner can say in one sentence what they now have and what they decide, such as "Claude proposes changes to my repository, and I merge them."
+
+**Safe.** passes when no password, key, code from a text message or payment detail was typed into the chat at any step.
 
 ## Changing it
 

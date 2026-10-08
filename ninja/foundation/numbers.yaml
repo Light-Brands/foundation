@@ -1,0 +1,68 @@
+# Numbers follow the command center pages. Each number is the same in the dictionary and the app.
+# A number never moves once it is in numbers.lock; retire it, do not reuse it.
+numbers:
+  - {number: "0.1", title: Prep, entry: frameworks/prep, page: null}
+  - {number: "0.2", title: Home, entry: frameworks/home, page: null}
+  - {number: "0.3", title: Foundation, entry: frameworks/foundation, page: null}
+  - {number: "1.1", title: See your day, entry: null, page: command/home}
+  - {number: "1.2", title: Handle what needs you, entry: null, page: command/inbox}
+  - {number: "1.3", title: Get alerted, entry: null, page: command/alerts}
+  - {number: "2.1", title: Overview, entry: null, page: brand/overview}
+  - {number: "2.2", title: Identity, entry: null, page: brand/identity}
+  - {number: "2.3", title: Story and voice, entry: null, page: brand/story}
+  - {number: "2.4", title: Offers, entry: null, page: brand/offers}
+  - {number: "2.5", title: Audience, entry: null, page: brand/audience}
+  - {number: "2.6", title: Proof, entry: null, page: brand/proof}
+  - {number: "2.7.1", title: "Assets · Library", entry: null, page: brand/assets-library}
+  - {number: "2.7.2", title: "Assets · Upload", entry: null, page: brand/assets-upload}
+  - {number: "2.7.3", title: "Assets · Brand kit", entry: null, page: brand/assets-kit}
+  - {number: "2.7.4", title: "Assets · From my website", entry: null, page: brand/assets-website}
+  - {number: "2.7.5", title: "Assets · Generate", entry: null, page: brand/assets-generate}
+  - {number: "2.7.6", title: "Assets · Rights", entry: null, page: brand/assets-rights}
+  - {number: "3.1", title: Agents, entry: null, page: agentic/agents}
+  - {number: "3.2", title: Skills, entry: null, page: agentic/skills}
+  - {number: "3.3", title: Recipes, entry: null, page: agentic/recipes}
+  - {number: "3.4.1", title: Routines, entry: null, page: agentic/routines}
+  - {number: "3.4.2", title: Runs, entry: null, page: agentic/runs}
+  - {number: "3.4.3", title: Workflows, entry: null, page: agentic/workflows}
+  - {number: "3.4.4", title: Weaves, entry: null, page: agentic/weaves}
+  - {number: "4.1.1", title: Create content, entry: null, page: attract/content}
+  - {number: "4.1.2", title: Post on social, entry: null, page: attract/social}
+  - {number: "4.1.3", title: Run ads, entry: null, page: attract/ads}
+  - {number: "4.1.4", title: Get referrals, entry: null, page: attract/referrals}
+  - {number: "4.1.5", title: Host events, entry: null, page: attract/events}
+  - {number: "4.2.1", title: Capture leads, entry: null, page: sell/leads}
+  - {number: "4.2.2", title: Follow up and close, entry: null, page: sell/pipeline}
+  - {number: "4.2.3", title: Send proposals, entry: null, page: sell/proposals}
+  - {number: "4.2.4", title: Take payment, entry: null, page: sell/checkout}
+  - {number: "4.2.5", title: Sign contracts, entry: null, page: sell/contracts}
+  - {number: "5.1.1", title: Book appointments, entry: null, page: deliver/booking}
+  - {number: "5.1.2", title: Run projects, entry: null, page: deliver/projects}
+  - {number: "5.1.3", title: Run programs, entry: null, page: deliver/programs}
+  - {number: "5.1.4", title: Fulfill orders, entry: null, page: deliver/orders}
+  - {number: "5.2.1", title: Answer customers, entry: null, page: keep/support}
+  - {number: "5.2.2", title: Keep clients happy, entry: null, page: keep/client-success}
+  - {number: "5.2.3", title: Run a community, entry: null, page: keep/community}
+  - {number: "5.2.4", title: Collect reviews, entry: null, page: keep/reviews}
+  - {number: "6.1.1", title: Invoice and collect, entry: null, page: money/invoicing}
+  - {number: "6.1.2", title: Keep the books, entry: null, page: money/books}
+  - {number: "6.1.3", title: Pay bills, entry: null, page: money/bills}
+  - {number: "6.1.4", title: Prepare payroll, entry: null, page: money/pay-prep}
+  - {number: "6.2.1", title: Manage your team, entry: null, page: team/people}
+  - {number: "6.2.2", title: Hire, entry: null, page: team/hiring}
+  - {number: "6.2.3", title: Assign work, entry: null, page: team/tasks}
+  - {number: "6.3.1", title: Track your numbers, entry: null, page: plan/scorecard}
+  - {number: "6.3.2", title: Set priorities, entry: null, page: plan/priorities}
+  - {number: "6.3.3", title: Get reports, entry: null, page: plan/reports}
+  - {number: "6.4.1", title: Manage suppliers, entry: null, page: vendors/vendors}
+  - {number: "6.4.2", title: Track stock, entry: null, page: vendors/stock}
+  - {number: "6.4.3", title: Maintain equipment, entry: null, page: vendors/equipment}
+  - {number: "7.1.1", title: Connect your tools, entry: null, page: system/connections}
+  - {number: "7.1.2", title: Add capabilities, entry: null, page: system/modules}
+  - {number: "7.1.3", title: Set up, entry: null, page: system/setup}
+  - {number: "7.1.4", title: Users, entry: null, page: system/users}
+  - {number: "7.1.5", title: Preferences, entry: null, page: system/settings}
+  - {number: "7.1.6", title: Requests, entry: null, page: system/requests}
+  - {number: "7.2.1", title: Stay compliant, entry: null, page: risk/compliance}
+  - {number: "7.2.2", title: Control access, entry: null, page: risk/access}
+  - {number: "7.2.3", title: Back up your data, entry: null, page: risk/backups}

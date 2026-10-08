@@ -2,6 +2,9 @@
 id: skills/write-the-brief
 kind: skill
 title: Write the brief
+number: null
+lead: null
+state: live
 target: foundation
 tiers: [essentials, complete, mastery]
 uses: []
@@ -77,6 +80,10 @@ The [Monday brief](../routines/monday-brief.md) runs this skill at its step 2, e
 
 Not part of this entry.
 
+## Autopilot
+
+The skill runs whenever a routine or a role calls it, every week at step 2 of the Monday brief, and it hands back text that the routine saves and delivers.
+
 ## Proof
 
 ### Essentials
@@ -131,6 +138,30 @@ Waiting for you
 ```
 
 **The completion test.** The Essentials test passes, every change since last week equals this week's number less last week's, and the skill's Check reads as the Complete line in Changing it sets it.
+
+## Complete when
+
+**Fitted.** passes when the role that runs the skill and its sections are the ones the owner chose.
+
+**Autopiloted.** passes when the skill writes the brief from its input alone, with no question to the owner, so step 2 of the Monday brief can run it unattended.
+
+**Visible.** passes, once the Monday brief is installed, when the brief the skill writes shows as that routine's card in the Inbox.
+
+**Connected.** passes when the skill hands back text only, and the routine that runs it puts that text in front of the owner as one Inbox card.
+
+**Recorded.** passes when `key.yaml` has the skill's row naming its `agent`, and its `installed` row with `skills/write-the-brief/SKILL.md` in `files`.
+
+**Tested.** passes when `npm test` passes, with `checkSkill` reading the skill file.
+
+**Proven.** passes when the brief written from the input named in the proof meets the completion test.
+
+**Coherent.** passes when the skill file is the one place the brief's shape lives: modify edits `key/skills/write-the-brief/SKILL.md`, and the next brief follows it.
+
+**Reversible.** passes when remove names the Monday brief as an entry that uses the skill and asks first, and leaves no data behind, because the skill keeps none.
+
+**Explained.** passes when the owner can say in one sentence what the skill does and what they decide, such as "It turns my week's numbers into one screen, and I choose its sections."
+
+**True numbers.** passes when every number in the brief appears in the input, and the brief fits in 12 lines of text.
 
 ## Changing it
 

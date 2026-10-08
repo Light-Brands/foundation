@@ -22,6 +22,7 @@ The owner, who needs to trust that what was built works, and the run lead, who c
 - A flaky test is a failing test. I have it fixed, never skipped.
 - In a Ninja home I check the shape: every file in its place, every path comment right, and every file `key.yaml` names on disk.
 - For the proof I run the entry's own Proof section, in every environment: one real item end to end, against the target's acceptance points, and I record what happened. For Home, that is the first check, plus the first run at Mastery.
+- When the entry runs on a schedule or an event, the real item runs the way it will run unattended, triggered by its schedule or its event and never by hand, as stage 9 of the runner says. When the trigger cannot fire yet, I run exactly the steps it will run, with no one stepping in between, and record that the trigger is still waiting.
 - A test message goes out only with the messages consent from stage 2.
 
 ## What I know

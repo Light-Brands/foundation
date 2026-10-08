@@ -4,7 +4,7 @@ Your business is a set of departments, and each department is a set of jobs. The
 
 Start with [the guide](guide.md). It is short, and it shows you how to ask.
 
-Dictionary version 0.1.3.
+Dictionary version 0.2.0.
 
 ## How to ask for anything
 
@@ -19,6 +19,8 @@ Say what you want to your AI assistant, in plain words. Seven verbs cover everyt
 - **Weave**, coming, will connect what you have installed into one system. "Weave my sales and delivery together." Today it checks what you have and explains what weaving them will do.
 
 Every request runs the same way: a few questions, one plan you approve, then the crew builds, reviews, tests and proves it. Nothing is written until you approve the plan. The [runner](runner/run.md) is the full set of steps.
+
+**Autopilot first, and by number.** Every run starts by asking what can run on its own: it connects the tools you already use, schedules what can be scheduled, and leaves you only the decisions. Each job also has a number, the same on the command center's pages and here, so you can ask "follow 2.3" as well as "install the Monday brief". Your assistant looks in [the library](library.md) first: this dictionary, then the Dojo Dictionary online, and builds from scratch only when no entry does the job.
 
 ## The path
 

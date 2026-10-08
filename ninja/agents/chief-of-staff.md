@@ -2,6 +2,9 @@
 id: agents/chief-of-staff
 kind: agent
 title: Chief of staff
+number: null
+lead: null
+state: live
 target: foundation
 tiers: [essentials, complete, mastery]
 uses: []
@@ -100,6 +103,10 @@ Not part of this entry.
 
 Not part of this entry.
 
+## Autopilot
+
+The chief of staff acts through the routines and skills that name it, such as the Monday brief, so what runs on its own and at which rung is set in each of those entries.
+
 ## Proof
 
 **The run.** With the charter written, the owner opens a fresh conversation that reads the Foundation folder (in Claude Code, a new session started in the folder) and asks: "<the name from question 1>, tell me what you know about <the business name> and what your role is." Then the owner comes back to the run's chat and says what the answer was, and the run waits until they do.
@@ -110,6 +117,30 @@ Not part of this entry.
 2. The charter has the eight sections in order, and every Memory line starts with its type.
 3. `npm test` passes, which runs the Foundation's Key checker on the roster row and the charter.
 4. The answer in the fresh conversation matches the context block and the charter, and the owner agrees with it. When anything is off, the charter is fixed and the question asked again.
+
+## Complete when
+
+**Fitted.** passes when the name, who the role answers to and, at Complete and Mastery, its Memory lines and standing tasks all come from the owner's answers.
+
+**Autopiloted.** passes when the charter's Tasks and Skills point at `key.yaml`, so every routine and skill installed later that names this role becomes its work with no edit to the charter.
+
+**Visible.** passes when the role answers by its name in a fresh conversation, and its work shows in the Inbox through the routines that name it, starting with the Monday brief.
+
+**Connected.** passes when everything the role produces reaches the owner as an Inbox card through a routine, and the role itself sends, pays and changes nothing.
+
+**Recorded.** passes when `key.yaml` has the role's `roster` row and its `installed` row, with the charter in that row's `files`.
+
+**Tested.** passes when `npm test` passes, with `checkCharter` reading the charter.
+
+**Proven.** passes when the role's answer in a fresh conversation matches the context block and the charter, and the owner agrees with it.
+
+**Coherent.** passes when the charter is the one place the role is described: the roster row points at it, and every skill and routine finds the role by `chief-of-staff`.
+
+**Reversible.** passes when remove first moves or removes every skill and routine whose `agent` is `chief-of-staff`, so no entry is left naming a role that is gone.
+
+**Explained.** passes when the owner can say in one sentence what the role does and what they decide, such as "Avery keeps my week in view, and I decide what to act on."
+
+**One role.** passes when `key.yaml` has exactly one `roster` row with `role` `chief-of-staff`.
 
 ## Changing it
 

@@ -2,6 +2,9 @@
 id: frameworks/home
 kind: framework
 title: Home
+number: "0.2"
+lead: null
+state: live
 target: any
 tiers: [essentials, complete, mastery]
 uses: []
@@ -79,11 +82,39 @@ Not part of this entry.
 
 Not part of this entry.
 
+## Autopilot
+
+The home is files the owner approves before anything is written, and its roles and skills are what routines run once the home moves into a Foundation, starting with the Monday brief.
+
 ## Proof
 
 The first check. In a new chat that can read the home folder (in Claude Desktop, a new chat with the folder shared, and in Claude Code, a new session started in the folder), the owner says: "<Agent persona name>, tell me what you know about <Business name> and what your role is." Then the owner comes back to the run's chat and says what the answer was, and the run waits until they do. The answer matches the business brief and the charter, and the owner agrees. When anything is off, the charter is fixed and the question asked again. At Complete, every role on the roster answers the same question.
 
 At Mastery the proof adds the first run: "<Agent persona name>, run task one with <a real input>." The output matches the task's check, and the scribe appends the `runs` row to `key.yaml`. That row marks the seed complete.
+
+## Complete when
+
+**Fitted.** passes when every fact in the context block and every line of each charter comes from the owner's own answers, and the folder carries the business's name.
+
+**Autopiloted.** passes when each task chosen at Complete and Mastery has a skill with its Input, Steps, Output and Check, ready for a routine to run once the home moves into a Foundation. At Essentials it passes when the role's Tasks and Skills say "Day two".
+
+**Visible.** passes when the starter kit shows the business, the roster as the org chart, and every file in the folder with its path.
+
+**Connected.** passes when every new file reaches the owner first, as the folder and file list they say yes to before anything is written.
+
+**Recorded.** passes when `key.yaml` lists the roster, the skills and the `installed` row for `frameworks/home`, with its tier, the dictionary version and every file the run wrote.
+
+**Tested.** passes when every charter has its eight headings in order, every skill its four sections, and every file but `CLAUDE.md` and the kit its path on its first line.
+
+**Proven.** passes when the agent, asked in a fresh conversation, says what it knows about the business and its role, and the owner agrees. At Mastery, task one also runs on a real input, its check passes, and the `runs` row is written.
+
+**Coherent.** passes when the folder is the only copy: the starter kit is rebuilt from it after every change, and any AI that opens the folder reads the same files the kit shows.
+
+**Reversible.** passes when the folder holds everything the run made, so a copy of it is the whole export, and the run has deleted nothing.
+
+**Explained.** passes when the owner can say in one sentence what the home holds and what they decide, such as "My folder knows my business and my roles, and I choose what each role does."
+
+**One shape.** passes when the folder matches [the Ninja home](../foundation/ninja-home.md) exactly, with lowercase names joined by hyphens and each role's folder named for the role.
 
 ## Changing it
 

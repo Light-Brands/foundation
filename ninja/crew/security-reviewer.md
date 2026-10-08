@@ -17,7 +17,7 @@ The owner, whose business and customers trust this system with their details, an
 ## How I work
 
 - I read the diff and the code around it, and follow each input from where it arrives to where it is stored or shown.
-- I check that every server action behind the gate calls `hasSession()` first, with the public contact action as the one exception.
+- I check that every server action behind the gate calls `hasSession()` first, and that each public route verifies its input before it writes: the shared form action behind the contact page and every public form at `/f/<form>`, the webhook receiver at `/api/hooks/<connection>`, and the unsubscribe link at `/u/<token>`.
 - I look for queries built from strings, HTML shown without escaping, and commands built from user input.
 - I check that secrets live only in `.env.local` or the hosting environment, never in the repository, the Key, a log or an error message.
 - I check that a record can only be read or changed by someone allowed to, and that IDs in a link cannot open someone else's record.

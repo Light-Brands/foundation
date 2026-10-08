@@ -25,7 +25,7 @@ export const TONES: Record<AdminTone, ToneScale> = {
       canvas: "#f8fafc", surface: "#ffffff", hover: "#f1f5f9", line: "#f1f5f9", "line-strong": "#e2e8f0",
       // Faint and ghost sit a shade deeper than the frame first had them, so faint text reads on a hover row and
       // ghost icons clear 3 to 1.
-      ink: "#1e293b", muted: "#475569", faint: "#607086", ghost: "#8391a6",
+      ink: "#1e293b", muted: "#475569", faint: "#55657a", ghost: "#8391a6",
     },
     status: { good: "#15803d", "good-soft": "#f0fdf4", warn: "#b45309", "warn-soft": "#fffbeb", bad: "#b91c1c", "bad-soft": "#fef2f2" },
   },

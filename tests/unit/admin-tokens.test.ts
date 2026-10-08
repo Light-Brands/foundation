@@ -46,10 +46,10 @@ describe("admin tokens", () => {
     expect(contrast("#94a3b8", "#ffffff")).toBeLessThan(4.5);
   });
 
-  it("kickers use the label face at 11px and escape the heading face", () => {
+  it("kickers use the label face at 12px and escape the heading face", () => {
     const kicker = rule(".kicker");
     expect(kicker).toContain("font-label");
-    expect(kicker).toContain("text-[11px]");
+    expect(kicker).toContain("text-xs");
     const heading = css.match(/^(h1[^{]*)\{\s*font-family:\s*var\(--font-heading\)/m)?.[1] ?? "";
     expect(heading).toContain("h2:not(.kicker)");
     expect(heading).toContain("h3:not(.kicker)");

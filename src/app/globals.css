@@ -25,7 +25,7 @@
   --color-admin-line-strong: var(--admin-line-strong, #e2e8f0);
   --color-admin-ink: var(--admin-ink, #1e293b);
   --color-admin-muted: var(--admin-muted, #475569);
-  --color-admin-faint: var(--admin-faint, #607086);
+  --color-admin-faint: var(--admin-faint, #55657a);
   --color-admin-ghost: var(--admin-ghost, #8391a6);
 
   /* Status, in the same tone. */
@@ -70,7 +70,7 @@ html { color-scheme: var(--admin-scheme, light); }
    resets, and the body and the overscroll behind it paint from the brand. */
 html:has(.public) {
   --admin-canvas: #f8fafc; --admin-surface: #ffffff; --admin-hover: #f1f5f9; --admin-line: #f1f5f9; --admin-line-strong: #e2e8f0;
-  --admin-ink: #1e293b; --admin-muted: #475569; --admin-faint: #607086; --admin-ghost: #8391a6;
+  --admin-ink: #1e293b; --admin-muted: #475569; --admin-faint: #55657a; --admin-ghost: #8391a6;
   --status-good: #15803d; --status-good-soft: #f0fdf4; --status-warn: #b45309; --status-warn-soft: #fffbeb; --status-bad: #b91c1c; --status-bad-soft: #fef2f2;
   --admin-scheme: light;
   color-scheme: light;
@@ -100,7 +100,7 @@ h1, h2:not(.kicker), h3:not(.kicker), h4 { font-family: var(--font-heading); }
     box-shadow: var(--surface-shadow, 0 1px 2px rgb(15 23 42 / 0.04));
     backdrop-filter: var(--surface-filter, none);
   }
-  .kicker { @apply font-label text-[11px] font-semibold uppercase tracking-[0.14em] text-admin-faint; }
+  .kicker { @apply font-label text-xs font-semibold uppercase tracking-[0.14em] text-admin-faint; }
   /* The title's size follows the brand's type ratio; its weight, tracking and case follow its type character. */
   .page-title {
     @apply font-heading leading-[1.1] text-admin-ink;
@@ -149,10 +149,11 @@ h1, h2:not(.kicker), h3:not(.kicker), h4 { font-family: var(--font-heading); }
 }
 @media (min-width: 40rem) { .display-title { font-size: calc(4.5rem * var(--brand-display-scale, 1)); } }
 
-/* One slow rise as a page arrives. --i staggers siblings by 70ms. It plays when the element mounts, so once per
+/* The rise starts at 1% rather than 0 because Chrome reports no first contentful paint for text that only ever fades in from fully clear.
+   One slow rise as a page arrives. --i staggers siblings by 70ms. It plays when the element mounts, so once per
    navigation, and a still brand or a reduced-motion setting shows everything in place at once. */
 .rise { animation: rise var(--duration-enter) var(--ease-breath) both; animation-delay: calc(var(--i, 0) * 70ms * var(--motion, 1)); }
-@keyframes rise { from { opacity: 0; transform: translateY(var(--rise-distance)); } }
+@keyframes rise { from { opacity: 0.01; transform: translateY(var(--rise-distance)); } }
 
 @media (prefers-reduced-motion: reduce) {
   :root:root { --motion: 0; }

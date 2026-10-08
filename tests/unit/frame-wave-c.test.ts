@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { buildSections, buildSettings } from "@/lib/layout/sections";
@@ -186,5 +187,19 @@ describe("focus inside clipped panels", () => {
     expect(css).toMatch(/\.focus-inset :focus-visible \{ outline-offset: -2px; \}/);
     expect(readFileSync("src/components/frame/Sidebar.tsx", "utf8")).toMatch(/<nav aria-label="Command center" className="focus-inset/);
     expect(readFileSync("src/components/frame/TabBar.tsx", "utf8")).toContain("focus-inset");
+  });
+});
+
+describe("one radius and one field", () => {
+  function tsx(dir: string): string[] {
+    return readdirSync(dir).flatMap((n) => (statSync(join(dir, n)).isDirectory() ? tsx(join(dir, n)) : n.endsWith(".tsx") ? [join(dir, n)] : []));
+  }
+  it("every rounded corner comes from the brand's radius tokens", () => {
+    const stray = tsx("src").filter((f) => /\brounded-(sm|md|lg|xl|2xl|3xl)\b/.test(readFileSync(f, "utf8")));
+    expect(stray).toEqual([]);
+  });
+  it("fields are 16px on a phone so it never zooms in, and the bars mix without a hue shift", () => {
+    expect(rule(".field")).toMatch(/text-base[^;]*md:text-sm/);
+    for (const b of [".bar-top", ".bar-phone", ".bar-tabs"]) expect(rule(b)).toContain("in oklab");
   });
 });

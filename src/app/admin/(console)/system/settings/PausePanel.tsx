@@ -18,7 +18,7 @@ export function PausePanel({ state: initial }: { state: PauseState }) {
       {!paused && (
         <label className="block">
           <span className="kicker">Why (optional)</span>
-          <input name="reason" maxLength={200} className="mt-1 w-full rounded-xl border border-admin-line-strong bg-admin-canvas px-3 py-2 text-admin-ink" />
+          <input name="reason" maxLength={200} className="field mt-1 bg-admin-canvas text-admin-ink" />
         </label>
       )}
       <div className="flex items-center gap-4">

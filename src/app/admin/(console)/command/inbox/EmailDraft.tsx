@@ -28,7 +28,7 @@ export function EmailDraft({ email, sendAfter, handSend }: { email: CardEmail; s
   const canSendByHand = (email.status === "approved" || email.status === "failed") && copyText !== null;
   const canStop = email.status === "draft" || email.status === "approved";
   return (
-    <div className="mt-3 rounded-xl border border-admin-line-strong p-3">
+    <div className="mt-3 rounded-control border border-admin-line-strong p-3">
       <p className="kicker">{email.kind === "marketing" ? "Marketing email" : "Email"} to {email.to}</p>
       <p className="mt-1 text-sm text-admin-ink">{email.subject}</p>
       <p className="mt-2 whitespace-pre-wrap text-sm text-admin-muted">{email.body}</p>

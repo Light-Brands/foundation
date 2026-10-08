@@ -106,7 +106,7 @@ h1, h2:not(.kicker), h3:not(.kicker), h4 { font-family: var(--font-heading); }
   .btn-primary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-transparent bg-accent px-4 text-sm font-medium text-on-accent shadow-sm transition-all duration-200 ease-breath hover:opacity-90 disabled:bg-admin-hover disabled:text-admin-faint disabled:opacity-100 disabled:shadow-none md:min-h-10; }
   .btn-quiet { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-admin-line-strong bg-admin-surface px-4 text-sm font-medium text-admin-ink transition-all duration-200 ease-breath hover:bg-admin-hover disabled:text-admin-faint md:min-h-10; }
   .btn-sm { @apply min-h-11 px-3 text-[13px] md:min-h-8; }
-  .field { @apply w-full rounded-control border border-admin-line-strong bg-admin-surface px-3 py-2 text-sm text-admin-ink placeholder:text-admin-ghost focus:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/25; }
+  .field { @apply w-full rounded-control border border-admin-line-strong bg-admin-surface px-3 py-2 text-base text-admin-ink placeholder:text-admin-ghost md:text-sm focus:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/25; }
   /* A surface you can press lifts a pixel under the hand, less with less motion, none when still. */
   .surface-link { transition: translate 200ms var(--ease-breath), box-shadow 200ms var(--ease-breath), border-color 200ms var(--ease-breath); }
   .surface-link:hover { translate: 0 calc(-1px * var(--motion, 1)); box-shadow: var(--shadow-lift); }
@@ -117,9 +117,9 @@ h1, h2:not(.kicker), h3:not(.kicker), h4 { font-family: var(--font-heading); }
     backdrop-filter: var(--bar-filter, blur(12px));
     -webkit-backdrop-filter: var(--bar-filter, blur(12px));
   }
-  .bar-top { background-color: color-mix(in oklch, var(--color-admin-canvas) var(--bar-fill-top, 85%), transparent); box-shadow: var(--bar-shadow, none); }
-  .bar-phone { background-color: color-mix(in oklch, var(--color-admin-surface) var(--bar-fill, 95%), transparent); box-shadow: var(--bar-shadow, none); }
-  .bar-tabs { background-color: color-mix(in oklch, var(--color-admin-surface) var(--bar-fill, 95%), transparent); box-shadow: var(--bar-shadow-up, none); }
+  .bar-top { background-color: color-mix(in oklab, var(--color-admin-canvas) var(--bar-fill-top, 85%), transparent); box-shadow: var(--bar-shadow, none); }
+  .bar-phone { background-color: color-mix(in oklab, var(--color-admin-surface) var(--bar-fill, 95%), transparent); box-shadow: var(--bar-shadow, none); }
+  .bar-tabs { background-color: color-mix(in oklab, var(--color-admin-surface) var(--bar-fill, 95%), transparent); box-shadow: var(--bar-shadow-up, none); }
   .public {
     --admin-canvas: #f8fafc; --admin-surface: #ffffff; --admin-hover: #f1f5f9; --admin-line: #f1f5f9; --admin-line-strong: #e2e8f0;
     --admin-ink: #1e293b; --admin-muted: #475569; --admin-faint: #607086; --admin-ghost: #8391a6;

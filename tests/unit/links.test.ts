@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { lessonHref, customHref, installPrompt, connectPrompt, installCardCopy, connectCardCopy, showsHours, DOJO_URL } from "@/lib/links";
+import { lessonHref, customHref, installPrompt, connectPrompt, installCardCopy, connectCardCopy, showsHours, hoursBack, CUSTOM_CARD_COPY, DOJO_URL } from "@/lib/links";
 
 describe("Dojo links", () => {
   it("point at the Dojo with the module named", () => {
@@ -46,11 +46,15 @@ describe("Dojo links", () => {
   });
   it("give the install card copy for both states, and the connect card copy", () => {
     expect(installCardCopy(true)).toBe("A build crew asks what you want, plans it with you, builds it, tests it and proves it works.");
-    expect(installCardCopy(false)).toBe("This job's install arrives in a coming dictionary update. Until then, Claude maps what it will do for you and what to have ready.");
+    expect(installCardCopy(false)).toBe("Until the install ships, Claude plans what it will do and what to have ready.");
     const c = connectCardCopy("Book appointments");
-    expect(c).toContain("Connections arrive with coming dictionary updates.");
-    expect(c).toContain("Until then, Claude maps how a tool you use for Book appointments could connect, what access it would need and what you would see, changing nothing.");
-    for (const t of [installCardCopy(true), installCardCopy(false), c]) expect(t).not.toMatch(/[\u2013\u2014;]/);
+    expect(c).toBe("Have Claude map how the tool you already use for Book appointments would connect. Nothing changes until you say so.");
+    for (const t of [installCardCopy(true), installCardCopy(false), c, CUSTOM_CARD_COPY]) expect(t).not.toMatch(/[\u2013\u2014;]/);
+  });
+  it("split the hours a job gives back so the figure can sit in the numeric face", () => {
+    expect(hoursBack("1 to 3 hours a week")).toEqual({ lead: "", figure: "1 to 3", tail: "hours back each week" });
+    expect(hoursBack("About 1 hour a month")).toEqual({ lead: "About ", figure: "1", tail: "hour back each month" });
+    expect(hoursBack("Core")).toBeNull();
   });
 });
 

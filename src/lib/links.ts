@@ -54,9 +54,19 @@ export function connectPrompt(categoryId: string, jobId: string, jobLabel: strin
 export function installCardCopy(hasEntry: boolean): string {
   return hasEntry
     ? "A build crew asks what you want, plans it with you, builds it, tests it and proves it works."
-    : "This job's install arrives in a coming dictionary update. Until then, Claude maps what it will do for you and what to have ready.";
+    : "Until the install ships, Claude plans what it will do and what to have ready.";
 }
 
 export function connectCardCopy(jobLabel: string): string {
-  return `Connections arrive with coming dictionary updates. Until then, Claude maps how a tool you use for ${jobLabel} could connect, what access it would need and what you would see, changing nothing.`;
+  return `Have Claude map how the tool you already use for ${jobLabel} would connect. Nothing changes until you say so.`;
+}
+
+export const CUSTOM_CARD_COPY = "We build it for you and connect it to your command center.";
+
+/** The hours a job gives back, split so the figure can sit in the numeric face: "1 to 3 hours a week" gives
+ *  { lead: "", figure: "1 to 3", tail: "hours back each week" }. Core jobs and any other wording give null. */
+export function hoursBack(hours: string): { lead: string; figure: string; tail: string } | null {
+  const m = hours.match(/^(About )?(\d+(?: to \d+)?) (hours?) a (week|month)$/);
+  if (!m) return null;
+  return { lead: m[1] ?? "", figure: m[2]!, tail: `${m[3]} back each ${m[4]}` };
 }

@@ -32,7 +32,7 @@ The Key is the `key/` folder. It holds the business's knowledge, roles, skills, 
 |---|---|
 | `key/key.yaml` | The ring: the list of everything the Key holds |
 | `key/CLAUDE.md` | One line telling the assistant to read `knowledge/context-block.yaml` and `knowledge/system.md` first, because they are the business and everything built for it so far |
-| `key/knowledge/` | `context-block.yaml` (the business facts) and `system.md` (the plain-words record of what is built) |
+| `key/knowledge/` | `context-block.yaml` (the business facts), `system.md` (the plain-words record of what is built) and, once [2.3 Story and voice](../modules/brand/story.md) is installed, `voice.md` (the voice guide every draft is written and checked against, shown on the Brand page Story and voice) |
 | `key/agents/<role>/charter.md` | One charter per role, eight sections |
 | `key/skills/<slug>/SKILL.md` | One skill per folder: front matter, then Input, Steps, Output, Check |
 | `key/routines/<slug>.md` | One routine per file: front matter with a trigger, then Goal, Steps, Expected output, Check, When blocked |
@@ -63,7 +63,7 @@ Field types are `text`, `number`, `date`, `select`, `multi_select`, `checkbox`, 
 
 - **Next.js 16.** Several APIs changed. The request gate is `src/proxy.ts`. `params` and `searchParams` are promises. Read `node_modules/next/dist/docs/` before using an API you are unsure of.
 - **Data through `getDb()`** from `src/lib/db`. On the owner's computer it is PGlite, real Postgres stored in `.data/`.
-- **On Vercel with no database,** the app runs as a preview that does not save. Supabase is the cloud database, and connecting it arrives as an update from Light Brands. Never run a local database container.
+- **On Vercel with no database,** the app runs as a preview that does not save. Connecting the owner's own Neon database from Setup makes it save there. Never run a local database container.
 - **The PIN gate.** The app sits behind a PIN of 6 to 12 digits. Visitors without a session are sent to the sign in page at `/admin/login`. The command center lives under `/admin`, and the public pages, such as the welcome page at `/` and the contact page at `/contact`, are open to anyone. After five wrong tries in ten minutes, the gate refuses further tries for ten minutes. Every server action behind the gate calls `hasSession()` first. The one public action is the form action shared by the contact page and every public form at `/f/<form>`, and it only adds a declared form's message. The webhook receiver at `/api/hooks/<connection>` and the unsubscribe link at `/u/<token>` are public too, and each verifies its signature or token before it writes anything. The owner sets the PIN in their own terminal with `npm run setup -- --name "<business>" --pin-prompt`.
 
 ## The standards

@@ -6,7 +6,7 @@
 1.3 page=command/alerts entry=-
 2.1 page=brand/overview entry=-
 2.2 page=brand/identity entry=-
-2.3 page=brand/story entry=-
+2.3 page=brand/story entry=modules/brand/story
 2.4 page=brand/offers entry=-
 2.5 page=brand/audience entry=-
 2.6 page=brand/proof entry=-

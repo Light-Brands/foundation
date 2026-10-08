@@ -59,9 +59,15 @@ Recurring work on a schedule or a trigger.
 
 - [Monday brief](routines/monday-brief.md): every Monday morning, a one-screen brief of your week in your Inbox.
 
+### Modules
+
+A whole job, with its screen, its data and the work that runs on its own.
+
+- [2.3 Story and voice](modules/brand/story.md): your story and your voice in one guide, with every draft your business writes checked against it.
+
 ### Coming later
 
-Blueprints, modules and connections are coming in a later release. Installs for the department jobs below, such as Capture leads, arrive in coming updates. Until then, ask for one and the runner names the closest entry that exists.
+Blueprints, connections and more modules are coming in a later release. Installs for the department jobs below, such as Capture leads, arrive in coming updates. Until then, ask for one and the runner names the closest entry that exists.
 
 ### Your Foundation
 

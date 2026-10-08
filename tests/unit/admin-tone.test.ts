@@ -70,7 +70,7 @@ describe("admin tone", () => {
   });
 
   it("keeps public pages in the light tone whatever the admin wears", () => {
-    const at = css.indexOf(".public {");
+    const at = css.indexOf("html:has(.public) {");
     const pub = css.slice(at, css.indexOf("}", at));
     for (const n of ADMIN_NEUTRALS) expect(pub).toContain(`--admin-${n}: ${TONES.light.neutrals[n]};`);
     for (const s of STATUS_COLORS) expect(pub).toContain(`--status-${s}: ${TONES.light.status[s]};`);

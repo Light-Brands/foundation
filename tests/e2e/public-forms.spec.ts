@@ -27,3 +27,26 @@ test("a forged unsubscribe link reaches its page without a session and records n
   expect(post.status()).toBe(404);
   await visitor.close();
 });
+
+test("public pages wear the brand's canvas when the command center wears a dark tone", async ({ page }) => {
+  for (const path of ["/", "/contact"]) {
+    await page.goto(path);
+    // The brand style tag writes the admin tone on :root. Paint a dark one the same way, as a later sheet.
+    await page.evaluate(() => {
+      const dark = new CSSStyleSheet();
+      dark.replaceSync(":root { --admin-canvas: #0b0b0c; --admin-ink: #fafafa; --admin-scheme: dark; }");
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, dark];
+    });
+    const paint = await page.evaluate(() => {
+      const probe = document.createElement("div");
+      probe.style.backgroundColor = "var(--color-canvas)";
+      document.body.append(probe);
+      const canvas = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return { body: getComputedStyle(document.body).backgroundColor, canvas, scheme: getComputedStyle(document.documentElement).colorScheme };
+    });
+    expect(paint.body, path).toBe(paint.canvas);
+    expect(paint.body, path).not.toBe("rgb(11, 11, 12)");
+    expect(paint.scheme, path).toBe("light");
+  }
+});

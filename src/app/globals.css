@@ -65,8 +65,17 @@
 }
 
 html { color-scheme: var(--admin-scheme, light); }
-/* Public pages wear the brand's own canvas, so they keep the light tone whatever the command center wears. */
-html:has(.public) { color-scheme: light; }
+/* Public pages wear the brand's own canvas and the light tone, whatever the command center wears. The brand style tag
+   writes the admin tone on :root, unlayered, so this rule is unlayered too and wins on specificity: the whole document
+   resets, and the body and the overscroll behind it paint from the brand. */
+html:has(.public) {
+  --admin-canvas: #f8fafc; --admin-surface: #ffffff; --admin-hover: #f1f5f9; --admin-line: #f1f5f9; --admin-line-strong: #e2e8f0;
+  --admin-ink: #1e293b; --admin-muted: #475569; --admin-faint: #607086; --admin-ghost: #8391a6;
+  --status-good: #15803d; --status-good-soft: #f0fdf4; --status-warn: #b45309; --status-warn-soft: #fffbeb; --status-bad: #b91c1c; --status-bad-soft: #fef2f2;
+  --admin-scheme: light;
+  color-scheme: light;
+}
+html:has(.public) body { background-color: var(--color-canvas); color: var(--color-ink); }
 
 body {
   background-color: var(--color-admin-canvas);
@@ -120,12 +129,7 @@ h1, h2:not(.kicker), h3:not(.kicker), h4 { font-family: var(--font-heading); }
   .bar-top { background-color: color-mix(in oklab, var(--color-admin-canvas) var(--bar-fill-top, 85%), transparent); box-shadow: var(--bar-shadow, none); }
   .bar-phone { background-color: color-mix(in oklab, var(--color-admin-surface) var(--bar-fill, 95%), transparent); box-shadow: var(--bar-shadow, none); }
   .bar-tabs { background-color: color-mix(in oklab, var(--color-admin-surface) var(--bar-fill, 95%), transparent); box-shadow: var(--bar-shadow-up, none); }
-  .public {
-    --admin-canvas: #f8fafc; --admin-surface: #ffffff; --admin-hover: #f1f5f9; --admin-line: #f1f5f9; --admin-line-strong: #e2e8f0;
-    --admin-ink: #1e293b; --admin-muted: #475569; --admin-faint: #607086; --admin-ghost: #8391a6;
-    --status-good: #15803d; --status-good-soft: #f0fdf4; --status-warn: #b45309; --status-warn-soft: #fffbeb; --status-bad: #b91c1c; --status-bad-soft: #fef2f2;
-    color-scheme: light; background-color: var(--color-canvas); color: var(--color-ink);
-  }
+  .public { color-scheme: light; background-color: var(--color-canvas); color: var(--color-ink); }
 }
 
 /* Where you are: the sidebar's current entry and the chosen stage. The brand picks the marker: pill (the default),

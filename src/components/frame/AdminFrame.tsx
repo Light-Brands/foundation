@@ -54,7 +54,7 @@ export function AdminFrame({ businessName, logoUrl, sections, settings, banner, 
       <aside className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-admin-line transition-[width] duration-300 ease-breath md:flex ${collapsed ? "w-20" : "w-64"}`}>
         <Sidebar businessName={businessName} logoUrl={logoUrl} sections={sections} settings={settings} collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       </aside>
-      <MobileHeader sections={sections} settings={settings} />
+      <MobileHeader sections={sections} settings={settings} businessName={businessName} logoUrl={logoUrl} />
       <main className={`min-h-dvh pb-[calc(72px+env(safe-area-inset-bottom))] transition-[padding] duration-300 ease-breath md:pb-0 ${collapsed ? "md:pl-20" : "md:pl-64"}`}>
         {banner}
         <TopBar sections={sections} settings={settings} />

@@ -92,6 +92,18 @@ test.describe("phone", () => {
     await expect(page.locator("[data-today-grid] > *").first()).toHaveAttribute("data-needs-you", "");
   });
 
+  test("the header carries the brand on a hub, and More's site actions are full-size rows", async ({ page }) => {
+    await signIn(page, "/admin/brand");
+    const banner = page.getByRole("banner");
+    await expect(banner.getByRole("link", { name: "Harbor Studio" })).toContainText("Harbor Studio");
+    await expect(banner).not.toContainText("Brand");
+    await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "More" }).click();
+    await expect(page.getByRole("heading", { name: "Your site" })).toBeVisible();
+    for (const row of [page.getByRole("link", { name: "View my site" }), page.getByRole("button", { name: "Check my system" }), page.getByRole("button", { name: "Lock" })]) {
+      expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+  });
+
   test("every tab and stage is a full-size tap target", async ({ page }) => {
     await signIn(page, "/admin/business");
     const targets = [

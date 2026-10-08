@@ -157,18 +157,20 @@ export function tabFor(pathname: string, sections: NavSection[], settings: NavHe
   return section ? SECTION_TAB[section.id] : "more";
 }
 
-export function mobileBar(pathname: string, sections: NavSection[], settings: NavHeading[]): { title: string; back: string | null } {
+// The phone header. On a hub, hub names the tab, and the header carries the brand in place of repeating the page's
+// large title. Deeper in, it is back plus the page's name.
+export function mobileBar(pathname: string, sections: NavSection[], settings: NavHeading[]): { title: string; back: string | null; hub: TabId | null } {
   const hub = hubFor(pathname);
-  if (hub) return { title: TABS.find((t) => t.id === hub)!.label, back: null };
-  if (pathname === "/admin/settings") return { title: "Settings", back: "/admin/more" };
+  if (hub) return { title: TABS.find((t) => t.id === hub)!.label, back: null, hub };
+  const deeper = (title: string, back: string) => ({ title, back, hub: null });
+  if (pathname === "/admin/settings") return deeper("Settings", "/admin/more");
   const key = activeEntry(pathname, sections, settings);
   const entry = [...sections.flatMap((s) => s.headings), ...settings].flatMap((h) => h.entries).find((e) => e.key === key);
-  if (!key || !entry) return { title: "Command center", back: "/admin" };
+  if (!key || !entry) return deeper("Command center", "/admin");
   const section = sectionOf(key, sections);
-  if (!section) return { title: entry.label, back: "/admin/more" };
+  if (!section) return deeper(entry.label, "/admin/more");
   const tab = SECTION_TAB[section.id];
-  const back = tab === "business" ? `/admin/business?stage=${section.id}` : TABS.find((t) => t.id === tab)!.href;
-  return { title: entry.label, back };
+  return deeper(entry.label, tab === "business" ? `/admin/business?stage=${section.id}` : TABS.find((t) => t.id === tab)!.href);
 }
 
 // Where the desktop top bar says you are: the section, then the page. Hubs are one word.

@@ -88,14 +88,14 @@ describe("the phone tabs", () => {
     expect(tabFor("/admin/risk/backups", sections, settings)).toBe("more");
   });
   it("title every screen and point back to its tab", () => {
-    expect(mobileBar("/admin", sections, settings)).toEqual({ title: "Today", back: null });
-    expect(mobileBar("/admin/business", sections, settings)).toEqual({ title: "Business", back: null });
-    expect(mobileBar("/admin/command/inbox", sections, settings)).toEqual({ title: "Handle what needs you", back: "/admin" });
-    expect(mobileBar("/admin/brand/identity", sections, settings)).toEqual({ title: "Identity", back: "/admin/brand" });
-    expect(mobileBar("/admin/sell/leads", sections, settings)).toEqual({ title: "Capture leads", back: "/admin/business?stage=grow" });
-    expect(mobileBar("/admin/keep/reviews", sections, settings)).toEqual({ title: "Collect reviews", back: "/admin/business?stage=serve" });
-    expect(mobileBar("/admin/system/setup", sections, settings)).toEqual({ title: "Set up", back: "/admin/more" });
-    expect(mobileBar("/admin/settings", sections, settings)).toEqual({ title: "Settings", back: "/admin/more" });
+    expect(mobileBar("/admin", sections, settings)).toEqual({ title: "Today", back: null, hub: "today" });
+    expect(mobileBar("/admin/business", sections, settings)).toEqual({ title: "Business", back: null, hub: "business" });
+    expect(mobileBar("/admin/command/inbox", sections, settings)).toEqual({ title: "Handle what needs you", back: "/admin", hub: null });
+    expect(mobileBar("/admin/brand/identity", sections, settings)).toEqual({ title: "Identity", back: "/admin/brand", hub: null });
+    expect(mobileBar("/admin/sell/leads", sections, settings)).toEqual({ title: "Capture leads", back: "/admin/business?stage=grow", hub: null });
+    expect(mobileBar("/admin/keep/reviews", sections, settings)).toEqual({ title: "Collect reviews", back: "/admin/business?stage=serve", hub: null });
+    expect(mobileBar("/admin/system/setup", sections, settings)).toEqual({ title: "Set up", back: "/admin/more", hub: null });
+    expect(mobileBar("/admin/settings", sections, settings)).toEqual({ title: "Settings", back: "/admin/more", hub: null });
   });
 });
 

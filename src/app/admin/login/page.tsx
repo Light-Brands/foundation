@@ -33,7 +33,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
         </div>
         <div className={s.content}>
           <p className={`${s.eyebrow} ${s.rise}`} style={{ animationDelay: "140ms" }}>Command center</p>
-          <h2 className={`${s.wordmark} ${s.rise}`} style={{ animationDelay: "220ms" }}>{profile.business}</h2>
+          <p className={`${s.wordmark} ${s.rise}`} style={{ animationDelay: "220ms" }}>{profile.business}</p>
           <p className={`${s.lede} ${s.rise}`} style={{ animationDelay: "320ms" }}>{profile.what_we_do || LEDE}</p>
         </div>
         <ul className={`${s.content} ${s.sections} ${s.rise}`} style={{ animationDelay: "420ms" }}>

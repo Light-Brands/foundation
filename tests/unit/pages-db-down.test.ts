@@ -48,6 +48,14 @@ describe("pages that need no data still open when the database is down", () => {
     expect(html).toContain('id="pin"');
   });
 
+  it("the sign-in page's first heading is the one that names it", async () => {
+    vi.stubEnv("FOUNDATION_PIN", "24681012");
+    const { default: SignIn } = await import("@/app/admin/login/page");
+    const html = await render(SignIn({ searchParams: Promise.resolve({}) }));
+    const headings = [...html.matchAll(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/g)].map((m) => `h${m[1]}:${m[2]}`);
+    expect(headings[0]).toBe("h1:Sign in");
+  });
+
   it("the public home page shows the business", async () => {
     const { default: PublicHome } = await import("@/app/page");
     const html = await render(PublicHome());

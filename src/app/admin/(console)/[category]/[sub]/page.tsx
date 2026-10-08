@@ -1,6 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { outcomesFor } from "@/lib/layout/categories";
-import { findSubcategory } from "@/lib/layout/registry";
+import { CORE_SCREENS, findSubcategory } from "@/lib/layout/registry";
 import { hoursBack } from "@/lib/links";
 import { Doors } from "@/components/Doors";
 import { PageHeader } from "@/components/frame/PageHeader";
@@ -10,6 +10,9 @@ export default async function ReadyPage({ params }: { params: Promise<{ category
   const { category, sub } = await params;
   const found = findSubcategory(category, sub);
   if (!found) notFound();
+  // A job that is a built screen lives at the screen's own address (command/home is Today).
+  const built = CORE_SCREENS[`${category}.${sub}`];
+  if (built) redirect(built);
   const hours = hoursBack(found.sub.hours);
   return (
     <div>

@@ -1,4 +1,5 @@
 import type { Viewport } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 import { FONT_VARIABLES } from "@/lib/brand/fonts";
 import { brandCss } from "@/lib/brand/css";
@@ -13,11 +14,12 @@ export async function generateViewport(): Promise<Viewport> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const brand = await loadBrand();
+  // The proxy's nonce lets the brand style tag past the content security policy (src/lib/security/csp.ts).
+  const [brand, nonce] = await Promise.all([loadBrand(), headers().then((h) => h.get("x-nonce") ?? undefined)]);
   return (
     <html lang="en" className={FONT_VARIABLES}>
       <head>
-        <style id="brand" dangerouslySetInnerHTML={{ __html: brandCss(brand) }} />
+        <style id="brand" nonce={nonce} dangerouslySetInnerHTML={{ __html: brandCss(brand) }} />
       </head>
       <body>{children}</body>
     </html>

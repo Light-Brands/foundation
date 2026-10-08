@@ -48,6 +48,11 @@ describe("legacyRedirect", () => {
     expect(legacyRedirect("/deliver/booking")).toBe("/admin/deliver/booking");
     expect(legacyRedirect("/system")).toBe("/admin/system");
   });
+  it("sends old Brand addresses to Context", () => {
+    expect(legacyRedirect("/admin/brand")).toBe("/admin/context");
+    expect(legacyRedirect("/admin/brand/story")).toBe("/admin/context/story");
+    expect(legacyRedirect("/admin/brandx")).toBeNull();
+  });
   it("sends the old gate to the sign-in", () => {
     expect(legacyRedirect("/gate")).toBe("/admin/login");
   });

@@ -11,6 +11,8 @@ const LEGACY = /^\/(command|attract|sell|deliver|keep|money|team|plan|vendors|ri
 /** Screens that moved under /admin keep working: the old address answers with the new one. */
 export function legacyRedirect(pathname: string): string | null {
   if (pathname === "/gate") return `${ADMIN}/login`;
+  const brand = /^\/admin\/brand(\/.*)?$/.exec(pathname);
+  if (brand) return `${ADMIN}/context${brand[1] ?? ""}`;
   const m = LEGACY.exec(pathname);
   return m ? `${ADMIN}${pathname}` : null;
 }

@@ -49,7 +49,7 @@ describe("sidebar", () => {
     const html = sidebar("/admin");
     expect(html).toContain('See your day<span class="sr-only">, running</span>');
     expect(html).toContain('Collect reviews<span class="sr-only">, ready to set up</span>');
-    expect(html).toContain('Recipes<span class="sr-only">, coming soon</span>');
+    expect(html).toContain('Chief of staff<span class="sr-only">, coming soon</span>');
     // A link's name is its visible text plus these words, so no aria-label can drop part of what is on screen.
     expect(html).not.toMatch(/<a [^>]*aria-label=/);
   });
@@ -70,7 +70,7 @@ describe("section hub", () => {
     expect(html).toContain("data-state=\"ready\"");
     const agentic = buildSections().find((s) => s.id === "agentic")!;
     const soon = renderToStaticMarkup(createElement(SectionHub, { headings: agentic.headings }));
-    expect(soon).toContain('Recipes<span class="sr-only">, coming soon</span>');
+    expect(soon).toContain('Chief of staff<span class="sr-only">, coming soon</span>');
     const command = buildSections().find((s) => s.id === "command")!;
     const running = renderToStaticMarkup(createElement(SectionHub, { headings: command.headings }));
     expect(running).toContain('See your day<span class="sr-only">, running</span>');

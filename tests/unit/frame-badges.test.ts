@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { buildSections, buildSettings } from "@/lib/layout/sections";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/admin/brand", useSearchParams: () => new URLSearchParams() }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/admin/context", useSearchParams: () => new URLSearchParams() }));
 const { Sidebar } = await import("@/components/frame/Sidebar");
 const { TabBar } = await import("@/components/frame/TabBar");
 

@@ -89,7 +89,7 @@ export default async function Home() {
             return (
               <Link
                 key={sec.id}
-                href={sec.id === "brand" || sec.id === "agentic" ? `/admin/${sec.id}` : `/admin/business?stage=${sec.id}`}
+                href={sec.id === "context" || sec.id === "agentic" ? `/admin/${sec.id}` : `/admin/business?stage=${sec.id}`}
                 className="surface surface-link group flex min-h-[148px] flex-col p-card"
               >
                 <span className="grid h-9 w-9 place-items-center rounded-control bg-admin-hover text-admin-muted transition-colors duration-200 ease-breath group-hover:text-admin-ink">

@@ -51,7 +51,7 @@ describe("the Today phone header", () => {
     expect(text(h)).not.toMatch(/\b0\b/);
   });
   it("shows the inbox button only on Today", () => {
-    pathname = "/admin/brand";
+    pathname = "/admin/context";
     expect(html(createElement(MobileHeader, props(3)))).not.toContain('href="/admin/command/inbox"');
   });
 });
@@ -153,13 +153,13 @@ describe("the whole-product pass", () => {
     expect(actions).toMatch(/<select[^>]*className="field/);
   });
   it("gives the Brand and Agentic hubs one primary next step", () => {
-    for (const p of ["src/app/admin/(console)/brand/page.tsx", "src/app/admin/(console)/agentic/page.tsx"]) expect(read(p), p).toMatch(/action=\{[\s\S]*btn-primary/);
+    for (const p of ["src/app/admin/(console)/context/page.tsx", "src/app/admin/(console)/agentic/page.tsx"]) expect(read(p), p).toMatch(/action=\{[\s\S]*btn-primary/);
   });
   it("says something new on each coming page, beyond the line under its title", async () => {
     const { READY } = await import("@/lib/layout/ready");
-    const { AGENTIC_PAGES, BRAND_PAGES } = await import("@/lib/layout/sections");
+    const { AGENTIC_PAGES, CONTEXT_PAGES } = await import("@/lib/layout/sections");
     const norm = (s: string) => s.toLowerCase().replace(/[^a-z ]/g, "").replace(/\band\b/g, "").replace(/\s+/g, " ").trim();
-    for (const p of [...BRAND_PAGES, ...AGENTIC_PAGES]) for (const h of READY[p.id]!.holds) expect(norm(h), p.id).not.toBe(norm(p.blurb));
+    for (const p of [...CONTEXT_PAGES, ...AGENTIC_PAGES]) for (const h of READY[p.id]!.holds) expect(norm(h), p.id).not.toBe(norm(p.blurb));
   });
   it("makes the next setup step's prompt the primary copy", () => {
     expect(read("src/components/PromptBox.tsx")).toContain("primary");

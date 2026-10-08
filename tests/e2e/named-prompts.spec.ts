@@ -57,7 +57,7 @@ test.describe("named prompts", () => {
     await recordCopies(page);
     await signIn(page, "/admin/agentic/agents");
     await nameChief(page, "Juniper");
-    await page.goto("/admin/brand/story");
+    await page.goto("/admin/context/story");
     await expect(page.locator("header [data-dictionary-number]")).toHaveText(/2\.3/);
     await page.getByRole("button", { name: "Copy prompt" }).click();
     expect(await lastCopy(page)).toMatch(/^Juniper, follow 2\.3 Story and voice from the Ninja dictionary\./);

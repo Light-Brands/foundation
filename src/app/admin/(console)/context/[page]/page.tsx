@@ -6,18 +6,18 @@ import { DictionaryKicker } from "@/components/frame/DictionaryKicker";
 import { loadProfile } from "@/lib/data/safe";
 import { chiefName } from "@/lib/dictionary/prompt";
 
-export default async function BrandPage({ params }: { params: Promise<{ page: string }> }) {
+export default async function ContextPage({ params }: { params: Promise<{ page: string }> }) {
   const { page } = await params;
-  const found = findOwnPage("brand", page);
+  const found = findOwnPage("context", page);
   if (!found) notFound();
   return (
     <div>
       <PageHeader
-        kicker={<DictionaryKicker page={`brand/${found.id}`} fallback={`Brand${found.group ? ` · ${found.group}` : ""}`} />}
+        kicker={<DictionaryKicker page={`context/${found.id}`} fallback={found.group} />}
         title={found.label}
         lede={found.blurb}
       />
-      <ReadyState page={found} section="brand" name={chiefName(await loadProfile())} />
+      <ReadyState page={found} section="context" name={chiefName(await loadProfile())} />
     </div>
   );
 }

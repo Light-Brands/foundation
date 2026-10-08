@@ -15,7 +15,7 @@ function Lead({ text }: { text: string }) {
 // Claude Code, opening with the chief of staff's name and pointing at the page's dictionary entry. A coming page says
 // so and keeps the prompt, so there is always a next move. A phone shows the first sentence and keeps the whole
 // prompt in a native disclosure, since the owner copies it there and seldom reads it. A desk shows it whole.
-export function ReadyState({ page, section, name }: { page: OwnPage; section: "brand" | "agentic"; name: string }) {
+export function ReadyState({ page, section, name }: { page: OwnPage; section: "context" | "agentic"; name: string }) {
   const ready = READY[page.id];
   if (!ready) return null;
   const soon = page.state === "soon";

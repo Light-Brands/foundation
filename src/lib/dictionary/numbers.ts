@@ -37,7 +37,7 @@ function load(root: string): Map<string, DictionaryEntry> | null {
   return byPage;
 }
 
-const LINK_PREFIX = "https://lb-share.lightbrands.ai/s/";
+const LINK_FORM = /^https:\/\/lb-share\.lightbrands\.ai\/s\/[a-z0-9]+$/;
 const linksLoaded = new Map<string, Map<string, string>>();
 
 function loadLinks(root: string): Map<string, string> {
@@ -48,7 +48,7 @@ function loadLinks(root: string): Map<string, string> {
     const doc = parse(readFileSync(path.join(root, "ninja", "foundation", "links.yaml"), "utf8")) as { links?: unknown } | null;
     if (!doc?.links || typeof doc.links !== "object") throw new Error("it holds no links map");
     for (const [id, url] of Object.entries(doc.links as Record<string, unknown>)) {
-      if (ENTRY_ID.test(id) && typeof url === "string" && url.startsWith(LINK_PREFIX)) links.set(id, url);
+      if (ENTRY_ID.test(id) && typeof url === "string" && LINK_FORM.test(url)) links.set(id, url);
     }
   } catch (err) {
     console.error(`dictionary: ninja/foundation/links.yaml could not be read, so prompts use the front door: ${(err as Error).message.split("\n")[0]}`);
@@ -85,6 +85,6 @@ export function entryWritten(e: DictionaryEntry, root: string = process.cwd()): 
 export function pagePrompt(name: string, page: string, title: string, root: string = process.cwd()): string {
   const e = entryForPage(page, root);
   if (!e) return dictionaryPrompt({ name, number: null, title, entry: null, link: null });
-  const written = e.entry && entryWritten(e, root);
-  return dictionaryPrompt({ name, number: e.number, title: e.title, entry: written ? e.entry : null, link: written && e.entry ? entryLink(e.entry, root) : null });
+  const entry = entryWritten(e, root) ? e.entry : null;
+  return dictionaryPrompt({ name, number: e.number, title: e.title, entry, link: entry ? entryLink(entry, root) : null });
 }

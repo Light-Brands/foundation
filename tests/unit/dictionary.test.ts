@@ -154,9 +154,11 @@ describe("prompts point at the entry's own page", () => {
   it("accepts only lb-share addresses and survives a missing links file", () => {
     const root = mkdtempSync(path.join(tmpdir(), "dict-links-"));
     mkdirSync(path.join(root, "ninja/foundation"), { recursive: true });
-    writeFileSync(path.join(root, "ninja/foundation/links.yaml"), "links:\n  a/b: https://lb-share.lightbrands.ai/s/ok\n  c/d: http://evil.example/s/x\n");
+    writeFileSync(path.join(root, "ninja/foundation/links.yaml"), "links:\n  a/b: https://lb-share.lightbrands.ai/s/ok\n  c/d: http://evil.example/s/x\n  e/f: https://lb-share.lightbrands.ai/s/ok/\n  g/h: \"https://lb-share.lightbrands.ai/s/ok x\"\n");
     expect(entryLink("a/b", root)).toBe("https://lb-share.lightbrands.ai/s/ok");
     expect(entryLink("c/d", root)).toBeNull();
+    expect(entryLink("e/f", root), "trailing slash").toBeNull();
+    expect(entryLink("g/h", root), "space").toBeNull();
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const empty = mkdtempSync(path.join(tmpdir(), "dict-nolinks-"));
     expect(entryLink("a/b", empty)).toBeNull();

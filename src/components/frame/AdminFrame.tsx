@@ -8,6 +8,13 @@ import { TopBar } from "./TopBar";
 
 const KEY = "foundation.sidebar";
 
+/** Cmd or Ctrl and B toggles the sidebar, except inside a text field, where it belongs to the field (bold). */
+export function isSidebarToggle(e: KeyboardEvent): boolean {
+  if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "b") return false;
+  const t = e.target as { tagName?: string; isContentEditable?: boolean } | null;
+  return !(t && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName ?? "")));
+}
+
 export function AdminFrame({ businessName, logoUrl, sections, settings, banner, children }: {
   businessName: string;
   logoUrl: string | null;
@@ -17,6 +24,8 @@ export function AdminFrame({ businessName, logoUrl, sections, settings, banner, 
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  // The stored choice is read after mount; until then nothing is written, so a reload never overwrites it with "open".
+  const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     try {
@@ -26,19 +35,21 @@ export function AdminFrame({ businessName, logoUrl, sections, settings, banner, 
     } catch {
       // Private windows can refuse storage; the menu simply starts open.
     }
+    setRestored(true);
   }, []);
 
   useEffect(() => {
+    if (!restored) return;
     try {
       localStorage.setItem(KEY, collapsed ? "collapsed" : "open");
     } catch {
       // Nothing to do: the choice lasts until the page closes.
     }
-  }, [collapsed]);
+  }, [collapsed, restored]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+      if (isSidebarToggle(e)) {
         e.preventDefault();
         setCollapsed((c) => !c);
       }

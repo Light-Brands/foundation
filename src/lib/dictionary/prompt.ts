@@ -46,3 +46,8 @@ export function connectDoorPrompt(prompt: string): string {
 export function checkSystemPrompt(name: string): string {
   return `${name}, check my system with the Ninja framework runner.`;
 }
+
+/** The prompt behind the Claude button in the frame: a session on the owner's own Foundation, with no page chosen. */
+export function blankSessionPrompt(name: string, business: string): string {
+  return `${name}, read CLAUDE.md and ninja/library.md. I want to work on ${business}'s command center. Ask me what I want to do.`;
+}

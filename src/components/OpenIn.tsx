@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { CopyButton } from "@/components/CopyButton";
-import { ChevronDown } from "@/components/frame/icons";
+import { ChevronDown, Sparkles } from "@/components/frame/icons";
 import { useRepo } from "@/components/RepoProvider";
 import { openInLink, TARGETS, TARGET_HINT, TARGET_LABEL, type Target } from "@/lib/claude/open-in";
 import { readDefault, readFolder, writeDefault, writeFolder } from "@/lib/claude/default";
@@ -39,10 +39,14 @@ const serverFolder = (): string | null => null;
  * Nothing is sent: the owner reads the prompt and presses Enter. learn=false hides the setup link before sign-in;
  * align="right" anchors the picker to the right edge of the control.
  */
-export function OpenIn({ prompt, primary = false, learn = true, align = "left" }: {
+export function OpenIn({ prompt, primary = false, learn = true, align = "left", compact = false, label: mainLabel, icon = false }: {
   prompt: string; primary?: boolean; learn?: boolean; align?: "left" | "right";
+  /** Compact: the main part reads the label (Claude by default), and Copy and the repo line move into the menu. */
+  compact?: boolean; label?: string;
+  /** Compact only: the main part is the Claude icon, named Open Claude, for a phone header. */
+  icon?: boolean;
 }) {
-  const { repo, folder: provided, label } = useRepo();
+  const { repo, folder: provided, label: where_ } = useRepo();
   const savedTarget = useSyncExternalStore(subscribe, readTarget, serverTarget);
   const savedFolder = useSyncExternalStore(subscribe, readStoredFolder, serverFolder);
   // When storage refuses a write, the choice still holds for this page.
@@ -126,25 +130,40 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left" }
   };
 
   const look = primary ? "btn-primary" : "btn-quiet";
-  const text = `Open in ${TARGET_LABEL[target]}`;
+  const text = compact ? (mainLabel ?? "Claude") : `Open in ${TARGET_LABEL[target]}`;
+  const sm = compact ? " btn-sm" : "";
+  const asIcon = compact && icon;
   const askFolder = !main.ok && target !== "web" && !folder;
-  const fallback = label === "your Foundation";
+  const fallback = where_ === "your Foundation";
+  const mainName = asIcon ? { "aria-label": "Open Claude" } : {};
+  const mainBody = asIcon ? <Sparkles aria-hidden className="h-5 w-5" /> : text;
+  const repoLine = (
+    <p className={compact ? "px-2 text-xs text-admin-muted" : "mt-2 text-xs text-admin-muted"}>
+      {fallback ? (
+        <>Opens in your Foundation folder. Check it is selected before you send.</>
+      ) : (
+        <>Opens in <span className="font-medium text-admin-ink">{where_}</span> · check it is selected before you send.</>
+      )}
+      {learn && <>{" "}<Link href="/admin/system/setup#work-with-claude" className="underline underline-offset-4">How this works</Link></>}
+    </p>
+  );
 
   return (
     <div ref={root} className="relative" onKeyDown={onRootKey} onBlur={onBlur}>
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex items-stretch">
           {main.ok ? (
-            <a ref={mainRef} href={main.href} className={`${look} rounded-r-none`}>{text}</a>
+            <a ref={mainRef} href={main.href} className={`${look}${sm} rounded-r-none${asIcon ? " min-h-11 min-w-11 justify-center px-2" : ""}`} {...mainName}>{mainBody}</a>
           ) : (
             <button
               ref={mainRef}
               type="button"
               aria-haspopup="menu"
               aria-expanded={open}
-              className={`${look} rounded-r-none`}
+              className={`${look}${sm} rounded-r-none${asIcon ? " min-h-11 min-w-11 justify-center px-2" : ""}`}
+              {...mainName}
               onClick={(e) => (open ? closeTo(e.currentTarget) : openFrom(e.currentTarget))}
-            >{text}</button>
+            >{mainBody}</button>
           )}
           <button
             ref={chevron}
@@ -153,7 +172,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left" }
             aria-expanded={open}
             aria-controls={open ? menuId : undefined}
             aria-label="Choose where to open"
-            className={`${look} min-w-11 rounded-l-none border-l border-l-admin-line-strong px-2`}
+            className={`${look}${sm} min-w-11 rounded-l-none border-l border-l-admin-line-strong px-2`}
             onClick={(e) => (open ? closeTo(e.currentTarget) : openFrom(e.currentTarget))}
             onKeyDown={(e) => {
               if (e.key === "ArrowDown" && !open) {
@@ -165,7 +184,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left" }
             <ChevronDown aria-hidden className="h-4 w-4" />
           </button>
         </div>
-        <CopyButton text={prompt} />
+        {!compact && <CopyButton text={prompt} />}
       </div>
       {open && (
         <div className={`surface absolute ${align === "right" ? "right-0" : "left-0"} z-20 mt-2 w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] p-2 shadow-lg`}>
@@ -192,7 +211,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left" }
               );
             })}
           </ul>
-          {!main.ok && (
+          {(!main.ok || compact) && (
             <div className="mt-2 space-y-2 border-t border-admin-line p-2">
               {askFolder && (
                 <div>
@@ -213,17 +232,11 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left" }
               <CopyButton text={prompt} className="btn-sm" />
             </div>
           )}
+          {compact && <div className="mt-2 border-t border-admin-line pt-2">{repoLine}</div>}
           <p role="status" className="px-2 text-xs text-admin-muted empty:hidden">{note}</p>
         </div>
       )}
-      <p className="mt-2 text-xs text-admin-muted">
-        {fallback ? (
-          <>Opens in your Foundation folder. Check it is selected before you send.</>
-        ) : (
-          <>Opens in <span className="font-medium text-admin-ink">{label}</span> · check it is selected before you send.</>
-        )}
-        {learn && <>{" "}<Link href="/admin/system/setup#work-with-claude" className="underline underline-offset-4">How this works</Link></>}
-      </p>
+      {!compact && repoLine}
     </div>
   );
 }

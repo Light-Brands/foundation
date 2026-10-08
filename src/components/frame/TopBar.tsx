@@ -1,14 +1,15 @@
 "use client";
 import { usePathname } from "next/navigation";
-import { CopyButton } from "@/components/CopyButton";
-import { checkSystemPrompt } from "@/lib/dictionary/prompt";
+import { OpenIn } from "@/components/OpenIn";
+import { blankSessionPrompt, checkSystemPrompt } from "@/lib/dictionary/prompt";
 import { breadcrumb, type NavHeading, type NavSection } from "@/lib/layout/sections";
+import { ClaudeButton } from "./ClaudeButton";
 import { ExternalLink } from "./icons";
 
-// Desktop only: a real bar across the top of the content, saying where you are on the left and holding the two
+// Desktop only: a real bar across the top of the content, saying where you are on the left and holding the
 // actions every page shares on the right. Check my system is the Ninja verb that reads everything installed and
 // ranks the next moves.
-export function TopBar({ sections, settings, chiefName }: { sections: NavSection[]; settings: NavHeading[]; chiefName: string }) {
+export function TopBar({ sections, settings, chiefName, businessName }: { sections: NavSection[]; settings: NavHeading[]; chiefName: string; businessName: string }) {
   const crumbs = breadcrumb(usePathname(), sections, settings);
   return (
     <div data-top-bar className="bar bar-top sticky top-0 z-20 hidden h-14 items-center justify-between gap-4 border-b px-6 md:flex lg:px-8">
@@ -21,7 +22,8 @@ export function TopBar({ sections, settings, chiefName }: { sections: NavSection
         ))}
       </p>
       <div className="flex shrink-0 items-center gap-2">
-        <CopyButton text={checkSystemPrompt(chiefName)} label="Check my system" className="btn-quiet btn-sm" />
+        <ClaudeButton prompt={blankSessionPrompt(chiefName, businessName)} />
+        <OpenIn prompt={checkSystemPrompt(chiefName)} compact label="Check my system" learn={false} align="right" />
         <a href="/" target="_blank" rel="noreferrer" className="btn-quiet btn-sm">
           View my site
           <ExternalLink size={14} aria-hidden className="text-admin-ghost" />

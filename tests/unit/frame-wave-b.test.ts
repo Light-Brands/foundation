@@ -44,7 +44,7 @@ describe("card times", () => {
 });
 
 describe("the phone header", () => {
-  const props = { sections: buildSections(), settings: buildSettings(), businessName: "Harbor Studio", logoUrl: null };
+  const props = { sections: buildSections(), settings: buildSettings(), businessName: "Harbor Studio", logoUrl: null, chiefName: "Sage" };
   it("shows the brand on a hub, since the page's own title names the tab", () => {
     pathname = "/admin/context";
     const h = html(createElement(MobileHeader, props));

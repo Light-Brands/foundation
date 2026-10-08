@@ -34,7 +34,7 @@ beforeEach(() => {
 });
 
 describe("the Today phone header", () => {
-  const props = (waiting: number) => ({ sections: buildSections({ "command.inbox": waiting }), settings: buildSettings(), businessName: "Harbor Studio", logoUrl: null });
+  const props = (waiting: number) => ({ sections: buildSections({ "command.inbox": waiting }), settings: buildSettings(), businessName: "Harbor Studio", logoUrl: null, chiefName: "Sage" });
   it("carries the mark on the left and an inbox button with the waiting count on the right", () => {
     const h = html(createElement(MobileHeader, props(3)));
     expect(h).toContain("HS");
@@ -91,9 +91,9 @@ describe("bars follow the surface style", () => {
   it("every bar wears the bar class", () => {
     const sections = buildSections();
     const settings = buildSettings();
-    expect(html(createElement(TopBar, { sections, settings, chiefName: "Sage" }))).toMatch(/class="[^"]*\bbar bar-top\b/);
+    expect(html(createElement(TopBar, { sections, settings, chiefName: "Sage", businessName: "B" }))).toMatch(/class="[^"]*\bbar bar-top\b/);
     expect(html(createElement(TabBar, { sections, settings, todayBadge: 0 }))).toMatch(/class="[^"]*\bbar bar-tabs\b/);
-    expect(html(createElement(MobileHeader, { sections, settings, businessName: "B", logoUrl: null }))).toMatch(/class="[^"]*\bbar bar-phone\b/);
+    expect(html(createElement(MobileHeader, { sections, settings, businessName: "B", logoUrl: null, chiefName: "Sage" }))).toMatch(/class="[^"]*\bbar bar-phone\b/);
   });
   it("the bar classes read the variables the brand writes", () => {
     for (const v of ["--bar-filter", "--surface-border"]) expect(rule(".bar")).toContain(v);

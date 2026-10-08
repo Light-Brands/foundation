@@ -15,6 +15,10 @@ const { SectionHub } = await import("@/components/frame/SectionHub");
 const { PageHeader } = await import("@/components/frame/PageHeader");
 const { SetupCard } = await import("@/app/admin/(console)/SetupCard");
 const { Doors } = await import("@/components/Doors");
+const { TopBar } = await import("@/components/frame/TopBar");
+const { MobileHeader } = await import("@/components/frame/MobileHeader");
+const { RepoProvider } = await import("@/components/RepoProvider");
+const { blankSessionPrompt } = await import("@/lib/dictionary/prompt");
 const BusinessHub = (await import("@/app/admin/(console)/business/page")).default;
 
 function sidebar(path: string): string {
@@ -160,5 +164,35 @@ describe("doors", () => {
     expect(text).toContain("Sage asks what you want");
     expect(text).not.toContain("until you say so");
     expect(text).not.toContain("Claude plans");
+  });
+});
+
+describe("the Claude button", () => {
+  const repo = { repo: "h/c", folder: "/x", label: "c" };
+  const bar = () => renderToStaticMarkup(createElement(RepoProvider, { value: repo },
+    createElement(TopBar, { sections: buildSections(), settings: buildSettings(), chiefName: "Sage", businessName: "Harbor Studio" })));
+
+  it("sits in the top bar as a quiet split button, before Check my system", () => {
+    const html = bar();
+    expect(html).toMatch(/>Claude</);
+    expect(html).toContain('aria-haspopup="menu"');
+    expect(html.indexOf(">Claude<")).toBeLessThan(html.indexOf("Check my system"));
+    expect(html).toContain(">Check my system<");
+    expect(html).not.toContain("btn-primary");
+    expect(html).not.toContain("Copy prompt");
+  });
+
+  it("is an icon button on a phone hub, named Open Claude", () => {
+    pathname = "/admin";
+    const html = renderToStaticMarkup(createElement(RepoProvider, { value: repo },
+      createElement(MobileHeader, { sections: buildSections(), settings: buildSettings(), businessName: "Harbor Studio", logoUrl: null, chiefName: "Sage" })));
+    expect(html).toContain('aria-label="Open Claude"');
+  });
+
+  it("builds the blank session prompt", () => {
+    const p = blankSessionPrompt("Sage", "Harbor Studio");
+    expect(p.startsWith("Sage, ")).toBe(true);
+    expect(p).toContain("Harbor Studio");
+    expect(p).not.toMatch(/[\u2013\u2014]|\s-\s/);
   });
 });

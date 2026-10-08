@@ -4,7 +4,7 @@
 export type Ready = { holds: string[] };
 
 export const READY: Record<string, Ready> = {
-  overview: { holds: ["How complete your brand is, as one clear measure.", "The next missing piece, and the sentence that fills it."] },
+  overview: { holds: ["How complete your brand is, as one clear measure.", "The next missing piece, and the prompt that fills it."] },
   identity: { holds: ["Your logo, with a light version for dark bands.", "A color for each part of your palette, and your font pairing.", "A live preview of your command center and your site."] },
   story: { holds: ["Who you are and what you stand for.", "How you sound, with the words you use and the words you avoid."] },
   offers: { holds: ["Each offer's promise, price and what is included.", "Who each offer is for, and its guarantee."] },
@@ -20,7 +20,7 @@ export const READY: Record<string, Ready> = {
   skills: { holds: ["What your agents know how to do.", "Where each skill is used."] },
   recipes: { holds: ["Everything you can add to your command center, with a search in plain words and one sentence to install each."] },
   routines: { holds: ["Each routine with its schedule and the job it serves.", "Its last run and how it went, with a switch to pause it."] },
-  runs: { holds: ["Every run in order, with what it produced and how long it took.", "Any run that failed, with the reason and the sentence that fixes it."] },
+  runs: { holds: ["Every run in order, with what it produced and how long it took.", "Any run that failed, with the reason and the prompt that fixes it."] },
   workflows: { holds: ["Each workflow's trigger and its steps, in order.", "The steps that wait for your approval, and who decides each one."] },
   weaves: { holds: ["Each weave and the departments it connects.", "What starts it, such as a signed contract, and what it starts next."] },
 };

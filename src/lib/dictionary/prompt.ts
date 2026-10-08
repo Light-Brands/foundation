@@ -31,6 +31,12 @@ export function dictionaryPrompt({ name, number, title, entry }: {
   return `${follow} Its entry arrives in a coming update, so read ninja/library.md, ask me a few questions about what I want, ${PLAN_FIRST}. Online, the Dojo Dictionary is at ${FRONT_DOOR}/raw.`;
 }
 
+/** A prompt's first sentence, the line a phone shows above the whole prompt. */
+export function promptLead(prompt: string): string {
+  const end = prompt.search(/\.(\s|$)/);
+  return end === -1 ? prompt : prompt.slice(0, end + 1);
+}
+
 /** The connect door's prompt: the same dictionary prompt, starting from a tool the owner already uses. */
 export function connectDoorPrompt(prompt: string): string {
   return `${prompt} Start by mapping how a tool I already use for this could connect.`;

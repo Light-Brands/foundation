@@ -37,14 +37,14 @@ function savedName(key = "FOUNDATION_BUSINESS_NAME") {
   const line = readFileSync(file, "utf8")
     .split(/\r?\n/)
     .find((l) => l.startsWith(`${key}=`));
-  if (!line) return "";
+  if (!line) return undefined;
   const raw = line.slice(`${key}=`.length).trim();
   const q = raw[0];
   if (raw.length >= 2 && (q === '"' || q === "'") && raw.endsWith(q)) return raw.slice(1, -1);
   return raw;
 }
 
-let name = values.name ?? (values.force ? savedName() : "");
+let name = values.name ?? (values.force ? (savedName() ?? "") : "");
 let pin = values.pin ?? "";
 let chief = values.chief ?? (values.force ? savedName("FOUNDATION_CHIEF_NAME") : undefined);
 
@@ -71,7 +71,7 @@ if (/[\u0000-\u001f\u007f]/.test(name)) fail("Use letters, numbers and punctuati
 if (name.includes('"') && name.includes("'")) fail("Your business name cannot contain both kinds of quote marks.");
 // The same rule as cleanChiefName in src/lib/validate.ts: one short name, or empty to keep Claude.
 chief = (chief ?? "").trim();
-const CHIEF_NAME = /^\p{L}[\p{L}\p{M}]*(?:[ '\u2019-]+[\p{L}\p{M}]+)*['\u2019]?$/u;
+const CHIEF_NAME = /^\p{L}[\p{L}\p{M}]*(?:[ '\u2019-][\p{L}\p{M}]+){0,2}['\u2019]?$/u;
 if (chief && (chief.length > 40 || !CHIEF_NAME.test(chief))) {
   fail("Use letters, spaces, apostrophes and hyphens in your chief of staff's name, up to 40 characters.");
 }
@@ -132,5 +132,9 @@ if (existsSync(keyFile)) {
 if (existsSync(keyFile)) {
   const sync = spawnSync("npm", ["run", "key:sync"], { stdio: "ignore", shell: process.platform === "win32" });
   if (sync.status !== 0) console.log("Setup is done, but the system document inventory was not built. Run `npm run key:sync` once.");
+}
+// The name seeds a new database once. One that already exists keeps its name until the owner renames it.
+if (values.force && values.chief !== undefined && chief && existsSync(".data")) {
+  console.log(`Your command center already has a database. Run \`npm run chief -- "${chief}"\` to use the new name.`);
 }
 console.log("Done. Run `npm run dev`, open http://localhost:3000 and enter your PIN.");

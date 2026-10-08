@@ -15,13 +15,13 @@ describe("Dojo links", () => {
     expect(lessonWithSpace).toContain("module=cat.sub");
   });
   it("give the install card copy for both states, and the connect card copy", () => {
-    expect(installCardCopy(true)).toBe("A build crew asks what you want, plans it with you, builds it, tests it and proves it works.");
-    expect(installCardCopy(false)).toBe("Until the install ships, Claude asks what you want and plans it with you. Nothing changes until you approve.");
+    expect(installCardCopy(true, "Claude")).toBe("A build crew asks what you want, plans it with you, builds it, tests it and proves it works.");
+    expect(installCardCopy(false, "Claude")).toBe("Until the install ships, Claude asks what you want and plans it with you. Nothing changes until you approve.");
     expect(installCardCopy(false, "Sage")).toBe("Until the install ships, Sage asks what you want and plans it with you. Nothing changes until you approve.");
-    const c = connectCardCopy("Book appointments");
-    expect(c).toBe("Have Claude map how the tool you already use for Book appointments would connect. Nothing changes until you say so.");
+    const c = connectCardCopy("Book appointments", "Claude");
+    expect(c).toBe("Have Claude map how the tool you already use for Book appointments would connect. Nothing changes until you approve.");
     expect(connectCardCopy("Book appointments", "Sage")).toContain("Have Sage map");
-    for (const t of [installCardCopy(true), installCardCopy(false), c, CUSTOM_CARD_COPY]) expect(t).not.toMatch(/[\u2013\u2014;]/);
+    for (const t of [installCardCopy(true, "Claude"), installCardCopy(false, "Claude"), c, CUSTOM_CARD_COPY]) expect(t).not.toMatch(/[\u2013\u2014;]/);
   });
   it("split the hours a job gives back so the figure can sit in the numeric face", () => {
     expect(hoursBack("1 to 3 hours a week")).toEqual({ lead: "", figure: "1 to 3", tail: "hours back each week" });

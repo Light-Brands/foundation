@@ -9,7 +9,7 @@ const ROW = "flex min-h-row w-full items-center gap-3 px-4 py-3 text-left text-[
 
 // The phone's More screen ends with the three things every page offers on a desk, as rows in one group like the
 // settings above them: view the site, copy the Check my system prompt, and lock.
-export function SiteActions({ chiefName = "Claude" }: { chiefName?: string }) {
+export function SiteActions({ chiefName }: { chiefName: string }) {
   const [copied, setCopied] = useState(false);
   const [note, setNote] = useState("");
   const [lockFailed, setLockFailed] = useState(false);

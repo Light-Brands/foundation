@@ -22,14 +22,14 @@ export function showsHours(hours: string): boolean {
 }
 
 // name is the chief of staff's name, the one every copied prompt opens with.
-export function installCardCopy(hasEntry: boolean, name = "Claude"): string {
+export function installCardCopy(hasEntry: boolean, name: string): string {
   return hasEntry
     ? "A build crew asks what you want, plans it with you, builds it, tests it and proves it works."
     : `Until the install ships, ${name} asks what you want and plans it with you. Nothing changes until you approve.`;
 }
 
-export function connectCardCopy(jobLabel: string, name = "Claude"): string {
-  return `Have ${name} map how the tool you already use for ${jobLabel} would connect. Nothing changes until you say so.`;
+export function connectCardCopy(jobLabel: string, name: string): string {
+  return `Have ${name} map how the tool you already use for ${jobLabel} would connect. Nothing changes until you approve.`;
 }
 
 export const CUSTOM_CARD_COPY = "We build it for you and connect it to your command center.";

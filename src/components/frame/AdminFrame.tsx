@@ -15,10 +15,10 @@ export function isSidebarToggle(e: KeyboardEvent): boolean {
   return !(t && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName ?? "")));
 }
 
-export function AdminFrame({ businessName, chiefName = "Claude", logoUrl, sections, settings, banner, children }: {
+export function AdminFrame({ businessName, chiefName, logoUrl, sections, settings, banner, children }: {
   businessName: string;
   /** The chief of staff's name, which Check my system opens with. */
-  chiefName?: string;
+  chiefName: string;
   logoUrl: string | null;
   sections: NavSection[];
   settings: NavHeading[];

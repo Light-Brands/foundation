@@ -3,6 +3,12 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "tests/e2e",
   use: { baseURL: "http://localhost:3100" },
+  // named-prompts renames the chief of staff, and first-win saves the whole profile, name included. Running
+  // named-prompts after every other file keeps the two from saving over each other.
+  projects: [
+    { name: "default", testIgnore: /named-prompts\.spec\.ts/ },
+    { name: "named-prompts", testMatch: /named-prompts\.spec\.ts/, dependencies: ["default"] },
+  ],
   webServer: {
     command: "npm run build && npm run start -- -p 3100",
     url: "http://localhost:3100/gate",

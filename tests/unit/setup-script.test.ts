@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync, existsSync, statSync, chmodSync, cpSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, chmodSync, cpSync } from "node:fs";
 import { parse } from "yaml";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -129,6 +129,17 @@ describe("npm run setup", () => {
     const bad = spawnSync("node", [SCRIPT, "--name", "X", "--chief", "R2D2", "--pin", "246810", "--force"], { cwd: dir, encoding: "utf8" });
     expect(bad.status).not.toBe(0);
     expect(bad.stderr).toContain("Use letters, spaces, apostrophes and hyphens in your chief of staff's name");
+  });
+  it("says how to rename when forced with a new name over a database that already exists", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "fc-"));
+    run(dir, ["--name", "Harbor Studio", "--pin", "246810"]);
+    expect(run(dir, ["--chief", "Juniper", "--pin", "246810", "--force"])).not.toContain("npm run chief");
+    mkdirSync(path.join(dir, ".data/pglite"), { recursive: true });
+    const out = run(dir, ["--chief", "Juniper", "--pin", "246810", "--force"]);
+    expect(out).toContain('Your command center already has a database. Run `npm run chief -- "Juniper"` to use the new name.');
+  });
+  it("asks the chief of staff question again on a forced run that saved no name", () => {
+    expect(readFileSync(SCRIPT, "utf8")).toMatch(/if \(!line\) return undefined;/);
   });
   it("asks for the chief of staff's name right after the business name", () => {
     const src = readFileSync(SCRIPT, "utf8");

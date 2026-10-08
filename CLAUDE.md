@@ -28,7 +28,9 @@ Everything belongs to one of eleven categories (a founder reads them as departme
 
 `key/` holds everything that makes this business's system yours: agents, skills, routines and apps, plus `key/knowledge/` (the context block and `system.md`, the plain-words record of what is built) and `key/log/` (the monthly build log). The build log stays in this repository. `system.md` goes only to your own workspace, when you connect one later. Neither holds customer details, business records or secrets. `docs/standards/key.md` has the formats.
 
-The profile saves are the only writers of `key/knowledge/context-block.yaml`: the Preferences save, the chief of staff card on the Agents page and `npm run chief`. Each also sets `name` in `key/key.yaml` to the business name. `npm run key:sync` rebuilds the inventory in `system.md` and nothing else. A member upgrading from an earlier version opens Settings, then Preferences, and presses Save once, so the Key holds the business details.
+The profile saves are the only writers of `key/knowledge/context-block.yaml`: the Preferences save, the chief of staff card on the Agents page and `npm run chief`. Each also sets `name` in `key/key.yaml` to the business name.
+
+To rename your chief of staff from Claude Code, run `npm run chief -- "Name"`. Business facts change through Settings, Preferences or their npm commands, never by editing key/knowledge/context-block.yaml, which is rewritten on every save. `npm run key:sync` rebuilds the inventory in `system.md` and nothing else. A member upgrading from an earlier version opens Settings, then Preferences, and presses Save once, so the Key holds the business details.
 
 ## Standards
 

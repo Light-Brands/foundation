@@ -158,6 +158,7 @@ describe("doors", () => {
     const text = html.replace(/<[^>]+>/g, " ");
     expect(text).toContain("Have Sage map");
     expect(text).toContain("Sage asks what you want");
+    expect(text).not.toContain("until you say so");
     expect(text).not.toContain("Claude plans");
   });
 });

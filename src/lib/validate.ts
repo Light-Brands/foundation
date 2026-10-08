@@ -15,8 +15,8 @@ const LIMITS: Record<keyof Profile, number> = {
 
 export const CHIEF_NAME_MAX = 40;
 export const CHIEF_NAME_ERROR = "Use letters, spaces, apostrophes and hyphens, up to 40 characters.";
-// One short name: words of letters joined by single spaces, apostrophes or hyphens. scripts/setup.mjs keeps a copy.
-const CHIEF_NAME = /^\p{L}[\p{L}\p{M}]*(?:[ '\u2019-]+[\p{L}\p{M}]+)*['\u2019]?$/u;
+// One short name: up to three words of letters, each joined by one space, apostrophe or hyphen. scripts/setup.mjs keeps a copy.
+const CHIEF_NAME = /^\p{L}[\p{L}\p{M}]*(?:[ '\u2019-][\p{L}\p{M}]+){0,2}['\u2019]?$/u;
 
 /** The chief of staff's name, trimmed. Empty is allowed, and means prompts say Claude. */
 export function cleanChiefName(raw: unknown): { ok: true; value: string } | { ok: false; error: string } {

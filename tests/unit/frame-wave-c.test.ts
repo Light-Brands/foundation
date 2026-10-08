@@ -91,7 +91,7 @@ describe("bars follow the surface style", () => {
   it("every bar wears the bar class", () => {
     const sections = buildSections();
     const settings = buildSettings();
-    expect(html(createElement(TopBar, { sections, settings }))).toMatch(/class="[^"]*\bbar bar-top\b/);
+    expect(html(createElement(TopBar, { sections, settings, chiefName: "Sage" }))).toMatch(/class="[^"]*\bbar bar-top\b/);
     expect(html(createElement(TabBar, { sections, settings, todayBadge: 0 }))).toMatch(/class="[^"]*\bbar bar-tabs\b/);
     expect(html(createElement(MobileHeader, { sections, settings, businessName: "B", logoUrl: null }))).toMatch(/class="[^"]*\bbar bar-phone\b/);
   });

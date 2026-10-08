@@ -134,7 +134,7 @@ describe("what needs you", () => {
 });
 
 describe("the More screen's site actions", () => {
-  const h = html(createElement(SiteActions));
+  const h = html(createElement(SiteActions, { chiefName: "Sage" }));
   it("are rows in one group, like the settings above them", () => {
     expect(h).toMatch(/<h2 class="kicker[^"]*">Your site<\/h2>/);
     expect(h).toMatch(/<a [^>]*href="\/"[^>]*>/);
@@ -164,6 +164,11 @@ describe("ready pages", () => {
     expect(ready).toContain("btn-primary");
     expect(ready).not.toContain("Coming soon");
     expect(text(ready)).toContain("Sage, follow 2.4 Offers from the Ninja dictionary.");
+    // A phone shows the first sentence and keeps the whole prompt in a native disclosure, with no script.
+    expect(ready).toMatch(/<details[^>]*class="[^"]*md:hidden/);
+    expect(ready).toContain("Show the whole prompt");
+    expect(ready).toMatch(/<p class="font-mono text-\[13px\][^"]*break-all[^"]*">Sage, follow 2\.4 Offers/);
+    expect(ready).toMatch(/<p data-prompt-lead="" class="[^"]*md:hidden[^"]*">Sage, follow <span class="font-mono[^"]*">2\.4<\/span> Offers from the Ninja dictionary\.<\/p>/);
     const soon = html(createElement(ReadyState, { page: AGENTIC_PAGES.find((p) => p.id === "routines")!, section: "agentic", name: "Sage" }));
     expect(soon).toContain("Coming soon");
     expect(text(soon)).toContain("Sage, follow 3.4.1 Routines");
@@ -171,16 +176,15 @@ describe("ready pages", () => {
 });
 
 describe("the dictionary kicker", () => {
-  it("leads with the number in the figure face, keeps the section for a desk, and names the page", () => {
+  it("is the number in the figure face and its section at every width, leaving the title to the heading", () => {
     const h = html(createElement(DictionaryKicker, { page: "sell/leads", fallback: "Sales · Ready to set up" }));
     expect(h).toContain('data-dictionary-number="4.2.1"');
     expect(h).toMatch(/<span class="font-mono[^"]*text-admin-ink">4\.2\.1<\/span>/);
-    expect(h).toMatch(/<span class="hidden md:inline">Grow · <\/span>/);
-    expect(text(h)).toContain("Capture leads");
-    expect(text(h)).not.toContain("Ready to set up");
+    expect(text(h).replace(/\s+/g, " ").trim()).toBe("4.2.1 · Grow");
+    expect(h).not.toContain("hidden");
+    expect(text(html(createElement(DictionaryKicker, { page: "system/settings", fallback: "x" }))).replace(/\s+/g, " ").trim()).toBe("7.1.5 · Settings and security");
   });
-  it("keeps the page's own words after the number when given, and its own kicker when it has no number", () => {
-    expect(text(html(createElement(DictionaryKicker, { page: "command/home", fallback: "x", label: "Wednesday, October 7" })))).toMatch(/1\.1\s+·\s+Command center · \s*Wednesday, October 7/);
+  it("keeps the page's own kicker when it has no number", () => {
     expect(html(createElement(DictionaryKicker, { page: "nope/none", fallback: "Sales · Ready to set up" }))).toBe("Sales · Ready to set up");
   });
 });

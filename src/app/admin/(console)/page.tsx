@@ -48,9 +48,15 @@ export default async function Home() {
       <div className="space-y-5 md:space-y-6">
         <PageHeader
           flush
-          kicker={<DictionaryKicker page="command/home" fallback={today} label={today} />}
+          kicker={<DictionaryKicker page="command/home" fallback="Command center" />}
           title={profile.business}
-          lede={profile.what_we_do || "Your command center is live. Here is where your business stands."}
+          lede={
+            <>
+              <p>{profile.what_we_do || "Your command center is live. Here is where your business stands."}</p>
+              {/* The kicker carries the dictionary number, so the day sits beneath, the way a job page carries its state. */}
+              <p data-today-date className="chip mt-3">{today}</p>
+            </>
+          }
         />
 
         <div data-today-grid className="grid gap-4 lg:grid-cols-12">

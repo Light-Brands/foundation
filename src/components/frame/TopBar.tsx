@@ -8,7 +8,7 @@ import { ExternalLink } from "./icons";
 // Desktop only: a real bar across the top of the content, saying where you are on the left and holding the two
 // actions every page shares on the right. Check my system is the Ninja verb that reads everything installed and
 // ranks the next moves.
-export function TopBar({ sections, settings, chiefName = "Claude" }: { sections: NavSection[]; settings: NavHeading[]; chiefName?: string }) {
+export function TopBar({ sections, settings, chiefName }: { sections: NavSection[]; settings: NavHeading[]; chiefName: string }) {
   const crumbs = breadcrumb(usePathname(), sections, settings);
   return (
     <div data-top-bar className="bar bar-top sticky top-0 z-20 hidden h-14 items-center justify-between gap-4 border-b px-6 md:flex lg:px-8">

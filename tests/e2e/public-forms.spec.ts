@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test("an undeclared form is not found", async ({ page }) => {
   await page.goto("/f/not-declared");
-  await expect(page.getByText("That page is not part of your command center.")).toBeVisible();
+  await expect(page.getByText("There is nothing at this address.")).toBeVisible();
 });
 
 test("the contact page carries where a visitor came from", async ({ context }) => {

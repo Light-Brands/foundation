@@ -52,7 +52,7 @@ test("the first win: in with the PIN, profile saved, a real message in the Inbox
   await expect(page.getByText("Have Claude map how the tool you already use for Book appointments would connect.", { exact: false })).toBeVisible();
 
   await page.goto("/admin/deliver/not-a-thing");
-  await expect(page.getByText("That page is not part of your command center.")).toBeVisible();
+  await expect(page.getByText("There is nothing at this address.")).toBeVisible();
 });
 
 test("a deep link outside the site never escapes the gate", async ({ page }) => {

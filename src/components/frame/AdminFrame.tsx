@@ -51,11 +51,12 @@ export function AdminFrame({ businessName, logoUrl, sections, settings, banner, 
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-admin-canvas">
+      <a href="#main" className="btn-primary sr-only fixed left-3 top-3 z-50 focus:not-sr-only">Skip to content</a>
       <aside className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-admin-line transition-[width] duration-300 ease-breath md:flex ${collapsed ? "w-20" : "w-64"}`}>
         <Sidebar businessName={businessName} logoUrl={logoUrl} sections={sections} settings={settings} collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       </aside>
       <MobileHeader sections={sections} settings={settings} businessName={businessName} logoUrl={logoUrl} />
-      <main className={`min-h-dvh pb-[calc(72px+env(safe-area-inset-bottom))] transition-[padding] duration-300 ease-breath md:pb-0 ${collapsed ? "md:pl-20" : "md:pl-64"}`}>
+      <main id="main" tabIndex={-1} className={`min-h-dvh outline-none pb-[calc(72px+env(safe-area-inset-bottom))] transition-[padding] duration-300 ease-breath md:pb-0 ${collapsed ? "md:pl-20" : "md:pl-64"}`}>
         {banner}
         <TopBar sections={sections} settings={settings} />
         <div className="mx-auto max-w-[1600px] px-4 pb-10 pt-6 sm:px-5 md:px-6 md:pt-8 lg:px-8 lg:pb-14">

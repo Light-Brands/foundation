@@ -19,8 +19,8 @@ export const READY: Record<string, Ready> = {
   agents: { holds: ["Every agent working for your business, and what each one does.", "The crew that builds with Claude Code."], sentence: "Learn how agents work." },
   skills: { holds: ["What your agents know how to do.", "Where each skill is used."], sentence: "Learn how skills work." },
   recipes: { holds: ["Everything you can add to your command center, with a search in plain words and one sentence to install each."], sentence: "Check my system." },
-  routines: { holds: ["The work that runs on its own: what it does, when it runs and how it went."], sentence: "Learn how routines work." },
-  runs: { holds: ["Every run, and what each one produced."], sentence: "Learn how routines work." },
-  workflows: { holds: ["Steps that run on a trigger, with your approval wherever a person decides."], sentence: "Learn how workflows run." },
-  weaves: { holds: ["Workflows across departments, such as a signed contract starting a project."], sentence: "Learn how weaves work." },
+  routines: { holds: ["Each routine with its schedule and the job it serves.", "Its last run and how it went, with a switch to pause it."], sentence: "Learn how routines work." },
+  runs: { holds: ["Every run in order, with what it produced and how long it took.", "Any run that failed, with the reason and the sentence that fixes it."], sentence: "Learn how routines work." },
+  workflows: { holds: ["Each workflow's trigger and its steps, in order.", "The steps that wait for your approval, and who decides each one."], sentence: "Learn how workflows run." },
+  weaves: { holds: ["Each weave and the departments it connects.", "What starts it, such as a signed contract, and what it starts next."], sentence: "Learn how weaves work." },
 };

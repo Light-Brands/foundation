@@ -29,7 +29,7 @@ export default async function SetupPage() {
             </div>
             <p className="mt-2 text-sm text-admin-muted">{s.unlocks}</p>
             {s.status === "next" && s.prompt && (
-              <div className="mt-4"><PromptBox name={s.prompt} title={`Do it with Claude: ${s.label}`} /></div>
+              <div className="mt-4"><PromptBox name={s.prompt} title={`Do it with Claude: ${s.label}`} primary /></div>
             )}
             {s.status === "later" && s.prompt && (
               <details className="mt-4">

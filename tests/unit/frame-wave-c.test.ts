@@ -135,3 +135,39 @@ describe("the tab bar", () => {
     expect(h).toMatch(/<svg[^>]*text-accent/);
   });
 });
+
+describe("the whole-product pass", () => {
+  const read = (p: string) => readFileSync(p, "utf8");
+  it("an empty state is a calm card with a next step, never a bare line", async () => {
+    const { EmptyState } = await import("@/components/frame/EmptyState");
+    const h = html(createElement(EmptyState, { title: "Nothing is connected yet.", body: "Each connection appears here.", action: createElement("a", { href: "/x", className: "btn-primary" }, "See what you can add") }));
+    expect(h).toMatch(/class="surface[^"]*"/);
+    expect(h).toContain("btn-primary");
+    for (const p of ["src/app/admin/(console)/system/connections/page.tsx", "src/app/admin/(console)/system/modules/page.tsx", "src/app/admin/(console)/command/inbox/InboxList.tsx"]) expect(read(p), p).toContain("<EmptyState");
+  });
+  it("keeps the inbox to a readable width, and its move menu on the shared field style", () => {
+    expect(read("src/app/admin/(console)/command/inbox/InboxList.tsx")).toMatch(/max-w-4xl/);
+    const actions = read("src/app/admin/(console)/command/inbox/CardActions.tsx");
+    expect(actions).not.toContain("rounded-xl");
+    expect(actions).toMatch(/<select[^>]*className="field/);
+  });
+  it("gives the Brand and Agentic hubs one primary next step", () => {
+    for (const p of ["src/app/admin/(console)/brand/page.tsx", "src/app/admin/(console)/agentic/page.tsx"]) expect(read(p), p).toMatch(/action=\{[\s\S]*btn-primary/);
+  });
+  it("says something new on each coming page, beyond the line under its title", async () => {
+    const { READY } = await import("@/lib/layout/ready");
+    const { AGENTIC_PAGES, BRAND_PAGES } = await import("@/lib/layout/sections");
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z ]/g, "").replace(/\band\b/g, "").replace(/\s+/g, " ").trim();
+    for (const p of [...BRAND_PAGES, ...AGENTIC_PAGES]) for (const h of READY[p.id]!.holds) expect(norm(h), p.id).not.toBe(norm(p.blurb));
+  });
+  it("makes the next setup step's prompt the primary copy", () => {
+    expect(read("src/components/PromptBox.tsx")).toContain("primary");
+    expect(read("src/app/admin/(console)/system/setup/page.tsx")).toMatch(/<PromptBox[^>]*primary/);
+  });
+  it("lets a keyboard skip the menu and always shows where focus is", () => {
+    const frame = read("src/components/frame/AdminFrame.tsx");
+    expect(frame).toMatch(/href="#main"[^>]*>Skip to content/);
+    expect(frame).toMatch(/<main id="main" tabIndex=\{-1\}/);
+    expect(rule(".field")).toMatch(/focus-visible:ring-2/);
+  });
+});

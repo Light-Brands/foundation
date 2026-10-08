@@ -5,6 +5,7 @@ import { hasTester } from "@/lib/connections/tester";
 import { keyRoot } from "@/lib/key/write";
 import { TestButton } from "./TestButton";
 import { PageHeader } from "@/components/frame/PageHeader";
+import { EmptyState } from "@/components/frame/EmptyState";
 
 const DOOR = { own: "Your own account", custom: "Built by Light Brands" } as const;
 const STATUS = { planned: "Planned", connected: "Connected", failing: "Needs a look", disconnected: "Disconnected" } as const;
@@ -23,9 +24,11 @@ export default async function ConnectionsPage() {
         lede={<>Every service your business uses, how it was connected, and the name of the setting that holds its key. Keys stay in your host&apos;s settings, never here.</>}
       />
       {rows.length === 0 ? (
-        <p className="text-admin-muted">
-          Nothing is connected yet. Each connection you add appears here with its status. <Link href="/admin/system/modules" className="text-admin-ink underline">See what you can add</Link>
-        </p>
+        <EmptyState
+          title="Nothing is connected yet."
+          body="Each tool you connect appears here with its status. Every job page has a door for connecting the tool you already use for that job."
+          action={<Link href="/admin/business" className="btn-primary">Choose a job to connect</Link>}
+        />
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => {

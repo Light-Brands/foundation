@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getDb, storageMode } from "@/lib/db";
 import { listInbox } from "@/lib/data/inbox";
 import { PromptBox } from "@/components/PromptBox";
+import { EmptyState } from "@/components/frame/EmptyState";
 import { InboxCard } from "./InboxCard";
 import { inboxCardProps } from "./card-props";
 
@@ -12,14 +13,19 @@ export async function InboxList() {
   const items = await listInbox(db);
   if (items.length === 0) {
     return (
-      <div className="space-y-4">
+      <div className="max-w-4xl space-y-4">
         {storageMode() === "preview" ? (
           <p className="text-admin-muted">
             Your contact page starts taking messages once your database is connected.{" "}
             <Link href="/admin/system/setup" className="text-admin-ink underline">Open setup</Link>
           </p>
         ) : (
-          <p className="text-admin-muted">Nothing yet. Your public contact page is at <code className="font-mono text-admin-ink">/contact</code>. Share it and the first message arrives here.</p>
+          <EmptyState
+            kicker="All clear"
+            title="New messages and decisions land here."
+            body={<>Your public contact page is at <code className="font-mono text-admin-ink">/contact</code>. Share it and the first message arrives here.</>}
+            action={<a href="/contact" target="_blank" rel="noreferrer" className="btn-primary">Open my contact page</a>}
+          />
         )}
         <PromptBox name="first-session" title="Ask Claude what to do next" />
       </div>
@@ -27,7 +33,7 @@ export async function InboxList() {
   }
   const propsFor = await inboxCardProps(db, items);
   return (
-    <ul className="space-y-3">
+    <ul className="max-w-4xl space-y-3">
       {items.map((i) => <InboxCard key={i.id} {...propsFor(i)} />)}
     </ul>
   );

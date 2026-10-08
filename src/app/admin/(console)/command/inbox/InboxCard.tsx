@@ -5,6 +5,7 @@ import { formatCardTime } from "@/lib/time";
 import { CardTime } from "@/components/CardTime";
 import { CardActions } from "./CardActions";
 import { EmailDraft } from "./EmailDraft";
+import { Check } from "@/components/frame/icons";
 
 const STATUS_LABEL = { new: "", decided: "Decided, waiting for its job to finish", done: "Done" } as const;
 
@@ -23,18 +24,19 @@ export type InboxCardProps = {
 // A job that groups or annotates the Inbox renders every card through this, so no action is ever lost.
 export function InboxCard({ item: i, timezone, mode, routes, handSend, below }: InboxCardProps) {
   return (
-    <li id={`card-${i.id}`} className="surface scroll-mt-20 p-4">
+    <li id={`card-${i.id}`} data-status={i.status} className={`surface scroll-mt-20 p-card ${i.status === "done" ? "bg-admin-canvas shadow-none" : ""}`}>
       <div className="flex items-baseline justify-between gap-4">
-        <p className="text-admin-ink">{i.title}</p>
+        <p className={i.status === "done" ? "text-admin-muted" : "font-medium text-admin-ink"}>{i.title}</p>
         <CardTime at={i.created_at} timezone={timezone} className="shrink-0 font-mono text-xs text-admin-muted" />
       </div>
       {i.contact_email && <p className="text-sm text-admin-muted">{i.contact_email}</p>}
-      <p className="mt-2 whitespace-pre-wrap text-sm text-admin-muted">{i.body}</p>
+      <p className="mt-2 max-w-prose whitespace-pre-wrap text-sm leading-relaxed text-admin-muted">{i.body}</p>
       {i.emails.map((e) => (
         <EmailDraft key={e.id} email={e} sendAfter={e.send_after ? formatCardTime(e.send_after, timezone) : null} handSend={handSend.get(e.id) ?? { copyText: null, reason: null }} />
       ))}
       {i.status !== "new" && (
-        <p className="mt-2 text-xs text-admin-muted">
+        <p className={`mt-3 inline-flex items-center gap-1.5 text-xs ${i.status === "done" ? "text-good" : "text-admin-muted"}`}>
+          {i.status === "done" && <Check size={14} aria-hidden />}
           {i.decision === "approve" ? "Approved. " : i.decision === "decline" ? "Declined. " : ""}{STATUS_LABEL[i.status]}
         </p>
       )}

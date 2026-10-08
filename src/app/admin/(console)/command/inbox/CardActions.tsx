@@ -32,7 +32,7 @@ export function CardActions({ id, mode, status, routes = [] }: { id: string; mod
         <form action={route} className="flex gap-2">
           <input type="hidden" name="id" value={id} />
           <label className="sr-only" htmlFor={`to-${id}`}>Move to</label>
-          <select id={`to-${id}`} name="to" className="rounded-xl border border-admin-line-strong bg-admin-canvas px-3 py-2 text-sm text-admin-ink">
+          <select id={`to-${id}`} name="to" className="field w-auto">
             {routes.map((r) => <option key={r.kind} value={r.kind}>{r.label}</option>)}
           </select>
           <button type="submit" className={`btn-quiet ${BUTTON}`} disabled={pending}>Move</button>

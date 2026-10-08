@@ -24,6 +24,7 @@ function load(root: string): Map<string, DictionaryEntry> | null {
     if (!Array.isArray(doc?.numbers)) throw new Error("it holds no numbers list");
     byPage = new Map();
     for (const row of doc.numbers as Record<string, unknown>[]) {
+      if (row?.retired === true) continue;
       const number = typeof row?.number === "number" ? String(row.number) : row?.number;
       if (typeof row?.page !== "string" || typeof number !== "string" || typeof row.title !== "string") continue;
       const entry = typeof row.entry === "string" && ENTRY_ID.test(row.entry) ? row.entry : null;
@@ -36,7 +37,32 @@ function load(root: string): Map<string, DictionaryEntry> | null {
   return byPage;
 }
 
-/** The numbered entry for a page: <department>/<job>, brand/<page> or agentic/<page>, as numbers.yaml names it. */
+const LINK_PREFIX = "https://lb-share.lightbrands.ai/s/";
+const linksLoaded = new Map<string, Map<string, string>>();
+
+function loadLinks(root: string): Map<string, string> {
+  const cached = linksLoaded.get(root);
+  if (cached) return cached;
+  const links = new Map<string, string>();
+  try {
+    const doc = parse(readFileSync(path.join(root, "ninja", "foundation", "links.yaml"), "utf8")) as { links?: unknown } | null;
+    if (!doc?.links || typeof doc.links !== "object") throw new Error("it holds no links map");
+    for (const [id, url] of Object.entries(doc.links as Record<string, unknown>)) {
+      if (ENTRY_ID.test(id) && typeof url === "string" && url.startsWith(LINK_PREFIX)) links.set(id, url);
+    }
+  } catch (err) {
+    console.error(`dictionary: ninja/foundation/links.yaml could not be read, so prompts use the front door: ${(err as Error).message.split("\n")[0]}`);
+  }
+  linksLoaded.set(root, links);
+  return links;
+}
+
+/** The address of an entry's own page in the Dojo Dictionary, or null when it is not published. */
+export function entryLink(entry: string, root: string = process.cwd()): string | null {
+  return loadLinks(root).get(entry) ?? null;
+}
+
+/** The numbered entry for a page: <department>/<job>, context/<page> or agentic/<page>, as numbers.yaml names it. */
 export function entryForPage(page: string, root: string = process.cwd()): DictionaryEntry | null {
   return load(root)?.get(page) ?? null;
 }
@@ -58,6 +84,7 @@ export function entryWritten(e: DictionaryEntry, root: string = process.cwd()): 
 /** The copied prompt for a page, opening with the chief of staff's name. title is used only when the page has no number. */
 export function pagePrompt(name: string, page: string, title: string, root: string = process.cwd()): string {
   const e = entryForPage(page, root);
-  if (!e) return dictionaryPrompt({ name, number: null, title, entry: null });
-  return dictionaryPrompt({ name, number: e.number, title: e.title, entry: entryWritten(e, root) ? e.entry : null });
+  if (!e) return dictionaryPrompt({ name, number: null, title, entry: null, link: null });
+  const written = e.entry && entryWritten(e, root);
+  return dictionaryPrompt({ name, number: e.number, title: e.title, entry: written ? e.entry : null, link: written && e.entry ? entryLink(e.entry, root) : null });
 }

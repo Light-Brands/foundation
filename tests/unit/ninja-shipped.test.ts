@@ -52,7 +52,9 @@ describe("the shipped Ninja framework", () => {
     const files = readdirSync("ninja", { recursive: true }) as string[];
     for (const f of files.filter((x) => /^(frameworks|blueprints|modules|agents|skills|routines|connections)\/.*\.md$/.test(x))) {
       const fm = frontMatter(`ninja/${f}`);
-      for (const r of [...(fm.crew ?? []), ...(fm.specialists ?? [])]) expect(agents.has(r), `${f} names ${r}`).toBe(true);
+      for (const r of fm.crew ?? []) expect(agents.has(r), `${f} names ${r}`).toBe(true);
+      // A specialist is either a crew role that ships, or an id from the Master Agent Library add-on, which the run may leave out.
+      for (const r of fm.specialists ?? []) if (existsSync(`ninja/crew/${r}.md`)) expect(agents.has(r), `${f} names ${r}`).toBe(true);
     }
   });
 });

@@ -31,7 +31,7 @@ describe("safeNext percent-encoding", () => {
 
 describe("isPublicPath", () => {
   it("lets the public page, the sign-in, the contact page and static files through", () => {
-    for (const p of ["/", "/admin/login", "/api/gate", "/contact", "/_next/static/x.js", "/favicon.ico", "/pwa/app.webmanifest", "/pwa/icon-192.png", "/pwa/apple-touch-icon.png", "/sw.js", "/offline"]) {
+    for (const p of ["/", "/admin/login", "/api/gate", "/contact", "/_next/static/x.js", "/favicon.ico", "/pwa/app.webmanifest", "/pwa/icon-192.png", "/pwa/apple-touch-icon.png", "/sw.js", "/offline", "/robots.txt"]) {
       expect(isPublicPath(p)).toBe(true);
     }
   });

@@ -4,7 +4,8 @@ import { loadProfile } from "@/lib/data/safe";
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
-  return { title: (await loadProfile()).business };
+  const profile = await loadProfile();
+  return { title: profile.business, description: profile.what_we_do || `Welcome to ${profile.business}.` };
 }
 
 // A simple branded welcome until the landing page entry builds the real one: a faint glow field, an eyebrow

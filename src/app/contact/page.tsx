@@ -8,7 +8,8 @@ import { PublicForm } from "@/components/PublicForm";
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
-  return { title: (await loadProfile()).business };
+  const profile = await loadProfile();
+  return { title: profile.business, description: `Get in touch with ${profile.business}. Send a message and you will hear back soon.` };
 }
 
 export default async function ContactPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

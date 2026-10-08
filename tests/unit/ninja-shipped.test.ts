@@ -26,10 +26,10 @@ describe("frontMatter", () => {
   });
 });
 
-// This repository always ships the dictionary, so a missing ninja/VERSION is a failure, never a skip.
 // These specialists ship with the Master Agent Library add-on, so they have no crew file here.
 const ADDON_SPECIALISTS = new Set(["story-and-voice"]);
 
+// This repository always ships the dictionary, so a missing ninja/VERSION is a failure, never a skip.
 describe("the shipped Ninja framework", () => {
   it("has a valid version", () => {
     expect(existsSync("ninja/VERSION"), "ninja/VERSION is missing: the dictionary must ship in this repository").toBe(true);
@@ -60,7 +60,9 @@ describe("the shipped Ninja framework", () => {
       const fm = frontMatter(`ninja/${f}`);
       for (const r of fm.crew ?? []) expect(agents.has(r), `${f} names ${r}`).toBe(true);
       for (const r of fm.specialists ?? []) {
-        expect(existsSync(`ninja/crew/${r}.md`) || ADDON_SPECIALISTS.has(r), `${f} names specialist ${r}, which is neither a crew role nor an add-on specialist`).toBe(true);
+        if (ADDON_SPECIALISTS.has(r)) continue;
+        expect(existsSync(`ninja/crew/${r}.md`), `${f} names specialist ${r}, which is neither a crew role nor an add-on specialist`).toBe(true);
+        expect(agents.has(r), `${f} names specialist ${r}, which has no .claude/agents/crew-${r}.md`).toBe(true);
       }
     }
   });

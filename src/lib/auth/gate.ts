@@ -64,16 +64,16 @@ export async function handleGatePost(
   body: unknown,
   env: FoundationEnv,
   now: number = Date.now(),
-  gate?: { limiter: GateLimiter; client: string },
+  gate?: { limiter: GateLimiter; client: string; device?: string | null },
 ): Promise<{ status: 200 | 400 | 401 | 429 | 503; token?: string; error?: string; retryAfterMs?: number }> {
   if (!env.pin) return { status: 503, error: "setup" };
   const pin = (body as { pin?: unknown } | null)?.pin;
   if (typeof pin !== "string" || pin.length > 32) return { status: 400, error: "bad-request" };
   if (gate) {
-    const d = await gate.limiter.attempt(gate.client, new Date(now));
+    const d = await gate.limiter.attempt(gate.client, new Date(now), gate.device);
     if (!d.ok) return { status: 429, error: "too-many", retryAfterMs: d.retryAfterMs };
   }
   if (!(await pinMatches(pin, env.pin))) return { status: 401, error: "wrong-pin" };
-  if (gate) await gate.limiter.succeed(gate.client, new Date(now));
+  if (gate) await gate.limiter.succeed(gate.client, new Date(now), gate.device);
   return { status: 200, token: await signSession(env.pin, env.secret, now) };
 }

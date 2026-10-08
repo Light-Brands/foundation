@@ -11,6 +11,8 @@ import { CORE_CARD_KINDS } from "@/lib/key/core-kinds";
 //   every client. Once either is spent, every client waits, the owner too, until the oldest try in that window ages
 //   out. The wait is never longer than the window, so the owner is delayed and never locked out for good, and
 //   npm run auth:unlock ends it at once. The first time a day the site budget is spent, the owner gets an Inbox card.
+// A known device (src/lib/auth/device.ts) is counted on its own row in place of its address: five tries, then the
+// same doubling lockout, and it never touches the site's budget, so no stranger can stall it.
 // A right PIN clears its client and gives its try back to the site. The state lives in gate_attempts (clients) and
 // gate_failures (the site's tries), read and written in one transaction under an advisory lock, so a burst of tries
 // at once is counted one by one and every wait holds across restarts and every running copy of the site. Only a
@@ -33,10 +35,10 @@ export type GateLimits = { [K in keyof typeof GATE_LIMITS]: number };
 export type GateDecision = { ok: true } | { ok: false; retryAfterMs: number };
 
 export interface GateLimiter {
-  /** Records one try for this client at this time, and says whether its PIN may be compared. */
-  attempt(clientAddress: string, now: Date): Promise<GateDecision>;
-  /** A right PIN: the client's count is cleared and the site gets this try back. */
-  succeed(clientAddress: string, now: Date): Promise<void>;
+  /** Records one try for this client (or this known device) at this time, and says whether its PIN may be compared. */
+  attempt(clientAddress: string, now: Date, device?: string | null): Promise<GateDecision>;
+  /** A right PIN: the client's (or device's) count is cleared and the site gets this try back. */
+  succeed(clientAddress: string, now: Date, device?: string | null): Promise<void>;
 }
 
 /** The card the owner gets, once a day, when the site's budget is spent. */
@@ -74,9 +76,10 @@ export function siteWait(tries: readonly number[], now: number, l: GateLimits): 
 }
 
 /** Decides one try. The client is checked first; a try the site refuses compares no PIN and spends nothing. */
-export function decide(client: Row | undefined, siteTries: readonly number[], now: number, l: GateLimits): { decision: GateDecision; client?: Row; record: boolean; tripped: boolean } {
+export function decide(client: Row | undefined, siteTries: readonly number[], now: number, l: GateLimits, knownDevice = false): { decision: GateDecision; client?: Row; record: boolean; tripped: boolean } {
   const c = clientStep(client, now, l);
   if (!c.ok) return { decision: { ok: false, retryAfterMs: c.retryAfterMs }, client: c.changed ? c.row : undefined, record: false, tripped: false };
+  if (knownDevice) return { decision: { ok: true }, client: c.row, record: false, tripped: false };
   const wait = siteWait(siteTries, now, l);
   if (wait > 0) return { decision: { ok: false, retryAfterMs: wait }, record: false, tripped: true };
   return { decision: { ok: true }, client: c.row, record: true, tripped: false };
@@ -142,10 +145,13 @@ export function clientBucket(address: string): string {
 
 const enc = new TextEncoder();
 
-/** The stored key for a client: an HMAC of its bucket, so no table ever holds an address. */
-async function rowKey(address: string, secret: string): Promise<string> {
+/** The bucket a try counts in: the known device when there is one, else the client's address bucket. */
+const bucketFor = (address: string, device?: string | null) => (device ? `device:${device}` : clientBucket(address));
+
+/** The stored key for a bucket: an HMAC of it, so no table ever holds an address or a device id. */
+async function rowKey(bucket: string, secret: string): Promise<string> {
   const key = await crypto.subtle.importKey("raw", enc.encode(`foundation:gate-attempts:v1:${secret}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(clientBucket(address)));
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(bucket));
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -165,8 +171,8 @@ const UPSERT = `insert into gate_attempts (key, fails, window_start, locked_unti
 /** The limiter kept in gate_attempts and gate_failures. secret keys the client rows; every copy must use the same one. */
 export function dbGateLimiter(db: Db, secret: string, limits: GateLimits = GATE_LIMITS): GateLimiter {
   return {
-    async attempt(address, now) {
-      const key = await rowKey(address, secret);
+    async attempt(address, now, device) {
+      const key = await rowKey(bucketFor(address, device), secret);
       const t = now.getTime();
       const out = await db.transaction(async (tx) => {
         await tx.query("select pg_advisory_xact_lock(hashtext($1))", [LOCK]);
@@ -175,7 +181,7 @@ export function dbGateLimiter(db: Db, secret: string, limits: GateLimits = GATE_
         const [row] = await tx.query<DbRow>("select fails, window_start, locked_until, strikes, touched from gate_attempts where key = $1", [key]);
         const client = row && { fails: Number(row.fails), windowStart: ms(row.window_start), lockedUntil: ms(row.locked_until), strikes: Number(row.strikes), touched: ms(row.touched) };
         const tries = (await tx.query<{ at: unknown }>("select at from gate_failures order by at, id")).map((r) => ms(r.at));
-        const d = decide(client, tries, t, limits);
+        const d = decide(client, tries, t, limits, !!device);
         if (d.client) await tx.query(UPSERT, [key, d.client.fails, new Date(d.client.windowStart), date(d.client.lockedUntil), d.client.strikes, new Date(d.client.touched)]);
         if (d.record) await tx.query("insert into gate_failures (key_hash, at) values ($1, $2)", [key, now]);
         return d;
@@ -184,8 +190,8 @@ export function dbGateLimiter(db: Db, secret: string, limits: GateLimits = GATE_
       if (out.tripped) await raiseSlowedCard(db, now);
       return out.decision;
     },
-    async succeed(address) {
-      const key = await rowKey(address, secret);
+    async succeed(address, _now, device) {
+      const key = await rowKey(bucketFor(address, device), secret);
       await db.transaction(async (tx) => {
         await tx.query("select pg_advisory_xact_lock(hashtext($1))", [LOCK]);
         await tx.query("delete from gate_attempts where key = $1", [key]);
@@ -213,20 +219,20 @@ export function memoryGateLimiter(limits: GateLimits = GATE_LIMITS): GateLimiter
     return next;
   };
   return {
-    attempt: (address, now) =>
+    attempt: (address, now, device) =>
       serial(() => {
         const t = now.getTime();
         for (const [k, r] of clients) if (forgotten(r, t, limits)) clients.delete(k);
         tries = tries.filter((x) => x.at > t - limits.dayMs);
-        const key = clientBucket(address);
-        const d = decide(clients.get(key), tries.map((x) => x.at), t, limits);
+        const key = bucketFor(address, device);
+        const d = decide(clients.get(key), tries.map((x) => x.at), t, limits, !!device);
         if (d.client) clients.set(key, d.client);
         if (d.record) tries.push({ at: t, key });
         return d.decision;
       }),
-    succeed: (address) =>
+    succeed: (address, _now, device) =>
       serial(() => {
-        const key = clientBucket(address);
+        const key = bucketFor(address, device);
         clients.delete(key);
         const i = tries.map((x) => x.key).lastIndexOf(key);
         if (i >= 0) tries.splice(i, 1);

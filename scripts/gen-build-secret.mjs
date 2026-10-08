@@ -1,8 +1,12 @@
 import { randomBytes } from "crypto";
-import { writeFileSync, mkdirSync } from "fs";
+import { existsSync, writeFileSync, mkdirSync } from "fs";
 
 const outDir = "src/generated";
 const outFile = `${outDir}/build-secret.ts`;
+
+// --if-missing keeps the secret already there. An owner command such as npm run auth:unlock uses it, because a new
+// secret signs out a running dev session and orphans the limiter's keys.
+if (process.argv.includes("--if-missing") && existsSync(outFile)) process.exit(0);
 
 mkdirSync(outDir, { recursive: true });
 

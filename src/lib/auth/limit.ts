@@ -201,6 +201,12 @@ export function dbGateLimiter(db: Db, secret: string, limits: GateLimits = GATE_
   };
 }
 
+/** True when both of the limiter's tables exist. npm run auth:unlock checks this and never creates them. */
+export async function gateTablesExist(db: Queryable): Promise<boolean> {
+  const [r] = await db.query<{ ok: boolean }>("select to_regclass('gate_attempts') is not null and to_regclass('gate_failures') is not null as ok");
+  return !!r?.ok;
+}
+
 /** Forgets every client and every counted try: the owner's way in when sign-in is waiting. Returns the rows removed. */
 export async function clearGateAttempts(db: Queryable): Promise<number> {
   const a = await db.query<{ key: string }>("delete from gate_attempts returning key");

@@ -31,3 +31,20 @@ test("every page carries the security headers and runs with nothing blocked by i
   expect(icon.status()).toBe(200);
   expect(blocked).toEqual([]);
 });
+
+test("the unsubscribe page's own styles apply under the production policy", async ({ page }) => {
+  const blocked: string[] = [];
+  page.on("console", (m) => {
+    if (/Content Security Policy|Refused to (load|execute|apply)/i.test(m.text())) blocked.push(m.text());
+  });
+  await page.addInitScript(() => {
+    document.addEventListener("securitypolicyviolation", (e) => console.error(`Content Security Policy violation: ${e.violatedDirective}`));
+  });
+  // A token in the public shape that no row signed: the page says the link does not work, styled.
+  const res = await page.goto(`/u/00000000-0000-4000-8000-000000000000.${"A".repeat(43)}`);
+  expect(res!.status()).toBe(404);
+  expect(res!.headers()["content-security-policy"]).toMatch(/style-src-elem 'self' 'nonce-[^']+'/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("This link does not work");
+  expect(await page.evaluate(() => getComputedStyle(document.body).maxWidth)).toBe("512px");
+  expect(blocked).toEqual([]);
+});

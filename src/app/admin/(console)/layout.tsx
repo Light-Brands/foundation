@@ -19,6 +19,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
   const where = { ...found, folder: localFolder(found.folder, host, process.env.VERCEL === "1") };
   const badges = { "command.inbox": waiting };
   return (
+    <RepoProvider value={where}>
     <AdminFrame
       businessName={profile.business}
       chiefName={chiefName(profile)}
@@ -27,7 +28,8 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
       settings={buildSettings(badges)}
       banner={storageMode() === "preview" ? <PreviewBanner /> : undefined}
     >
-      <RepoProvider value={where}>{children}</RepoProvider>
+      {children}
     </AdminFrame>
+    </RepoProvider>
   );
 }

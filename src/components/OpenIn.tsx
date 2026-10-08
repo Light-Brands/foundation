@@ -39,21 +39,23 @@ const serverFolder = (): string | null => null;
  * Nothing is sent: the owner reads the prompt and presses Enter. learn=false hides the setup link before sign-in;
  * align="right" anchors the picker to the right edge of the control.
  */
-export function OpenIn({ prompt, primary = false, learn = true, align = "left", compact = false, label: mainLabel, icon = false }: {
+export function OpenIn({ prompt, primary = false, learn = true, align = "left", compact = false, label: mainLabel, icon = false, defaultOpen = false }: {
   prompt: string; primary?: boolean; learn?: boolean; align?: "left" | "right";
   /** Compact: the main part reads the label (Claude by default), and Copy and the repo line move into the menu. */
   compact?: boolean; label?: string;
   /** Compact only: the main part is the Claude icon, named Open Claude, for a phone header. */
   icon?: boolean;
+  /** Starts with the menu open. For markup tests; the page never sets it. */
+  defaultOpen?: boolean;
 }) {
-  const { repo, folder: provided, label: where_ } = useRepo();
+  const { repo, folder: provided, label: repoLabel } = useRepo();
   const savedTarget = useSyncExternalStore(subscribe, readTarget, serverTarget);
   const savedFolder = useSyncExternalStore(subscribe, readStoredFolder, serverFolder);
   // When storage refuses a write, the choice still holds for this page.
   const [kept, setKept] = useState<{ target?: Target }>({});
   const target = kept.target ?? savedTarget;
   const stored = savedFolder;
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState("");
   const root = useRef<HTMLDivElement>(null);
@@ -134,7 +136,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
   const sm = compact ? " btn-sm" : "";
   const asIcon = compact && icon;
   const askFolder = !main.ok && target !== "web" && !folder;
-  const fallback = where_ === "your Foundation";
+  const fallback = repoLabel === "your Foundation";
   const mainName = asIcon ? { "aria-label": "Open Claude" } : {};
   const mainBody = asIcon ? <Sparkles aria-hidden className="h-5 w-5" /> : text;
   const repoLine = (
@@ -142,14 +144,14 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
       {fallback ? (
         <>Opens in your Foundation folder. Check it is selected before you send.</>
       ) : (
-        <>Opens in <span className="font-medium text-admin-ink">{where_}</span> · check it is selected before you send.</>
+        <>Opens in <span className="font-medium text-admin-ink">{repoLabel}</span> · check it is selected before you send.</>
       )}
       {learn && <>{" "}<Link href="/admin/system/setup#work-with-claude" className="underline underline-offset-4">How this works</Link></>}
     </p>
   );
 
   return (
-    <div ref={root} className="relative" onKeyDown={onRootKey} onBlur={onBlur}>
+    <div ref={root} className={asIcon ? undefined : "relative"} onKeyDown={onRootKey} onBlur={onBlur}>
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex items-stretch">
           {main.ok ? (
@@ -187,7 +189,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
         {!compact && <CopyButton text={prompt} />}
       </div>
       {open && (
-        <div className={`surface absolute ${align === "right" ? "right-0" : "left-0"} z-20 mt-2 w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] p-2 shadow-lg`}>
+        <div className={`surface absolute z-20 p-2 shadow-lg ${asIcon ? "inset-x-4 top-full mt-1" : `${align === "right" ? "right-0" : "left-0"} mt-2 w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)]`}`}>
           <ul id={menuId} role="menu" aria-label="Open in" className="space-y-1" onKeyDown={onMenuKey}>
             {TARGETS.map((t) => {
               const built = openInLink(t, prompt, where);

@@ -18,6 +18,7 @@ const { Doors } = await import("@/components/Doors");
 const { TopBar } = await import("@/components/frame/TopBar");
 const { MobileHeader } = await import("@/components/frame/MobileHeader");
 const { RepoProvider } = await import("@/components/RepoProvider");
+const { OpenIn: OpenInButton } = await import("@/components/OpenIn");
 const { blankSessionPrompt } = await import("@/lib/dictionary/prompt");
 const BusinessHub = (await import("@/app/admin/(console)/business/page")).default;
 
@@ -194,5 +195,51 @@ describe("the Claude button", () => {
     expect(p.startsWith("Sage, ")).toBe(true);
     expect(p).toContain("Harbor Studio");
     expect(p).not.toMatch(/[\u2013\u2014]|\s-\s/);
+  });
+});
+
+describe("the Claude button, fix round 1", () => {
+  const where = { repo: "h/c", folder: "/Users/me/c", label: "c" };
+  const menu = (extra: object = {}) => renderToStaticMarkup(createElement(RepoProvider, { value: where },
+    createElement(OpenInButton, { prompt: "Sage, hello.", compact: true, defaultOpen: true, ...extra })));
+
+  it("carries the console's repo and folder into the top bar", async () => {
+    vi.resetModules();
+    vi.doMock("next/navigation", () => ({ usePathname: () => "/admin", useSearchParams: () => new URLSearchParams() }));
+    vi.doMock("next/headers", () => ({ headers: async () => new Headers({ host: "localhost:3000" }) }));
+    vi.doMock("@/lib/db", () => ({ storageMode: () => "local" }));
+    vi.doMock("@/lib/data/safe", () => ({
+      loadProfile: async () => ({ business: "Harbor Studio", chief_name: "Sage" }),
+      loadBrand: async () => ({ logoUrl: null }),
+      loadInboxCount: async () => 0,
+    }));
+    vi.doMock("@/lib/claude/repo", () => ({ repoWhere: async () => ({ repo: "h/c", folder: "/Users/me/c", label: "c" }), localFolder: (f: string) => f }));
+    const Layout = (await import("@/app/admin/(console)/layout")).default;
+    const html = renderToStaticMarkup(await Layout({ children: null }));
+    const hrefs = (html.match(/href="claude:\/\/code\/new\?[^"]*"/g) ?? []).join(" ");
+    expect(hrefs).toContain("folder=");
+    expect(decodeURIComponent(hrefs.replace(/&amp;/g, "&"))).toContain("/Users/me/c");
+    vi.doUnmock("@/lib/claude/repo");
+  });
+
+  it("puts Copy and the repo line in the compact menu, not beside the button", () => {
+    const html = menu();
+    expect(html).toContain("Copy prompt");
+    expect(html).toContain("Opens in");
+    const closed = renderToStaticMarkup(createElement(RepoProvider, { value: where }, createElement(OpenInButton, { prompt: "Sage, hello.", compact: true })));
+    expect(closed).not.toContain("Copy prompt");
+    expect(closed).not.toContain("Opens in");
+  });
+
+  it("keeps the phone popup inside the viewport", () => {
+    const html = menu({ icon: true });
+    expect(html).toContain("inset-x-4");
+    expect(html).not.toContain("w-[min(22rem");
+  });
+
+  it("shows no phone Claude button off the hubs", () => {
+    pathname = "/admin/context/story";
+    const html = renderToStaticMarkup(createElement(MobileHeader, { sections: buildSections(), settings: buildSettings(), businessName: "Harbor Studio", logoUrl: null, chiefName: "Sage" }));
+    expect(html).not.toContain("Open Claude");
   });
 });

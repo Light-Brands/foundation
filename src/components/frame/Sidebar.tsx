@@ -3,8 +3,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useId, useState } from "react";
 import type { NavHeading, NavSection } from "@/lib/layout/sections";
-import { activeEntry } from "@/lib/layout/sections";
+import { activeEntry, entryLabel } from "@/lib/layout/sections";
 import { SECTION_ICONS, Settings, ExternalLink, ChevronLeft, ChevronDown, Lock } from "./icons";
+import { Monogram } from "./Monogram";
+import { StateDot } from "./SectionHub";
 
 type Props = {
   businessName: string;
@@ -14,11 +16,6 @@ type Props = {
   collapsed: boolean;
   onToggle: () => void;
 };
-
-export function Monogram({ name }: { name: string }) {
-  const letters = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
-  return <span className="flex h-8 w-8 items-center justify-center rounded-control bg-accent font-label text-xs font-semibold text-on-accent">{letters || "C"}</span>;
-}
 
 export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, onToggle }: Props) {
   const pathname = usePathname();
@@ -56,7 +53,7 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
           onClick={onToggle}
           aria-label={collapsed ? "Expand the menu" : "Collapse the menu"}
           title="Toggle the menu (⌘B)"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-admin-faint transition-colors hover:bg-admin-hover hover:text-admin-muted"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-admin-ghost transition-colors hover:bg-admin-hover hover:text-admin-muted"
         >
           <ChevronLeft size={16} className={`transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`} />
         </button>
@@ -80,20 +77,20 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
                   holdsActive ? "text-admin-ink" : quiet
                 } ${collapsed ? "justify-center" : ""}`}
               >
-                <Icon size={16} aria-hidden className={holdsActive ? "text-accent" : "text-admin-faint group-hover:text-admin-muted"} />
+                <Icon size={16} aria-hidden className={holdsActive ? "text-accent" : "text-admin-ghost group-hover:text-admin-muted"} />
                 {!collapsed && <span className="flex-1 truncate">{s.label}</span>}
                 {!collapsed && !isOpen && s.badge > 0 && (
                   <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-on-accent" aria-label={`${s.badge} waiting in ${s.label}`}>
                     {s.badge}
                   </span>
                 )}
-                {!collapsed && <ChevronDown size={14} aria-hidden className={`text-admin-faint transition-transform duration-200 ease-breath ${isOpen ? "" : "-rotate-90"}`} />}
+                {!collapsed && <ChevronDown size={14} aria-hidden className={`text-admin-ghost transition-transform duration-200 ease-breath ${isOpen ? "" : "-rotate-90"}`} />}
               </button>
               <div id={panelId} className={`grid transition-[grid-template-rows] duration-300 ease-breath ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
                 <div className="overflow-hidden" inert={!isOpen}>
                   {s.headings.map((h) => (
                     <div key={h.label || "main"} className="mt-1">
-                      {h.label && <h3 className="mb-1 mt-2 pl-9 text-[10px] font-semibold uppercase tracking-wider text-admin-faint">{h.label}</h3>}
+                      {h.label && <h3 className="kicker mb-1 mt-3 pl-9">{h.label}</h3>}
                       <ul className="space-y-0.5 pl-6">
                         {h.entries.map((e) => {
                           const isActive = active === e.key;
@@ -102,7 +99,8 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
                               <Link
                                 href={e.href}
                                 aria-current={isActive ? "page" : undefined}
-                                className={`flex items-center gap-2 rounded-control px-3 py-1.5 text-[13px] transition-colors duration-200 ease-breath ${
+                                aria-label={entryLabel(e)}
+                                className={`flex items-center gap-2.5 rounded-control px-3 py-1.5 text-[13px] transition-colors duration-200 ease-breath ${
                                   isActive
                                     ? "bg-accent font-medium text-on-accent shadow-sm"
                                     : e.state === "built"
@@ -110,6 +108,7 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
                                       : "text-admin-faint hover:bg-admin-hover hover:text-admin-muted"
                                 }`}
                               >
+                                <StateDot state={e.state} onAccent={isActive} />
                                 <span className="flex-1 truncate">{e.label}</span>
                                 {e.state === "soon" && (
                                   <span className="inline-flex items-center rounded-full bg-admin-hover px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-admin-faint">Soon</span>
@@ -138,11 +137,11 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
           title={collapsed ? "Settings" : undefined}
           className={`flex items-center gap-2.5 rounded-control px-3 py-2 text-[13px] font-medium transition-colors ${inSettings ? "bg-admin-hover text-admin-ink" : quiet} ${collapsed ? "justify-center" : ""}`}
         >
-          <Settings size={16} aria-hidden className="text-admin-faint" />
+          <Settings size={16} aria-hidden className="text-admin-ghost" />
           {!collapsed && <span>Settings</span>}
         </Link>
         <a href="/" target="_blank" rel="noreferrer" title={collapsed ? "View my site" : undefined} className={`flex items-center gap-2.5 rounded-control px-3 py-2 text-[13px] font-medium transition-colors ${quiet} ${collapsed ? "justify-center" : ""}`}>
-          <ExternalLink size={16} aria-hidden className="text-admin-faint" />
+          <ExternalLink size={16} aria-hidden className="text-admin-ghost" />
           {!collapsed && <span>View my site</span>}
         </a>
         <button
@@ -156,7 +155,7 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
           }}
           className={`flex w-full items-center gap-2.5 rounded-control px-3 py-2 text-[13px] font-medium transition-colors ${quiet} ${collapsed ? "justify-center" : ""}`}
         >
-          <Lock size={16} aria-hidden className="text-admin-faint" />
+          <Lock size={16} aria-hidden className="text-admin-ghost" />
           {!collapsed && <span>Lock</span>}
         </button>
       </div>

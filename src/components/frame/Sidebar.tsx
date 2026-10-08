@@ -75,13 +75,15 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
                 aria-expanded={isOpen}
                 aria-controls={panelId}
                 title={collapsed ? s.label : undefined}
+                aria-label={collapsed && s.badge > 0 ? `${s.label}, ${s.badge} waiting` : undefined}
                 onClick={() => (collapsed ? onToggle() : setOpen(isOpen ? "" : s.id))}
-                className={`group flex w-full items-center gap-2.5 rounded-control px-3 py-2 text-left text-[13px] font-medium transition-colors duration-200 ease-breath ${
+                className={`group relative flex w-full items-center gap-2.5 rounded-control px-3 py-2 text-left text-[13px] font-medium transition-colors duration-200 ease-breath ${
                   holdsActive ? "text-admin-ink" : quiet
                 } ${collapsed ? "justify-center" : ""}`}
               >
                 <Icon size={16} aria-hidden className={holdsActive ? "text-admin-ink" : "text-admin-ghost group-hover:text-admin-muted"} />
                 {!collapsed && <span className="flex-1 truncate">{s.label}</span>}
+                {collapsed && s.badge > 0 && <span data-badge-dot="" aria-hidden className="absolute right-3 top-1.5 h-2 w-2 rounded-full bg-accent ring-2 ring-admin-surface" />}
                 {!collapsed && !isOpen && s.badge > 0 && (
                   <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-on-accent" data-badge="" aria-label={`${s.badge} waiting in ${s.label}`}>
                     {s.badge}

@@ -19,12 +19,13 @@ export function TabBar({ sections, settings, todayBadge }: { sections: NavSectio
               <Link
                 href={t.href}
                 aria-current={on ? "page" : undefined}
+                aria-label={t.id === "today" && todayBadge > 0 ? `${t.label}, ${todayBadge} waiting` : undefined}
                 className={`relative flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors duration-200 ease-breath ${on ? "text-admin-ink" : "text-admin-faint hover:text-admin-muted"}`}
               >
                 <Icon size={22} strokeWidth={on ? 2.25 : 1.75} aria-hidden className={on ? "text-accent" : undefined} />
                 <span>{t.label}</span>
                 {t.id === "today" && todayBadge > 0 && (
-                  <span className="absolute right-[calc(50%-18px)] top-2 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-admin-surface" aria-label={`${todayBadge} waiting`} />
+                  <span aria-hidden="true" className="absolute right-[calc(50%-18px)] top-2 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-admin-surface" />
                 )}
               </Link>
             </li>

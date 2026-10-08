@@ -44,7 +44,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ icon: s
       </div>
     ),
     {
-      width: size, height: size, headers: { "Cache-Control": "public, max-age=3600" },
+      width: size, height: size, headers: { "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400" },
       ...(face ? { fonts: [{ name: "Monogram", data: Buffer.from(face.data, "base64"), weight: 400 as const, style: "normal" as const }] } : {}),
     },
   );

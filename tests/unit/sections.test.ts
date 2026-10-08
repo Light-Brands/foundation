@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { CATEGORIES } from "@/lib/layout/categories";
 import {
   buildSections, buildSettings, activeEntry, findOwnPage, TABS, tabFor, mobileBar,
-  SECTION_DEPARTMENTS, SETTINGS_DEPARTMENTS, BRAND_PAGES, AGENTIC_PAGES, breadcrumb, entryLabel,
+  SECTION_DEPARTMENTS, SETTINGS_DEPARTMENTS, BRAND_PAGES, AGENTIC_PAGES, breadcrumb, entryLabel, hubOwner,
 } from "@/lib/layout/sections";
 
 describe("the six sections", () => {
@@ -90,7 +90,7 @@ describe("the phone tabs", () => {
   it("title every screen and point back to its tab", () => {
     expect(mobileBar("/admin", sections, settings)).toEqual({ title: "Today", back: null, hub: "today" });
     expect(mobileBar("/admin/business", sections, settings)).toEqual({ title: "Business", back: null, hub: "business" });
-    expect(mobileBar("/admin/command/inbox", sections, settings)).toEqual({ title: "Handle what needs you", back: "/admin", hub: null });
+    expect(mobileBar("/admin/command/inbox", sections, settings)).toEqual({ title: "Inbox", back: "/admin", hub: null });
     expect(mobileBar("/admin/brand/identity", sections, settings)).toEqual({ title: "Identity", back: "/admin/brand", hub: null });
     expect(mobileBar("/admin/sell/leads", sections, settings)).toEqual({ title: "Capture leads", back: "/admin/business?stage=grow", hub: null });
     expect(mobileBar("/admin/keep/reviews", sections, settings)).toEqual({ title: "Collect reviews", back: "/admin/business?stage=serve", hub: null });
@@ -122,4 +122,18 @@ describe("entry labels", () => {
     expect(entryLabel({ ...e, state: "soon" })).toBe("Collect reviews, coming soon");
     expect(entryLabel({ ...e, state: "built", badge: 3 })).toBe("Collect reviews, running, 3 waiting");
   });
+
+describe("the sidebar's owner on a hub", () => {
+  it("opens and marks the section a hub belongs to", () => {
+    expect(hubOwner("/admin/brand", null)).toBe("brand");
+    expect(hubOwner("/admin/agentic", null)).toBe("agentic");
+    expect(hubOwner("/admin/business", null)).toBe("grow");
+    expect(hubOwner("/admin/business", "serve")).toBe("serve");
+    expect(hubOwner("/admin/business", "run")).toBe("run");
+    expect(hubOwner("/admin/business", "nonsense")).toBe("grow");
+  });
+  it("names no owner on Today, More, or a page", () => {
+    for (const p of ["/admin", "/admin/more", "/admin/settings", "/admin/sell/leads", "/admin/brand/identity"]) expect(hubOwner(p, null), p).toBe("");
+  });
+});
 });

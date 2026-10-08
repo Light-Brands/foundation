@@ -114,6 +114,15 @@ export function entryLabel(e: NavEntry): string {
   return [e.label, STATE_WORDS[e.state], e.badge > 0 ? `${e.badge} waiting` : ""].filter(Boolean).join(", ");
 }
 
+// The section a hub page belongs to, so the sidebar opens and marks it. Business is the three stages, picked by
+// the stage parameter. Today, More and every deeper page name no owner here.
+export function hubOwner(pathname: string, stage: string | null): SectionId | "" {
+  if (pathname === "/admin/brand") return "brand";
+  if (pathname === "/admin/agentic") return "agentic";
+  if (pathname === "/admin/business") return stage === "serve" || stage === "run" ? stage : "grow";
+  return "";
+}
+
 export function findOwnPage(section: "brand" | "agentic", id: string): OwnPage | undefined {
   return OWN[section].find((p) => p.id === id);
 }

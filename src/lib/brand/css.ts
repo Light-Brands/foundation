@@ -59,16 +59,19 @@ const NAV: Record<NavMarker, Record<string, string>> = {
     bg: "var(--color-accent)", ink: "var(--color-on-accent)", shadow: "0 1px 2px rgb(0 0 0 / 0.05)",
     "dot-built": "var(--color-on-accent)", "dot-ready": "var(--color-on-accent)",
     "seg-bg": "var(--color-admin-surface)", "seg-shadow": "0 1px 2px rgb(0 0 0 / 0.05)",
+    "badge-bg": "var(--color-on-accent)", "badge-ink": "var(--color-accent)",
   },
   rail: {
     bg: "color-mix(in oklch, var(--color-accent) 8%, transparent)", ink: "var(--color-admin-ink)", shadow: "inset 2px 0 0 var(--color-accent)",
     "dot-built": "var(--color-good)", "dot-ready": "var(--color-admin-ghost)",
     "seg-bg": "transparent", "seg-shadow": "inset 0 -2px 0 var(--color-accent)",
+    "badge-bg": "var(--color-accent)", "badge-ink": "var(--color-on-accent)",
   },
   tint: {
     bg: "color-mix(in oklch, var(--color-accent) 12%, transparent)", ink: "var(--color-admin-ink)", shadow: "none",
     "dot-built": "var(--color-good)", "dot-ready": "var(--color-admin-ghost)",
     "seg-bg": "color-mix(in oklch, var(--color-accent) 12%, var(--color-admin-surface))", "seg-shadow": "none",
+    "badge-bg": "var(--color-accent)", "badge-ink": "var(--color-on-accent)",
   },
 };
 

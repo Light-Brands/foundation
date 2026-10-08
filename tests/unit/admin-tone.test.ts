@@ -142,4 +142,15 @@ describe("admin tone", () => {
       });
     }
   });
+
+  describe("count badges inside the current entry", () => {
+    it("take the opposite colors on the pill, and the accent on the rail and tint", () => {
+      const get = (navActive: string, k: string) => new RegExp(`--nav-active-${k}:([^;]*);`).exec(brandCss(parseBrand({ navActive })))?.[1];
+      expect(get("pill", "badge-bg")).toBe("var(--color-on-accent)");
+      expect(get("pill", "badge-ink")).toBe("var(--color-accent)");
+      expect(get("rail", "badge-bg")).toBe("var(--color-accent)");
+      expect(get("tint", "badge-ink")).toBe("var(--color-on-accent)");
+      expect(css).toMatch(/\.nav-active \[data-badge\]\s*\{[^}]*--nav-active-badge-bg/);
+    });
+  });
 });

@@ -12,7 +12,7 @@ const s = (id: string, label: string, blurb: string, hours: string): Subcategory
 export const CATEGORIES: Category[] = [
   { id: "command", label: "Command center", icon: "command", subcategories: [
     s("home", "See your day", "Your business at a glance: what came in, what needs you, and the next step.", "Core"),
-    s("inbox", "Handle what needs you", "Every message and every decision from every part of your business, in one place.", "Core"),
+    s("inbox", "Inbox", "Every message and every decision from every part of your business, in one place.", "Core"),
     s("alerts", "Get alerted", "The moments a number crosses a line you set, raised as soon as they happen.", "About 1 hour a week"),
   ]},
   { id: "attract", label: "Marketing", icon: "attract", subcategories: [

@@ -5,7 +5,7 @@ export default async function InboxPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        kicker="Command center · Handle what needs you"
+        kicker="Command center · What needs you"
         title="Inbox"
         lede={<>Every message and every decision from every part of your business lands here.</>}
       />

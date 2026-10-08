@@ -131,6 +131,7 @@ h1, h2:not(.kicker), h3:not(.kicker), h4 { font-family: var(--font-heading); }
 /* Where you are: the sidebar's current entry and the chosen stage. The brand picks the marker: pill (the default),
    rail or tint. Unlayered so the dot inside the current entry can take the marker's color over its own. */
 .nav-active { background-color: var(--nav-active-bg); color: var(--nav-active-ink); box-shadow: var(--nav-active-shadow); font-weight: 500; }
+.nav-active [data-badge] { background-color: var(--nav-active-badge-bg); color: var(--nav-active-badge-ink); }
 .nav-active [data-state="built"] { background-color: var(--nav-active-dot-built); }
 .nav-active [data-state="ready"] { --tw-ring-color: var(--nav-active-dot-ready); }
 .seg-active { background-color: var(--seg-bg-active); color: var(--color-admin-ink); box-shadow: var(--seg-shadow-active); }

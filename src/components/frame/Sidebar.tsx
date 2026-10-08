@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useId, useState } from "react";
 import { lockGate } from "./lock";
 import type { NavHeading, NavSection } from "@/lib/layout/sections";
-import { activeEntry, entryLabel } from "@/lib/layout/sections";
+import { activeEntry, entryLabel, hubOwner } from "@/lib/layout/sections";
 import { SECTION_ICONS, Settings, ExternalLink, ChevronLeft, ChevronDown, Lock } from "./icons";
 import { Monogram } from "./Monogram";
 import { StateDot } from "./SectionHub";
@@ -22,7 +22,8 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
   const pathname = usePathname();
   const uid = useId();
   const active = activeEntry(pathname, sections, settings);
-  const owner = sections.find((s) => s.headings.some((h) => h.entries.some((e) => e.key === active)))?.id ?? "";
+  const stage = useSearchParams().get("stage");
+  const owner = sections.find((s) => s.headings.some((h) => h.entries.some((e) => e.key === active)))?.id ?? hubOwner(pathname, stage);
   const [open, setOpen] = useState<string>(owner || "command");
   const [synced, setSynced] = useState(owner);
   if (synced !== owner) {
@@ -82,7 +83,7 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
                 <Icon size={16} aria-hidden className={holdsActive ? "text-admin-ink" : "text-admin-ghost group-hover:text-admin-muted"} />
                 {!collapsed && <span className="flex-1 truncate">{s.label}</span>}
                 {!collapsed && !isOpen && s.badge > 0 && (
-                  <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-on-accent" aria-label={`${s.badge} waiting in ${s.label}`}>
+                  <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-on-accent" data-badge="" aria-label={`${s.badge} waiting in ${s.label}`}>
                     {s.badge}
                   </span>
                 )}
@@ -116,7 +117,7 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
                                   <span className="inline-flex shrink-0 items-center rounded-full bg-admin-hover px-1.5 py-0.5 text-[11px] font-semibold uppercase leading-none tracking-wide text-admin-faint">Soon</span>
                                 )}
                                 {e.badge > 0 && (
-                                  <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-on-accent">{e.badge}</span>
+                                  <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-on-accent" data-badge="">{e.badge}</span>
                                 )}
                               </Link>
                             </li>

@@ -28,7 +28,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
         <div className={s.floor} aria-hidden />
         <div className={`${s.content} ${s.rise}`} style={{ animationDelay: "60ms" }}>
           {logo ? (
-            <Image src={logo} alt={profile.business} width={40} height={40} className="h-10 w-auto object-contain" unoptimized />
+            <Image src={logo} alt="" width={40} height={40} className="h-10 w-auto object-contain" unoptimized />
           ) : (
             <Monogram name={profile.business} size="xl" />
           )}

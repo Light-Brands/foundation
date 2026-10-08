@@ -5,11 +5,14 @@ vi.mock("@/lib/brand/fonts", () => ({ FONT_VARIABLES: "" }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 
 describe("each part of the site carries its own head", () => {
-  it("the root carries no command center title, manifest or noindex", async () => {
+  it("the root carries only the brand's icon: no command center title, manifest or noindex", async () => {
     vi.stubEnv("FOUNDATION_BUSINESS_NAME", "Harbor Studio");
     const root: Record<string, unknown> = await import("@/app/layout");
     expect(root.generateMetadata).toBeUndefined();
-    expect(root.metadata).toBeUndefined();
+    expect(root.metadata).toEqual({ icons: { icon: [{ url: "/pwa/icon-192.png", type: "image/png" }] } });
+    // The stock create-next-app favicon is gone; the tab shows the business's own monogram or logo.
+    const { existsSync } = await import("node:fs");
+    expect(existsSync("src/app/favicon.ico")).toBe(false);
   });
   it("the command center is the installable, unindexed app", async () => {
     const { generateMetadata } = await import("@/app/admin/layout");
@@ -18,6 +21,7 @@ describe("each part of the site carries its own head", () => {
     expect(m.robots).toEqual({ index: false, follow: false });
     expect(m.manifest).toBe("/manifest.webmanifest");
     expect(m.appleWebApp).toMatchObject({ capable: true, title: "Harbor Studio" });
+    expect(m.icons).toEqual({ icon: [{ url: "/pwa/icon-192.png", type: "image/png" }], apple: "/pwa/apple-touch-icon.png" });
   });
   it("the public pages wear the business's own name", async () => {
     for (const path of ["@/app/page", "@/app/contact/page"]) {

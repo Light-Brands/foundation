@@ -1,4 +1,4 @@
-import type { Viewport } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 import { FONT_VARIABLES } from "@/lib/brand/fonts";
@@ -7,6 +7,9 @@ import { loadBrand } from "@/lib/data/safe";
 
 // Only what every page shares lives here. The command center's own head (its title, manifest, home screen icon and
 // noindex) is in src/app/admin/layout.tsx, and each public page names itself after the business.
+
+// Every tab shows the business's own monogram or logo, drawn by the icon route.
+export const metadata: Metadata = { icons: { icon: [{ url: "/pwa/icon-192.png", type: "image/png" }] } };
 
 export async function generateViewport(): Promise<Viewport> {
   const brand = await loadBrand();

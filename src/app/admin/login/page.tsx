@@ -4,7 +4,7 @@ import { safeNext } from "@/lib/auth/gate";
 import { loadBrand, loadProfile } from "@/lib/data/safe";
 import { headers } from "next/headers";
 import { RepoProvider } from "@/components/RepoProvider";
-import { repoWhere, localFolder } from "@/lib/claude/repo";
+import { repoWhere, publicWhere } from "@/lib/claude/repo";
 import { PromptBox } from "@/components/PromptBox";
 import { Keypad } from "./Keypad";
 import { Monogram } from "@/components/frame/Monogram";
@@ -21,7 +21,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
   // The PIN check needs no data, so the sign-in page opens even when the database cannot be reached.
   const [profile, brand] = await Promise.all([loadProfile(), loadBrand()]);
   const found = await repoWhere();
-  const where = { ...found, folder: localFolder(found.folder, (await headers()).get("host"), process.env.VERCEL === "1") };
+  const where = publicWhere(found, (await headers()).get("host"), process.env.VERCEL === "1");
   const logo = brand.logoLightUrl ?? brand.logoUrl;
   return (
     <div className={s.page}>

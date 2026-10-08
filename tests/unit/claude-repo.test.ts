@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { parseRemote, resolveRepo, localFolder, readOriginUrl } from "@/lib/claude/repo";
+import { parseRemote, resolveRepo, localFolder, readOriginUrl, publicWhere } from "@/lib/claude/repo";
 
 describe("parseRemote", () => {
   it("reads ssh and https GitHub remotes", () => {
@@ -97,5 +97,23 @@ describe("readOriginUrl", () => {
     const e = tmp();
     fs.writeFileSync(path.join(e, ".git"), "nonsense");
     expect(readOriginUrl(e)).toBeNull();
+  });
+});
+
+describe("publicWhere", () => {
+  const found = { repo: "harbor-studio/command-center", folder: "/Users/jo/harbor", label: "command-center" };
+  it("never carries the repo or a label made from it", () => {
+    for (const [host, vercel] of [["localhost:3000", false], ["command.harbor.co", true], [null, false]] as const) {
+      const w = publicWhere(found, host, vercel);
+      expect(w.repo).toBeNull();
+      expect(w.label).toBe("your Foundation");
+      expect(JSON.stringify(w)).not.toContain("harbor-studio");
+      expect(JSON.stringify(w)).not.toContain("command-center");
+    }
+  });
+  it("keeps the folder only for localhost", () => {
+    expect(publicWhere(found, "localhost:3000", false).folder).toBe("/Users/jo/harbor");
+    expect(publicWhere(found, "command.harbor.co", false).folder).toBeNull();
+    expect(publicWhere(found, "localhost", true).folder).toBeNull();
   });
 });

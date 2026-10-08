@@ -84,6 +84,8 @@ export const DEFAULT_BRAND: BrandTokens = {
 };
 
 const HEX = /^#[0-9a-f]{6}$/;
+// A logo address. It may hold ; { or } because it never reaches the brand style tag: logos render only through
+// React's escaped src attribute, and brandCss writes no logo field.
 const URL_OK = /^(https:\/\/[^\s"'<>()\\]+|\/[^\s"'<>()\\]*)$/;
 
 function color(v: unknown, fallback: string): string {

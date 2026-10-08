@@ -39,6 +39,11 @@ describe("the brand tokens", () => {
     expect(evil.radiusControl).toBe(DEFAULT_BRAND.radiusControl);
     expect(evil.logoUrl).toBeNull();
     expect(brandCss(evil)).not.toMatch(/display:none|javascript|url\(/);
+    // The whole tag is one :root rule of custom properties, and no value can close it or open another.
+    const shape = /^:root\{(--[a-z0-9-]+:[^;{}<>]*;)+\}$/;
+    expect(brandCss(evil)).toMatch(shape);
+    expect(brandCss(DEFAULT_BRAND)).toMatch(shape);
+    expect(":root{--a:1;}</style><script>".match(shape)).toBeNull();
   });
   it("read a JSON string as well as an object", () => {
     expect(parseBrand(JSON.stringify({ pairing: "classic" })).pairing).toBe("classic");

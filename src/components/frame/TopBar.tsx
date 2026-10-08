@@ -10,7 +10,7 @@ import { ExternalLink } from "./icons";
 export function TopBar({ sections, settings }: { sections: NavSection[]; settings: NavHeading[] }) {
   const crumbs = breadcrumb(usePathname(), sections, settings);
   return (
-    <div data-top-bar className="sticky top-0 z-20 hidden h-14 items-center justify-between gap-4 border-b border-admin-line-strong bg-admin-canvas/85 px-6 backdrop-blur-md md:flex lg:px-8">
+    <div data-top-bar className="bar bar-top sticky top-0 z-20 hidden h-14 items-center justify-between gap-4 border-b px-6 md:flex lg:px-8">
       <p className="kicker min-w-0 truncate">
         {crumbs.map((c, i) => (
           <span key={c} className={i === crumbs.length - 1 ? "text-admin-muted" : undefined}>

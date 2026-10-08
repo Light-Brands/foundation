@@ -11,7 +11,7 @@ type Row = { id: string; title: string; created_at: string };
 export function NeedsYouCard({ items, waiting, timezone, now = new Date() }: { items: Row[]; waiting: number; timezone: string | null | undefined; now?: Date }) {
   const shown = items.slice(0, NEEDS_YOU_ROWS);
   return (
-    <section data-needs-you="" aria-labelledby="today-needs-you" className="surface rise flex flex-col p-card md:p-card-lg lg:col-span-8" style={{ "--i": 1 } as React.CSSProperties}>
+    <section data-needs-you="" aria-labelledby="today-needs-you" className="surface rise flex h-full flex-col p-card md:p-card-lg lg:col-span-8" style={{ "--i": 1 } as React.CSSProperties}>
       <h2 id="today-needs-you" className="kicker">
         <Link href={INBOX} className="transition-colors duration-200 ease-breath hover:text-admin-ink">What needs you</Link>
       </h2>

@@ -111,9 +111,9 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
                                 }`}
                               >
                                 <StateDot state={e.state} />
-                                <span className="flex-1 truncate">{e.label}</span>
+                                <span className="min-w-0 flex-1 leading-snug">{e.label}</span>
                                 {e.state === "soon" && (
-                                  <span className="inline-flex items-center rounded-full bg-admin-hover px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-admin-faint">Soon</span>
+                                  <span className="inline-flex shrink-0 items-center rounded-full bg-admin-hover px-1.5 py-0.5 text-[11px] font-semibold uppercase leading-none tracking-wide text-admin-faint">Soon</span>
                                 )}
                                 {e.badge > 0 && (
                                   <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-on-accent">{e.badge}</span>

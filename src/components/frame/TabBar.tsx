@@ -9,7 +9,7 @@ export function TabBar({ sections, settings, todayBadge }: { sections: NavSectio
   const pathname = usePathname();
   const current = tabFor(pathname, sections, settings);
   return (
-    <nav aria-label="Tabs" className="fixed inset-x-0 bottom-0 z-30 border-t border-admin-line-strong bg-admin-surface/95 backdrop-blur-md md:hidden">
+    <nav aria-label="Tabs" className="bar bar-tabs fixed inset-x-0 bottom-0 z-30 border-t md:hidden">
       <ul className="flex pb-[env(safe-area-inset-bottom)]">
         {TABS.map((t) => {
           const Icon = TAB_ICONS[t.id];
@@ -19,9 +19,9 @@ export function TabBar({ sections, settings, todayBadge }: { sections: NavSectio
               <Link
                 href={t.href}
                 aria-current={on ? "page" : undefined}
-                className={`relative flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors duration-200 ease-breath ${on ? "text-accent" : "text-admin-faint"}`}
+                className={`relative flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors duration-200 ease-breath ${on ? "text-admin-ink" : "text-admin-faint hover:text-admin-muted"}`}
               >
-                <Icon size={22} strokeWidth={on ? 2.25 : 1.75} aria-hidden />
+                <Icon size={22} strokeWidth={on ? 2.25 : 1.75} aria-hidden className={on ? "text-accent" : undefined} />
                 <span>{t.label}</span>
                 {t.id === "today" && todayBadge > 0 && (
                   <span className="absolute right-[calc(50%-18px)] top-2 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-admin-surface" aria-label={`${todayBadge} waiting`} />

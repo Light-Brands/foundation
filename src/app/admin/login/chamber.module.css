@@ -22,9 +22,13 @@
   filter: blur(40px); opacity: var(--chamber-shaft, 1);
   animation: shaftIn calc(1600ms * var(--motion, 1)) ease-out both;
 }
+/* The one ambient light: the glow on the floor breathes, slowly and without end. Entrances play once; this is the
+   room's air. Its depth scales with motion, so a still brand holds it steady, and reduced motion stops it. */
 .floor {
   position: absolute; bottom: -30%; left: -10%; width: 120%; height: 60%; pointer-events: none; opacity: var(--chamber-floor, 1);
   background: radial-gradient(closest-side, color-mix(in oklch, var(--color-glow) 16%, transparent), transparent);
+  transform-origin: 50% 100%;
+  animation: breathe 9s ease-in-out infinite alternate;
 }
 .content { position: relative; z-index: 1; }
 .eyebrow { font-family: var(--font-label); font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase; color: color-mix(in oklch, var(--color-canvas) 55%, transparent); }
@@ -60,5 +64,9 @@
 
 @keyframes rise { from { opacity: 0; transform: translateY(calc(14px * var(--motion, 1))); filter: blur(calc(4px * var(--motion, 1))); } to { opacity: 1; transform: none; filter: none; } }
 @keyframes shaftIn { from { opacity: 0; } }
+@keyframes breathe {
+  from { opacity: calc(var(--chamber-floor, 1) * (1 - 0.45 * var(--motion, 1))); transform: scale(calc(1 - 0.06 * var(--motion, 1))); }
+  to { opacity: var(--chamber-floor, 1); transform: scale(1); }
+}
 
-@media (prefers-reduced-motion: reduce) { .rise, .shaft { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .rise, .shaft, .floor { animation: none; } }

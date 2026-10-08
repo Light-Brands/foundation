@@ -37,7 +37,7 @@ export default async function Home() {
   const departments = buildSections().filter((s) => s.id !== "command");
   const preview = storageMode() === "preview";
   return (
-    <div data-today className="space-y-stack md:space-y-stack-lg">
+    <div data-today className="space-y-stack-sm md:space-y-stack">
       {/* The header and the grid read as one opening, so they sit closer than the sections below them. */}
       <div className="space-y-5 md:space-y-6">
         <PageHeader
@@ -47,9 +47,9 @@ export default async function Home() {
           lede={profile.what_we_do || "Your command center is live. Here is where your business stands."}
         />
 
-        <div data-today-grid className="grid gap-4 lg:grid-cols-12 lg:items-start">
+        <div data-today-grid className="grid gap-4 lg:grid-cols-12">
           {preview && latest.length === 0 ? (
-            <section data-needs-you="" className="surface rise p-card md:p-card-lg lg:col-span-8" style={{ "--i": 1 } as React.CSSProperties}>
+            <section data-needs-you="" className="surface rise h-full p-card md:p-card-lg lg:col-span-8" style={{ "--i": 1 } as React.CSSProperties}>
               <h2 className="kicker">What needs you</h2>
               <p className="mt-4 text-lg text-admin-muted">Your contact page starts taking messages once your database is connected.</p>
               <Link href="/admin/system/setup" className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-admin-ink underline decoration-admin-line-strong underline-offset-4 hover:decoration-accent md:min-h-0">Open setup</Link>

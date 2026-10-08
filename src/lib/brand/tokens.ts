@@ -183,6 +183,7 @@ export function onColor(hex: string): string {
 const PAIRS: [ColorSlot, ColorSlot, string][] = [
   ["ink", "canvas", "Your text is too light to read on your background."],
   ["onHighlight", "highlight", "The text on your main button is hard to read."],
+  ["inkMuted", "canvas", "Your secondary text is hard to read on your background."],
   ["canvas", "primaryDeep", "Text on your dark bands is hard to read."],
 ];
 
@@ -193,6 +194,7 @@ const PAIRS: [ColorSlot, ColorSlot, string][] = [
  */
 export function contrastProblems(b: BrandTokens): string[] {
   const problems = PAIRS.filter(([fg, bg]) => contrastRatio(b.colors[fg], b.colors[bg]) < 4.5).map(([, , message]) => message);
+  if (contrastRatio(onColor(b.colors.accent), b.colors.accent) < 4.5) problems.push("Text on your buttons is hard to read.");
   if (contrastRatio(b.colors.accent, TONES[b.adminTone].neutrals.surface) < 3) problems.push("Your accent is hard to see in your command center.");
   return problems;
 }

@@ -1,12 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { ADMIN_TONES, ADMIN_NEUTRALS, STATUS_COLORS, TONES, toneContrastProblems, type ToneScale } from "@/lib/brand/admin-tone";
-import { DEFAULT_BRAND, parseBrand, contrastRatio, contrastProblems } from "@/lib/brand/tokens";
+import { DEFAULT_BRAND, parseBrand, contrastRatio, contrastProblems, onColor } from "@/lib/brand/tokens";
 import { brandCss } from "@/lib/brand/css";
 
 // Admin tone: the command center's own neutrals, light (the default), dim or dark. Every tone is checked here
 // pair by pair, so a later edit to any value cannot quietly make a screen hard to read.
 
+const onColorOf = (b: { colors: { accent: string } }) => onColor(b.colors.accent);
 const css = readFileSync("src/app/globals.css", "utf8");
 const range = JSON.parse(readFileSync("tests/fixtures/range-brand.json", "utf8"));
 
@@ -87,5 +88,58 @@ describe("admin tone", () => {
     expect(b.adminTone).toBe("dark");
     expect(contrastProblems(b)).toEqual([]);
     expect(contrastRatio(b.colors.accent, TONES.dark.neutrals.surface)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // WCAG 1.4.11: a field is found by its boundary, so the boundary reads at 3 to 1 on the canvas and the surface.
+  describe("form field boundaries", () => {
+    const fieldRule = css.slice(css.indexOf(".field {"), css.indexOf("}", css.indexOf(".field {")));
+    const borderToken = /\bborder-admin-([a-z-]+)\b/.exec(fieldRule)?.[1] as keyof ToneScale["neutrals"] | undefined;
+
+    for (const tone of ADMIN_TONES) {
+      it(`${tone}: the .field boundary is at least 3 to 1 on the canvas and the surface`, () => {
+        expect(borderToken, "the .field rule names an admin border token").toBeDefined();
+        const n = TONES[tone].neutrals;
+        expect(contrastRatio(n[borderToken!], n.canvas), `${borderToken} on canvas`).toBeGreaterThanOrEqual(3);
+        expect(contrastRatio(n[borderToken!], n.surface), `${borderToken} on surface`).toBeGreaterThanOrEqual(3);
+      });
+    }
+
+    it("the public form's boundary uses the brand's secondary ink, and every brand guards it at 3 to 1", () => {
+      const form = readFileSync("src/components/PublicForm.tsx", "utf8");
+      expect(form).toContain("border-ink-muted");
+      expect(/const INPUT = "[^"]*border-hairline/.test(form)).toBe(false);
+      const faint = parseBrand({ colors: { inkMuted: "#d9d2c4" } });
+      expect(contrastProblems(faint)).toContain("Your secondary text is hard to read on your background.");
+      expect(contrastProblems(DEFAULT_BRAND)).toEqual([]);
+    });
+  });
+
+  it("the primary button's label reads at 4.5 to 1 on the accent, or the brand is told", () => {
+    const mid = parseBrand({ colors: { accent: "#787878" } });
+    expect(contrastRatio(onColorOf(mid), mid.colors.accent)).toBeLessThan(4.5);
+    expect(contrastProblems(mid)).toContain("Text on your buttons is hard to read.");
+  });
+
+  describe("shadows follow the tone", () => {
+    const shadows = (tone: string, surface: string) => {
+      const body = brandCss(parseBrand({ adminTone: tone, surface }));
+      const get = (k: string) => new RegExp(`--${k}:([^;]*);`).exec(body)?.[1] ?? "";
+      return { shadow: get("surface-shadow"), lift: get("shadow-lift") };
+    };
+
+    it("light keeps its slate shadows", () => {
+      expect(shadows("light", "raised").shadow).toContain("rgb(15 23 42 /");
+    });
+
+    for (const tone of ["dim", "dark"]) {
+      it(`${tone}: shadows are black and strong enough to read, and raised keeps an edge`, () => {
+        const raised = shadows(tone, "raised");
+        expect(raised.shadow).not.toContain("15 23 42");
+        expect(raised.shadow).toContain("rgb(0 0 0 /");
+        const alphas = [...raised.shadow.matchAll(/rgb\(0 0 0 \/ ([\d.]+)\)/g)].map((m) => Number(m[1]));
+        expect(Math.max(...alphas)).toBeGreaterThanOrEqual(0.3);
+        expect(raised.shadow).toMatch(/inset 0 1px 0 rgb\(255 255 255 \/ 0\.0[4-9]\)/);
+      });
+    }
   });
 });

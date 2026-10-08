@@ -1,20 +1,11 @@
-import type { Metadata, Viewport } from "next";
+import type { Viewport } from "next";
 import "./globals.css";
 import { FONT_VARIABLES } from "@/lib/brand/fonts";
 import { brandCss } from "@/lib/brand/css";
-import { loadBrand, loadProfile } from "@/lib/data/safe";
-import { statusBarFor } from "@/lib/pwa/manifest";
+import { loadBrand } from "@/lib/data/safe";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const [profile, brand] = await Promise.all([loadProfile(), loadBrand()]);
-  return {
-    title: "Command center",
-    robots: { index: false },
-    manifest: "/manifest.webmanifest",
-    appleWebApp: { capable: true, title: profile.business, statusBarStyle: statusBarFor(brand) },
-    icons: { apple: "/pwa/apple-touch-icon.png" },
-  };
-}
+// Only what every page shares lives here. The command center's own head (its title, manifest, home screen icon and
+// noindex) is in src/app/admin/layout.tsx, and each public page names itself after the business.
 
 export async function generateViewport(): Promise<Viewport> {
   const brand = await loadBrand();

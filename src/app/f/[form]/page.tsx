@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db";
@@ -18,6 +19,13 @@ async function loadFormChoices(form: FormDecl): Promise<Record<string, Choice[]>
     console.error("public form: the database could not be reached", err);
     return null;
   }
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ form: string }> }): Promise<Metadata> {
+  const { form: key } = await params;
+  const [profile, forms] = await Promise.all([loadProfile(), loadForms()]);
+  const form = key === "contact" ? undefined : forms.get(key);
+  return { title: form ? `${form.title}, ${profile.business}` : profile.business };
 }
 
 export default async function PublicFormPage({ params, searchParams }: {

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { ownHosts, sourceFields } from "@/lib/forms/source";
 import { loadProfile } from "@/lib/data/safe";
@@ -5,6 +6,10 @@ import { CONTACT_FORM } from "@/lib/forms/public";
 import { PublicForm } from "@/components/PublicForm";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await loadProfile()).business };
+}
 
 export default async function ContactPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const profile = await loadProfile();

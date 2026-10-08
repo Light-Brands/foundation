@@ -51,7 +51,8 @@ describe("one request reads each thing once", () => {
   it("the console layout and Today share the brand, the profile and the waiting count", async () => {
     const { default: ConsoleLayout } = await import("@/app/admin/(console)/layout");
     const { default: Today } = await import("@/app/admin/(console)/page");
-    const { generateMetadata, generateViewport, default: RootLayout } = await import("@/app/layout");
+    const { generateViewport, default: RootLayout } = await import("@/app/layout");
+    const { generateMetadata } = await import("@/app/admin/layout");
     await generateMetadata();
     await generateViewport();
     renderToStaticMarkup(await RootLayout({ children: null }));

@@ -50,7 +50,7 @@ The rules every builder follows, each with its reason, live in `docs/standards/`
 
 ## The Ninja framework
 
-`ninja/` is the Ninja framework dictionary. It ships from Light Brands and is never edited here. Read `ninja/guide.md` for how to ask: the sentences an owner uses to install, change, upgrade, check, remove, learn or weave anything. Read `ninja/runner/run.md` for how runs work, and follow it for every one of those requests. The crew lives in `.claude/agents/crew-*.md`, which is reserved for the dictionary's build crew and replaced on every dictionary update: a member's own agents use any other name. Your own work lives in `key/`.
+`ninja/` is the Ninja framework dictionary. It ships from Light Brands and is never edited here. Read `ninja/library.md` first, before building anything for this business: it is where every answer about how to build something starts, locally in `ninja/` and then online in the Dojo Dictionary at https://lb-share.lightbrands.ai/s/dvsaxjofhnyr9bb6/raw (fetch any page it links by adding `/raw`). Until a dictionary update brings `ninja/library.md`, start from that address directly. Read `ninja/guide.md` for how to ask: the sentences an owner uses to install, change, upgrade, check, remove, learn or weave anything. Read `ninja/runner/run.md` for how runs work, and follow it for every one of those requests. The crew lives in `.claude/agents/crew-*.md`, which is reserved for the dictionary's build crew and replaced on every dictionary update: a member's own agents use any other name. Your own work lives in `key/`.
 
 ## Commands
 

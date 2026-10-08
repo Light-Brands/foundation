@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test("the app manifest, icons, worker and offline page are public", async ({ request }) => {
-  const m = await request.get("/manifest.webmanifest");
+  const m = await request.get("/pwa/app.webmanifest");
   expect(m.status()).toBe(200);
   const body = await m.json();
   expect(body.display).toBe("standalone");
@@ -15,6 +15,15 @@ test("the app manifest, icons, worker and offline page are public", async ({ req
   expect((await request.get("/sw.js")).status()).toBe(200);
   expect((await request.get("/offline")).status()).toBe(200);
   expect((await request.get("/pwa/other.png", { maxRedirects: 0 })).status()).not.toBe(200);
+});
+
+test("only the command center links the app manifest, so a public page never installs the app", async ({ page }) => {
+  for (const path of ["/", "/contact"]) {
+    await page.goto(path);
+    await expect(page.locator("link[rel=manifest]"), path).toHaveCount(0);
+  }
+  await page.goto("/admin/login");
+  await expect(page.locator("link[rel=manifest]")).toHaveAttribute("href", "/pwa/app.webmanifest");
 });
 
 test("a phone sees the install hint and the worker never caches the admin", async ({ page }) => {

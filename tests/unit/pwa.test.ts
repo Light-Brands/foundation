@@ -40,7 +40,7 @@ describe("the manifest background", () => {
     expect(adminCanvas(DEFAULT_BRAND)).toBe(ADMIN_CANVAS);
     expect(adminCanvas(parseBrand({ adminTone: "dark" }))).toBe(TONES.dark.neutrals.canvas);
     expect(adminCanvas(parseBrand({ adminTone: "dim" }))).toBe(TONES.dim.neutrals.canvas);
-    const src = readFileSync("src/app/manifest.ts", "utf8");
+    const src = readFileSync("src/app/pwa/app.webmanifest/route.ts", "utf8");
     expect(src).toContain("adminCanvas(brand)");
   });
   it("the phone's status bar follows the tone", () => {

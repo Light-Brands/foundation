@@ -13,13 +13,16 @@ describe("each part of the site carries its own head", () => {
     // The stock create-next-app favicon is gone; the tab shows the business's own monogram or logo.
     const { existsSync } = await import("node:fs");
     expect(existsSync("src/app/favicon.ico")).toBe(false);
+    // A manifest file at the app root is Next's convention, which links it from every page, public ones included.
+    // The manifest is a route under /pwa instead, linked only from the command center's head.
+    for (const f of ["manifest.ts", "manifest.js", "manifest.json", "manifest.webmanifest"]) expect(existsSync(`src/app/${f}`), f).toBe(false);
   });
   it("the command center is the installable, unindexed app", async () => {
     const { generateMetadata } = await import("@/app/admin/layout");
     const m = await generateMetadata();
     expect(m.title).toBe("Command center");
     expect(m.robots).toEqual({ index: false, follow: false });
-    expect(m.manifest).toBe("/manifest.webmanifest");
+    expect(m.manifest).toBe("/pwa/app.webmanifest");
     expect(m.appleWebApp).toMatchObject({ capable: true, title: "Harbor Studio" });
     expect(m.icons).toEqual({ icon: [{ url: "/pwa/icon-192.png", type: "image/png" }], apple: "/pwa/apple-touch-icon.png" });
   });

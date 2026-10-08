@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Command center",
     robots: { index: false, follow: false },
-    manifest: "/manifest.webmanifest",
+    manifest: "/pwa/app.webmanifest",
     appleWebApp: { capable: true, title: profile.business, statusBarStyle: statusBarFor(brand) },
     // A child's icons replace the root's, so the tab icon is named again beside the home screen one.
     icons: { icon: [{ url: "/pwa/icon-192.png", type: "image/png" }], apple: "/pwa/apple-touch-icon.png" },

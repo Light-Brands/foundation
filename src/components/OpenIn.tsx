@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { CopyButton } from "@/components/CopyButton";
 import { ChevronDown } from "@/components/frame/icons";
 import { useRepo } from "@/components/RepoProvider";
@@ -14,6 +15,24 @@ function browserStore(): Storage | null {
   }
 }
 
+// The remembered choices live in the browser. They are read as an external store, so the server and the first client
+// render both show Claude Desktop and the stored choice appears right after. Writes in this tab notify the listeners;
+// writes in another tab arrive as storage events.
+const listeners = new Set<() => void>();
+function subscribe(fn: () => void) {
+  listeners.add(fn);
+  window.addEventListener("storage", fn);
+  return () => {
+    listeners.delete(fn);
+    window.removeEventListener("storage", fn);
+  };
+}
+const notify = () => listeners.forEach((fn) => fn());
+const readTarget = () => readDefault(browserStore());
+const readStoredFolder = () => readFolder(browserStore());
+const serverTarget = (): Target => "desktop";
+const serverFolder = (): string | null => null;
+
 /**
  * Opens a prompt in Claude with the owner's repo or folder chosen, and keeps Copy beside it. The main part opens the
  * remembered target (Claude Desktop until they choose otherwise); the chevron opens a picker that sets the default.
@@ -24,8 +43,12 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left" }
   prompt: string; primary?: boolean; learn?: boolean; align?: "left" | "right";
 }) {
   const { repo, folder: provided, label } = useRepo();
-  const [target, setTarget] = useState<Target>("desktop");
-  const [stored, setStored] = useState<string | null>(null);
+  const savedTarget = useSyncExternalStore(subscribe, readTarget, serverTarget);
+  const savedFolder = useSyncExternalStore(subscribe, readStoredFolder, serverFolder);
+  // When storage refuses a write, the choice still holds for this page.
+  const [kept, setKept] = useState<{ target?: Target }>({});
+  const target = kept.target ?? savedTarget;
+  const stored = savedFolder;
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState("");
@@ -35,17 +58,11 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left" }
   const opener = useRef<HTMLElement | null>(null);
   const menuId = useId();
 
-  useEffect(() => {
-    const s = browserStore();
-    setTarget(readDefault(s));
-    setStored(readFolder(s));
-  }, []);
-
   const rows = () => Array.from(root.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? []);
-  const focusChecked = () => {
-    const all = rows();
+  const focusChecked = useCallback(() => {
+    const all = Array.from(root.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? []);
     (all.find((r) => r.getAttribute("aria-checked") === "true") ?? all[0])?.focus();
-  };
+  }, []);
   const later = (fn: () => void) => setTimeout(fn, 0);
 
   useEffect(() => {
@@ -56,7 +73,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left" }
     };
     document.addEventListener("pointerdown", away);
     return () => document.removeEventListener("pointerdown", away);
-  }, [open]);
+  }, [open, focusChecked]);
 
   const folder = provided ?? stored;
   const where = { repo, folder };
@@ -94,13 +111,13 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left" }
   };
 
   const choose = (t: Target) => {
-    writeDefault(browserStore(), t);
-    setTarget(t);
+    if (writeDefault(browserStore(), t)) notify();
+    else setKept((k) => ({ ...k, target: t }));
     closeTo(mainRef.current);
   };
   const saveFolder = () => {
     if (writeFolder(browserStore(), draft)) {
-      setStored(draft.trim());
+      notify();
       setNote("Saved");
       later(focusChecked);
     } else {
@@ -205,7 +222,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left" }
         ) : (
           <>Opens in <span className="font-medium text-admin-ink">{label}</span> · check it is selected before you send.</>
         )}
-        {learn && <>{" "}<a href="/admin/system/setup#work-with-claude" className="underline underline-offset-4">How this works</a></>}
+        {learn && <>{" "}<Link href="/admin/system/setup#work-with-claude" className="underline underline-offset-4">How this works</Link></>}
       </p>
     </div>
   );

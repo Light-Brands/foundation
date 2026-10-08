@@ -1,3 +1,4 @@
+import { contrastRatio } from "./color";
 // Admin tone: the command center's own neutrals and status colors, in three closed scales. Light is the frame's
 // original look; dim is a slate dusk; dark is near black. The brand picks one, and every value here is a constant,
 // so nothing a brand stores ever reaches the style tag except the name of a tone on this list.
@@ -46,20 +47,7 @@ export const TONES: Record<AdminTone, ToneScale> = {
   },
 };
 
-function channel(n: number): number {
-  const s = n / 255;
-  return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-}
-
-function luminance(hex: string): number {
-  const v = parseInt(hex.slice(1), 16);
-  return 0.2126 * channel((v >> 16) & 255) + 0.7152 * channel((v >> 8) & 255) + 0.0722 * channel(v & 255);
-}
-
-function ratio(a: string, b: string): number {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
-}
+const ratio = contrastRatio;
 
 const TEXT = ["ink", "muted", "faint"] as const;
 const GROUNDS = ["canvas", "surface", "hover"] as const;

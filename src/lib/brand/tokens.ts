@@ -1,5 +1,6 @@
 import { isPairingId, PAIRINGS, type PairingId, type TypeCharacter } from "./pairings";
 import { ADMIN_TONES, TONES, type AdminTone } from "./admin-tone";
+import { contrastRatio } from "./color";
 
 // The eleven color slots every surface paints with. One color per slot; shades come from color-mix in CSS.
 export const COLOR_SLOTS = [
@@ -161,21 +162,7 @@ export function parseBrand(input: unknown): BrandTokens {
   };
 }
 
-function channel(n: number): number {
-  const s = n / 255;
-  return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-}
-
-function luminance(hex: string): number {
-  const v = parseInt(hex.slice(1), 16);
-  return 0.2126 * channel((v >> 16) & 255) + 0.7152 * channel((v >> 8) & 255) + 0.0722 * channel(v & 255);
-}
-
-/** WCAG contrast ratio, 1 to 21. */
-export function contrastRatio(a: string, b: string): number {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
-}
+export { contrastRatio };
 
 /** White or near-black, whichever reads better on the fill. */
 export function onColor(hex: string): string {

@@ -1,3 +1,4 @@
+import { PREVIEW_INBOX_LINE } from "@/lib/setup/preview";
 import Link from "next/link";
 import { getDb, storageMode } from "@/lib/db";
 import { listInbox } from "@/lib/data/inbox";
@@ -16,7 +17,7 @@ export async function InboxList() {
       <div className="max-w-4xl space-y-4">
         {storageMode() === "preview" ? (
           <p className="text-admin-muted">
-            Your contact page starts taking messages once your database is connected.{" "}
+            {PREVIEW_INBOX_LINE}{" "}
             <Link href="/admin/system/setup" className="text-admin-ink underline">Open setup</Link>
           </p>
         ) : (

@@ -4,14 +4,12 @@ import { loadBrand, loadProfile } from "@/lib/data/safe";
 import { publicBaseUrl } from "@/lib/email-links";
 import { loadLogo } from "@/lib/pwa/logo";
 import { onColor } from "@/lib/brand/tokens";
+import { initials } from "@/lib/brand/initials";
 import { PWA_ICONS } from "@/lib/pwa/manifest";
 import { MONOGRAM_FONTS, MONOGRAM_GLYPHS } from "@/lib/pwa/monogram-fonts";
 
 export const dynamic = "force-dynamic";
 
-function monogram(name: string): string {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "C";
-}
 
 export async function GET(_req: Request, { params }: { params: Promise<{ icon: string }> }) {
   const { icon } = await params;
@@ -23,7 +21,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ icon: s
   const fill = brand.colors.accent;
   // The logo is found from the site's own configured address or from public/, never from the request's Host.
   const logo = await loadLogo(brand.logoUrl, { base: publicBaseUrl(), publicDir: path.join(process.cwd(), "public") });
-  const letters = monogram(profile.business);
+  const letters = initials(profile.business);
   // The monogram is set in the brand's own display face when its letters are in the cut, else in the default face.
   const face = !logo && MONOGRAM_GLYPHS.test(letters) ? MONOGRAM_FONTS[brand.pairing] : null;
   return new ImageResponse(

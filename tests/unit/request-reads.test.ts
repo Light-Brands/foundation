@@ -19,6 +19,7 @@ const db = { query: vi.fn(async () => []) };
 vi.mock("@/lib/db", () => ({ getDb: async () => db, storageMode: () => "pglite" }));
 vi.mock("next/server", () => ({ after: () => {} }));
 vi.mock("@/lib/brand/fonts", () => ({ FONT_VARIABLES: "" }));
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/admin", useSearchParams: () => new URLSearchParams() }));
 
 const calls = { brand: 0, profile: 0, count: 0 };

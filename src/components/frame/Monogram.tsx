@@ -1,3 +1,4 @@
+import { initials } from "@/lib/brand/initials";
 // The brand's initials on its accent, for every place a logo would sit when none is uploaded.
 const SIZES = {
   sm: "h-7 w-7 rounded-control text-[11px]",
@@ -8,9 +9,7 @@ const SIZES = {
   app: "h-10 w-10 rounded-[22%] text-sm",
 } as const;
 
-export function initials(name: string): string {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "C";
-}
+export { initials };
 
 export function Monogram({ name, size = "md" }: { name: string; size?: keyof typeof SIZES }) {
   return (

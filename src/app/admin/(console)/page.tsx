@@ -12,6 +12,7 @@ import { after } from "next/server";
 import { checkDeps } from "@/lib/checks/deps";
 import { runChecksIfDue } from "@/lib/checks/runner";
 import { InstallHint } from "@/components/pwa/InstallHint";
+import { PREVIEW_INBOX_LINE } from "@/lib/setup/preview";
 import { SetupCard } from "./SetupCard";
 import { NeedsYouCard, NEEDS_YOU_ROWS } from "./NeedsYouCard";
 
@@ -54,7 +55,7 @@ export default async function Home() {
           {preview && latest.length === 0 ? (
             <section data-needs-you="" className="surface rise h-full p-card md:p-card-lg lg:col-span-8" style={{ "--i": 1 } as React.CSSProperties}>
               <h2 className="kicker">What needs you</h2>
-              <p className="mt-4 text-lg text-admin-muted">Your contact page starts taking messages once your database is connected.</p>
+              <p className="mt-4 text-lg text-admin-muted">{PREVIEW_INBOX_LINE}</p>
               <Link href="/admin/system/setup" className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-admin-ink underline decoration-admin-line-strong underline-offset-4 hover:decoration-accent md:min-h-0">Open setup</Link>
             </section>
           ) : (

@@ -6,7 +6,7 @@ import { RunChecksButton } from "./RunChecksButton";
 export function SetupCard({ done, total, next, showChecks }: { done: number; total: number; next: string | null; showChecks: boolean }) {
   const pct = total ? Math.round((done / total) * 100) : 0;
   return (
-    <section className="surface flex h-full flex-col p-5 md:p-6" aria-labelledby="today-setup">
+    <section className="surface flex h-full flex-col p-card md:p-card-lg" aria-labelledby="today-setup">
       <h2 id="today-setup" className="kicker">
         <Link href="/admin/system/setup" className="transition-colors duration-200 ease-breath hover:text-admin-ink">Set up</Link>
       </h2>

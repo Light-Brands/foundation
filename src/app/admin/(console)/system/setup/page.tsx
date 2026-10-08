@@ -20,7 +20,7 @@ export default async function SetupPage() {
       />
       <ol className="space-y-4">
         {steps.map((s, i) => (
-          <li key={s.id} className="surface p-5">
+          <li key={s.id} className="surface p-card">
             <div className="flex items-center gap-3">
               <StatusLight state={s.status} label={LIGHT_LABEL[s.status]} />
               <p className="font-mono text-xs text-admin-muted">{String(i + 1).padStart(2, "0")}</p>

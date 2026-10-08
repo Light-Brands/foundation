@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useId, useState } from "react";
+import { lockGate } from "./lock";
 import type { NavHeading, NavSection } from "@/lib/layout/sections";
 import { activeEntry, entryLabel } from "@/lib/layout/sections";
 import { SECTION_ICONS, Settings, ExternalLink, ChevronLeft, ChevronDown, Lock } from "./icons";
@@ -29,6 +30,7 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
     if (owner) setOpen(owner);
   }
   const inSettings = settings.some((h) => h.entries.some((e) => e.key === active)) || pathname === "/admin/settings";
+  const [lockFailed, setLockFailed] = useState(false);
   const quiet = "text-admin-muted hover:bg-admin-hover hover:text-admin-ink";
 
   return (
@@ -44,7 +46,7 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
           {!collapsed && (
             <span className="min-w-0">
               <span className="block truncate text-sm font-bold tracking-tight text-admin-ink">{businessName}</span>
-              <span className="-mt-0.5 block text-[9px] tracking-wider text-admin-faint">Command center</span>
+              <span className="-mt-0.5 block text-[11px] text-admin-muted">Command center</span>
             </span>
           )}
         </Link>
@@ -77,7 +79,7 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
                   holdsActive ? "text-admin-ink" : quiet
                 } ${collapsed ? "justify-center" : ""}`}
               >
-                <Icon size={16} aria-hidden className={holdsActive ? "text-accent" : "text-admin-ghost group-hover:text-admin-muted"} />
+                <Icon size={16} aria-hidden className={holdsActive ? "text-admin-ink" : "text-admin-ghost group-hover:text-admin-muted"} />
                 {!collapsed && <span className="flex-1 truncate">{s.label}</span>}
                 {!collapsed && !isOpen && s.badge > 0 && (
                   <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-on-accent" aria-label={`${s.badge} waiting in ${s.label}`}>
@@ -102,16 +104,16 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
                                 aria-label={entryLabel(e)}
                                 className={`flex items-center gap-2.5 rounded-control px-3 py-1.5 text-[13px] transition-colors duration-200 ease-breath ${
                                   isActive
-                                    ? "bg-accent font-medium text-on-accent shadow-sm"
+                                    ? "nav-active"
                                     : e.state === "built"
                                       ? quiet
                                       : "text-admin-faint hover:bg-admin-hover hover:text-admin-muted"
                                 }`}
                               >
-                                <StateDot state={e.state} onAccent={isActive} />
+                                <StateDot state={e.state} />
                                 <span className="flex-1 truncate">{e.label}</span>
                                 {e.state === "soon" && (
-                                  <span className="inline-flex items-center rounded-full bg-admin-hover px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-admin-faint">Soon</span>
+                                  <span className="inline-flex items-center rounded-full bg-admin-hover px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-admin-faint">Soon</span>
                                 )}
                                 {e.badge > 0 && (
                                   <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-on-accent">{e.badge}</span>
@@ -135,9 +137,9 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
           href="/admin/settings"
           aria-current={inSettings ? "page" : undefined}
           title={collapsed ? "Settings" : undefined}
-          className={`flex items-center gap-2.5 rounded-control px-3 py-2 text-[13px] font-medium transition-colors ${inSettings ? "bg-admin-hover text-admin-ink" : quiet} ${collapsed ? "justify-center" : ""}`}
+          className={`flex items-center gap-2.5 rounded-control px-3 py-2 text-[13px] font-medium transition-colors ${inSettings ? "nav-active" : quiet} ${collapsed ? "justify-center" : ""}`}
         >
-          <Settings size={16} aria-hidden className="text-admin-ghost" />
+          <Settings size={16} aria-hidden className={inSettings ? undefined : "text-admin-ghost"} />
           {!collapsed && <span>Settings</span>}
         </Link>
         <a href="/" target="_blank" rel="noreferrer" title={collapsed ? "View my site" : undefined} className={`flex items-center gap-2.5 rounded-control px-3 py-2 text-[13px] font-medium transition-colors ${quiet} ${collapsed ? "justify-center" : ""}`}>
@@ -146,17 +148,12 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
         </a>
         <button
           type="button"
-          title={collapsed ? "Lock" : undefined}
-          onClick={async () => {
-            await fetch("/api/gate", { method: "DELETE" });
-            // A full load clears every cached screen once the gate is locked.
-            // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-            window.location.href = "/admin/login";
-          }}
-          className={`flex w-full items-center gap-2.5 rounded-control px-3 py-2 text-[13px] font-medium transition-colors ${quiet} ${collapsed ? "justify-center" : ""}`}
+          title={collapsed ? (lockFailed ? "Could not lock. Try again." : "Lock") : undefined}
+          onClick={async () => setLockFailed(!(await lockGate()))}
+          className={`flex w-full items-center gap-2.5 rounded-control px-3 py-2 text-[13px] font-medium transition-colors ${lockFailed ? "text-bad hover:bg-admin-hover" : quiet} ${collapsed ? "justify-center" : ""}`}
         >
-          <Lock size={16} aria-hidden className="text-admin-ghost" />
-          {!collapsed && <span>Lock</span>}
+          <Lock size={16} aria-hidden className={lockFailed ? undefined : "text-admin-ghost"} />
+          {!collapsed && <span role={lockFailed ? "status" : undefined}>{lockFailed ? "Could not lock. Try again." : "Lock"}</span>}
         </button>
       </div>
     </div>

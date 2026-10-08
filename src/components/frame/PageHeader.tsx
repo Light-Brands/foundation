@@ -1,5 +1,6 @@
 // Every admin page opens the same way: a small kicker, the title in the brand's heading face, one line of
 // purpose, and room for the page's one main action.
+// It is the first thing to rise as the page arrives.
 // flush drops the header's own bottom margin, for a page whose stack already spaces its parts.
 export function PageHeader({ kicker, title, lede, action, flush = false }: {
   kicker?: React.ReactNode;
@@ -9,7 +10,7 @@ export function PageHeader({ kicker, title, lede, action, flush = false }: {
   flush?: boolean;
 }) {
   return (
-    <header className={`flex flex-col gap-4 md:flex-row md:items-end md:justify-between ${flush ? "" : "mb-8 md:mb-10"}`}>
+    <header className={`rise flex flex-col gap-4 md:flex-row md:items-end md:justify-between ${flush ? "" : "mb-8 md:mb-10"}`} style={{ "--i": 0 } as React.CSSProperties}>
       <div className="min-w-0">
         {kicker && <p className="kicker">{kicker}</p>}
         <h1 className={kicker ? "page-title mt-2" : "page-title"}>{title}</h1>

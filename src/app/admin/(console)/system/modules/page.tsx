@@ -40,7 +40,7 @@ export default async function ModulesPage() {
         title="What you have built"
         lede={<>The plain-words record of your system, kept current by Claude from your build log.</>}
       />
-      <section className="surface p-5">
+      <section className="surface p-card">
         {system ? (
           <div className="space-y-3 text-sm text-admin-ink [&_h1]:text-xl [&_h2]:mt-4 [&_h2]:text-lg [&_li]:ml-5 [&_li]:list-disc">
             <ReactMarkdown skipHtml>{system}</ReactMarkdown>
@@ -52,7 +52,7 @@ export default async function ModulesPage() {
       <section className="space-y-3">
         <h2 className="text-lg text-admin-ink">Build log</h2>
         {log.length === 0 ? (
-          <p className="surface p-5 text-sm text-admin-muted">Your build log starts with your first build session.</p>
+          <p className="surface p-card text-sm text-admin-muted">Your build log starts with your first build session.</p>
         ) : (
           <ol className="space-y-3">
             {log.map((e) => (

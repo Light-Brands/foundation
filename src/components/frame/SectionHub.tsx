@@ -5,12 +5,10 @@ import { ChevronRight } from "./icons";
 const STATE_TEXT = { built: "Running", ready: "Ready to set up", soon: "Coming soon" } as const;
 
 // The state a job is in, as a dot: filled when it runs, hollow when it is ready to set up, none when it is coming.
-export function StateDot({ state, onAccent = false }: { state: NavEntry["state"]; onAccent?: boolean }) {
+// Inside the current sidebar entry, .nav-active recolors it to suit the brand's active marker.
+export function StateDot({ state }: { state: NavEntry["state"] }) {
   if (state === "soon") return <span aria-hidden className="h-2 w-2 shrink-0" />;
-  const look =
-    state === "built"
-      ? onAccent ? "bg-on-accent" : "bg-good"
-      : onAccent ? "ring-1 ring-inset ring-on-accent" : "ring-1 ring-inset ring-admin-ghost";
+  const look = state === "built" ? "bg-good" : "ring-1 ring-inset ring-admin-ghost";
   return <span aria-hidden data-state={state} className={`h-2 w-2 shrink-0 rounded-full ${look}`} />;
 }
 
@@ -18,7 +16,7 @@ export function StateDot({ state, onAccent = false }: { state: NavEntry["state"]
 // From md up the same list becomes a grid of cards, each with its blurb, so nothing stretches across the desk.
 export function SectionHub({ headings }: { headings: NavHeading[] }) {
   return (
-    <div className="space-y-8 md:space-y-10">
+    <div className="rise space-y-8 md:space-y-10" style={{ "--i": 1 } as React.CSSProperties}>
       {headings.map((h) => (
         <section key={h.label || "main"}>
           {h.label && <h2 className="kicker mb-2 px-1 md:mb-3">{h.label}</h2>}
@@ -28,7 +26,7 @@ export function SectionHub({ headings }: { headings: NavHeading[] }) {
                 <Link
                   href={e.href}
                   aria-label={entryLabel(e)}
-                  className="group flex min-h-[52px] w-full items-center gap-3 px-4 py-3 transition-colors duration-200 ease-breath active:bg-admin-hover md:min-h-[128px] md:items-start md:rounded-card md:border md:border-admin-line-strong md:bg-admin-surface md:p-5 md:shadow-[0_1px_2px_rgb(15_23_42/0.04)] md:transition-[transform,box-shadow] md:hover:-translate-y-px md:hover:shadow-[var(--shadow-lift)] md:active:bg-admin-surface"
+                  className="group flex min-h-row w-full items-center gap-3 px-4 py-3 transition-colors duration-200 ease-breath active:bg-admin-hover md:min-h-[128px] md:items-start md:rounded-card md:border md:border-[var(--surface-border)] md:bg-[var(--surface-bg)] md:p-card md:shadow-[var(--surface-shadow)] md:transition-[translate,box-shadow] md:hover:translate-y-[calc(-1px*var(--motion,1))] md:hover:shadow-[var(--shadow-lift)] md:active:bg-[var(--surface-bg)]"
                 >
                   <span className="flex h-[22px] items-center md:h-6"><StateDot state={e.state} /></span>
                   <span className="flex min-w-0 flex-1 flex-col md:h-full">

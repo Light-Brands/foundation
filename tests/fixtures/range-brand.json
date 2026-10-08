@@ -1,0 +1,27 @@
+{
+  "colors": {
+    "canvas": "#f2f2ee",
+    "canvasMuted": "#e6e6e0",
+    "ink": "#0d0d0f",
+    "inkMuted": "#4a4a50",
+    "hairline": "#cfcfc8",
+    "primary": "#1b1b1f",
+    "primaryDeep": "#0b0b0d",
+    "accent": "#1f45ff",
+    "highlight": "#d4ff3a",
+    "onHighlight": "#0d0d0f",
+    "glow": "#1f45ff"
+  },
+  "pairing": "grotesk",
+  "radiusCard": 0,
+  "radiusControl": 2,
+  "logoUrl": null,
+  "logoLightUrl": null,
+  "typeRatio": 1.333,
+  "density": "compact",
+  "surface": "flat",
+  "motion": "still",
+  "navActive": "rail",
+  "chamber": "plain",
+  "type": { "displayWeight": 500, "headingWeight": 500, "headingTracking": 0.04, "headingCase": "uppercase" }
+}

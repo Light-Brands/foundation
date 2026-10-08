@@ -20,7 +20,7 @@ export default async function BusinessHub({ searchParams }: { searchParams: Prom
               key={id}
               aria-current={on ? "page" : undefined}
               href={`/admin/business?stage=${id}`}
-              className={`flex min-h-11 items-center justify-center rounded-control px-4 text-sm font-medium transition-colors duration-200 ease-breath md:min-h-9 ${on ? "bg-admin-surface text-admin-ink shadow-sm" : "text-admin-muted hover:text-admin-ink"}`}
+              className={`flex min-h-11 items-center justify-center rounded-control px-4 text-sm font-medium transition-colors duration-200 ease-breath md:min-h-9 ${on ? "seg-active" : "text-admin-muted hover:text-admin-ink"}`}
             >
               {label}
             </Link>

@@ -45,11 +45,21 @@
   --radius-control: var(--brand-radius-control);
 
   --ease-breath: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Density: the brand's --density scales card padding, row height and the gaps between a page's parts.
+     Rows never drop below the 44px tap floor. */
+  --spacing-card: calc(1.25rem * var(--density, 1));
+  --spacing-card-lg: calc(1.5rem * var(--density, 1));
+  --spacing-row: max(44px, calc(52px * var(--density, 1)));
+  --spacing-stack: calc(2.5rem * var(--density, 1));
+  --spacing-stack-lg: calc(3.5rem * var(--density, 1));
 }
 
-/* Surfaces lift a pixel under the hand. Named here so a brand surface style can retune them later. */
+/* Motion: the brand's --motion (0, 0.5 or 1) scales every entrance and the hover lift. The brand style tag
+   writes --motion, --shadow-lift and the surface variables; these only derive from them. */
 :root {
-  --shadow-lift: 0 6px 20px -8px rgb(15 23 42 / 0.12), 0 1px 2px rgb(15 23 42 / 0.04);
+  --duration-enter: calc(800ms * var(--motion, 1));
+  --rise-distance: calc(12px * var(--motion, 1));
 }
 
 html { color-scheme: light; }
@@ -67,15 +77,58 @@ h1, h2:not(.kicker), h3:not(.kicker), h4 { font-family: var(--font-heading); }
 :focus-visible { outline: 2px solid color-mix(in oklch, var(--color-accent) 60%, transparent); outline-offset: 2px; }
 
 @layer components {
-  .surface { @apply rounded-card border border-admin-line-strong bg-admin-surface shadow-[0_1px_2px_rgb(15_23_42/0.04)]; }
+  /* Every card reads the brand's surface style: flat, soft (the default), raised or glass. */
+  .surface {
+    border-radius: var(--radius-card);
+    border: 1px solid var(--surface-border, var(--color-admin-line-strong));
+    background-color: var(--surface-bg, var(--color-admin-surface));
+    box-shadow: var(--surface-shadow, 0 1px 2px rgb(15 23 42 / 0.04));
+    backdrop-filter: var(--surface-filter, none);
+  }
   .kicker { @apply font-label text-[11px] font-semibold uppercase tracking-[0.14em] text-admin-faint; }
-  .page-title { @apply font-heading text-3xl font-normal leading-[1.1] tracking-tight text-admin-ink md:text-4xl; }
+  /* The title's size follows the brand's type ratio; its weight, tracking and case follow its type character. */
+  .page-title {
+    @apply font-heading leading-[1.1] text-admin-ink;
+    font-size: var(--brand-title-size, 1.875rem);
+    font-weight: var(--brand-heading-weight, 400);
+    letter-spacing: var(--brand-heading-tracking, -0.025em);
+    text-transform: var(--brand-heading-case, none);
+  }
+  @media (min-width: 48rem) { .page-title { font-size: var(--brand-title-size-lg, 2.25rem); } }
   .chip { @apply inline-flex items-center gap-1 rounded-full border border-admin-line-strong px-2.5 py-0.5 text-xs text-admin-muted; }
   /* One button scale: 44px on a phone, 40px on a desk. btn-sm is for dense rows only. */
   .btn-primary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-transparent bg-accent px-4 text-sm font-medium text-on-accent shadow-sm transition-all duration-200 ease-breath hover:opacity-90 disabled:bg-admin-hover disabled:text-admin-faint disabled:opacity-100 disabled:shadow-none md:min-h-10; }
   .btn-quiet { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-admin-line-strong bg-admin-surface px-4 text-sm font-medium text-admin-ink transition-all duration-200 ease-breath hover:bg-admin-hover disabled:text-admin-faint md:min-h-10; }
   .btn-sm { @apply min-h-11 px-3 text-[13px] md:min-h-8; }
   .field { @apply w-full rounded-control border border-admin-line-strong bg-admin-surface px-3 py-2 text-sm text-admin-ink placeholder:text-admin-ghost focus:border-accent focus:outline-none; }
-  .surface-link { @apply transition-[transform,box-shadow,border-color] duration-200 ease-breath hover:-translate-y-px hover:shadow-[var(--shadow-lift)]; }
+  /* A surface you can press lifts a pixel under the hand, less with less motion, none when still. */
+  .surface-link { transition: translate 200ms var(--ease-breath), box-shadow 200ms var(--ease-breath), border-color 200ms var(--ease-breath); }
+  .surface-link:hover { translate: 0 calc(-1px * var(--motion, 1)); box-shadow: var(--shadow-lift); }
   .public { background-color: var(--color-canvas); color: var(--color-ink); }
+}
+
+/* Where you are: the sidebar's current entry and the chosen stage. The brand picks the marker: pill (the default),
+   rail or tint. Unlayered so the dot inside the current entry can take the marker's color over its own. */
+.nav-active { background-color: var(--nav-active-bg); color: var(--nav-active-ink); box-shadow: var(--nav-active-shadow); font-weight: 500; }
+.nav-active [data-state="built"] { background-color: var(--nav-active-dot-built); }
+.nav-active [data-state="ready"] { --tw-ring-color: var(--nav-active-dot-ready); }
+.seg-active { background-color: var(--seg-bg-active); color: var(--color-admin-ink); box-shadow: var(--seg-shadow-active); }
+
+/* The public page's display headline: light, tight and large, in the brand's display face and type character.
+   Unlayered so it wins over the heading rule above. */
+.display-title {
+  font-family: var(--font-display); font-weight: var(--brand-display-weight, 300); line-height: 0.95;
+  letter-spacing: -0.025em; text-transform: var(--brand-heading-case, none);
+  font-size: calc(3rem * var(--brand-display-scale, 1));
+}
+@media (min-width: 40rem) { .display-title { font-size: calc(4.5rem * var(--brand-display-scale, 1)); } }
+
+/* One slow rise as a page arrives. --i staggers siblings by 70ms. It plays when the element mounts, so once per
+   navigation, and a still brand or a reduced-motion setting shows everything in place at once. */
+.rise { animation: rise var(--duration-enter) var(--ease-breath) both; animation-delay: calc(var(--i, 0) * 70ms * var(--motion, 1)); }
+@keyframes rise { from { opacity: 0; transform: translateY(var(--rise-distance)); } }
+
+@media (prefers-reduced-motion: reduce) {
+  :root:root { --motion: 0; }
+  .rise { animation: none; }
 }

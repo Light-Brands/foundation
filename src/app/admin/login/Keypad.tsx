@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Delete } from "@/components/frame/icons";
 
 // Every key is 56px on a phone, a calm 48px on a desk.
@@ -18,6 +18,12 @@ export function Keypad({ next }: { next: string }) {
   const [pin, setPin] = useState("");
   const [state, setState] = useState<"idle" | "checking" | "wrong" | "setup" | "busy" | "offline">("idle");
   const press = (d: string) => setPin((p) => (p.length < 12 ? p + d : p));
+  const field = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    // At a desk the PIN box takes the cursor, so the owner can type and press Enter. On a touch screen it waits,
+    // so the phone's own keyboard never covers the keypad.
+    if (window.matchMedia("(pointer: fine)").matches) field.current?.focus();
+  }, []);
   async function submit() {
     setState("checking");
     try {
@@ -46,6 +52,7 @@ export function Keypad({ next }: { next: string }) {
     >
       <label htmlFor="pin" className="kicker">Your PIN</label>
       <input
+        ref={field}
         id="pin"
         name="pin"
         inputMode="numeric"

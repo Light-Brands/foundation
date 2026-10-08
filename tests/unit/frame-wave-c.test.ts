@@ -171,3 +171,20 @@ describe("the whole-product pass", () => {
     expect(rule(".field")).toMatch(/focus-visible:ring-2/);
   });
 });
+
+describe("sign-in at a desk", () => {
+  it("puts the cursor in the PIN box where there is a real keyboard, and leaves a phone's keypad in charge", () => {
+    const k = readFileSync("src/app/admin/login/Keypad.tsx", "utf8");
+    expect(k).toMatch(/matchMedia\("\(pointer: fine\)"\)\.matches/);
+    expect(k).toMatch(/\.focus\(\)/);
+    expect(k).not.toContain("autoFocus");
+  });
+});
+
+describe("focus inside clipped panels", () => {
+  it("draws the ring inside the sidebar's sections and the tab bar", () => {
+    expect(css).toMatch(/\.focus-inset :focus-visible \{ outline-offset: -2px; \}/);
+    expect(readFileSync("src/components/frame/Sidebar.tsx", "utf8")).toMatch(/<nav aria-label="Command center" className="focus-inset/);
+    expect(readFileSync("src/components/frame/TabBar.tsx", "utf8")).toContain("focus-inset");
+  });
+});

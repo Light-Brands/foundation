@@ -9,7 +9,7 @@ export function TabBar({ sections, settings, todayBadge }: { sections: NavSectio
   const pathname = usePathname();
   const current = tabFor(pathname, sections, settings);
   return (
-    <nav aria-label="Tabs" className="bar bar-tabs fixed inset-x-0 bottom-0 z-30 border-t md:hidden">
+    <nav aria-label="Tabs" className="bar bar-tabs focus-inset fixed inset-x-0 bottom-0 z-30 border-t md:hidden">
       <ul className="flex pb-[env(safe-area-inset-bottom)]">
         {TABS.map((t) => {
           const Icon = TAB_ICONS[t.id];

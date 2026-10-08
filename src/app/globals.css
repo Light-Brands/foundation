@@ -79,6 +79,8 @@ body {
 h1, h2:not(.kicker), h3:not(.kicker), h4 { font-family: var(--font-heading); }
 
 :focus-visible { outline: 2px solid color-mix(in oklch, var(--color-accent) 60%, transparent); outline-offset: 2px; }
+/* Inside a panel that clips its overflow (the sidebar's sections, the tab bar), the ring sits just inside the edge. */
+.focus-inset :focus-visible { outline-offset: -2px; }
 
 @layer components {
   /* Every card reads the brand's surface style: flat, soft (the default), raised or glass. */

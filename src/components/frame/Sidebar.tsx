@@ -61,7 +61,7 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
         </button>
       </div>
 
-      <nav aria-label="Command center" className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3">
+      <nav aria-label="Command center" className="focus-inset min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3">
         {sections.map((s) => {
           const Icon = SECTION_ICONS[s.id];
           const isOpen = open === s.id && !collapsed;

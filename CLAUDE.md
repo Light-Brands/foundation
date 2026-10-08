@@ -4,8 +4,9 @@ A Next.js 16 app that runs one business. The owner builds it out with prompts; y
 
 ## How it is organized
 
-Everything belongs to one of eleven categories (a founder reads them as departments, and each sub-category as a job), in this order: Command center, Marketing, Sales, Delivery, Customer care, Finance, People, Leadership, Operations, Protection, Settings. The list lives in `src/lib/layout/categories.ts` and the navigation is generated from it by `src/lib/layout/registry.ts`. Never add a category. Place every new screen in an existing category and sub-category.
+Everything belongs to one of eleven categories (a founder reads them as departments, and each sub-category as a job), in this order: Command center, Marketing, Sales, Delivery, Customer care, Finance, People, Leadership, Operations, Protection, Settings. The list lives in `src/lib/layout/categories.ts`, and the categories stay the source of every job. The navigation groups the departments into six sections (Command center, Brand, Agentic, Grow, Serve, Run, plus Settings), set in `src/lib/layout/sections.ts`. Never add a category. Place every new screen in an existing category and sub-category, and its section follows from its department.
 
+- The command center lives under `/admin`: a job's screen is `/admin/<category>/<job>` (`hrefFor` in `src/lib/layout/registry.ts` builds it), and sign-in is `/admin/login`. The public pages are `/`, `/contact`, each form at `/f/<form>` and the unsubscribe links at `/u/<token>`; everything else is behind the PIN.
 - Built screens are listed in `CORE_SCREENS` in `src/lib/layout/registry.ts`.
 - Every other sub-category is a "ready to set up" page with three doors (`src/components/Doors.tsx`).
 - Data goes through `getDb()` from `src/lib/db`. Locally it is PGlite (real Postgres in `.data/`); on Vercel without a database it returns null and the app runs in preview. Only one program opens the local database at a time: a second program that opens it, such as a script while `npm run dev` is running, stops with "Another program has the local database open (the command center or a command such as npm run brief). Close it, then run this again. If nothing is open, delete .data/pglite.lock."
@@ -56,6 +57,7 @@ The rules every builder follows, each with its reason, live in `docs/standards/`
 - `npm run setup -- --name "<business>" --pin-prompt`: create `.env.local`
 - `npm run dev`: run locally at http://localhost:3000
 - `npm test` · `npm run typecheck` · `npm run lint` · `npm run e2e` (delete .data/e2e first for a clean run)
+- `npm run auth:unlock`: the owner's way in when sign-in is waiting after many wrong PINs
 
 ## What is coming
 

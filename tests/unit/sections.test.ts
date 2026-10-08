@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { CATEGORIES } from "@/lib/layout/categories";
 import {
   buildSections, buildSettings, activeEntry, findOwnPage, TABS, tabFor, mobileBar,
-  SECTION_DEPARTMENTS, SETTINGS_DEPARTMENTS, BRAND_PAGES, AGENTIC_PAGES,
+  SECTION_DEPARTMENTS, SETTINGS_DEPARTMENTS, BRAND_PAGES, AGENTIC_PAGES, breadcrumb, entryLabel,
 } from "@/lib/layout/sections";
 
 describe("the six sections", () => {
@@ -96,5 +96,30 @@ describe("the phone tabs", () => {
     expect(mobileBar("/admin/keep/reviews", sections, settings)).toEqual({ title: "Collect reviews", back: "/admin/business?stage=serve" });
     expect(mobileBar("/admin/system/setup", sections, settings)).toEqual({ title: "Set up", back: "/admin/more" });
     expect(mobileBar("/admin/settings", sections, settings)).toEqual({ title: "Settings", back: "/admin/more" });
+  });
+});
+
+describe("the desktop breadcrumb", () => {
+  const sections = buildSections();
+  const settings = buildSettings();
+  it("names the section and the page", () => {
+    expect(breadcrumb("/admin", sections, settings)).toEqual(["Command center", "See your day"]);
+    expect(breadcrumb("/admin/keep/reviews", sections, settings)).toEqual(["Serve", "Collect reviews"]);
+    expect(breadcrumb("/admin/brand/identity", sections, settings)).toEqual(["Brand", "Identity"]);
+    expect(breadcrumb("/admin/system/settings", sections, settings)).toEqual(["Settings", "Preferences"]);
+  });
+  it("names a hub in one word", () => {
+    expect(breadcrumb("/admin/business", sections, settings)).toEqual(["Business"]);
+    expect(breadcrumb("/admin/settings", sections, settings)).toEqual(["Settings"]);
+  });
+});
+
+describe("entry labels", () => {
+  it("say the job, its state and anything waiting", () => {
+    const e = { key: "x", label: "Collect reviews", blurb: "", href: "/", badge: 0 };
+    expect(entryLabel({ ...e, state: "built" })).toBe("Collect reviews, running");
+    expect(entryLabel({ ...e, state: "ready" })).toBe("Collect reviews, ready to set up");
+    expect(entryLabel({ ...e, state: "soon" })).toBe("Collect reviews, coming soon");
+    expect(entryLabel({ ...e, state: "built", badge: 3 })).toBe("Collect reviews, running, 3 waiting");
   });
 });

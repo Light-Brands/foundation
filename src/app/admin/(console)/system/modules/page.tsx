@@ -3,6 +3,7 @@ import { join } from "node:path";
 import ReactMarkdown from "react-markdown";
 import { keyRoot } from "@/lib/key/write";
 import { parseLog } from "@/lib/key/log";
+import { PageHeader } from "@/components/frame/PageHeader";
 
 async function readOptional(path: string): Promise<string | null> {
   try {
@@ -34,11 +35,11 @@ export default async function ModulesPage() {
   const log = await latestLog(root);
   return (
     <div className="space-y-8">
-      <div>
-        <p className="kicker">Settings · Add capabilities</p>
-        <h1 className="mt-1 text-3xl text-admin-ink">What you have built</h1>
-        <p className="mt-2 max-w-2xl text-admin-muted">The plain-words record of your system, kept current by Claude from your build log.</p>
-      </div>
+      <PageHeader
+        kicker="Settings · Add capabilities"
+        title="What you have built"
+        lede={<>The plain-words record of your system, kept current by Claude from your build log.</>}
+      />
       <section className="surface p-5">
         {system ? (
           <div className="space-y-3 text-sm text-admin-ink [&_h1]:text-xl [&_h2]:mt-4 [&_h2]:text-lg [&_li]:ml-5 [&_li]:list-disc">

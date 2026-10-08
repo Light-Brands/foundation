@@ -57,8 +57,8 @@ export function AdminFrame({ businessName, logoUrl, sections, settings, banner, 
       <MobileHeader sections={sections} settings={settings} />
       <main className={`min-h-dvh pb-[calc(72px+env(safe-area-inset-bottom))] transition-[padding] duration-300 ease-breath md:pb-0 ${collapsed ? "md:pl-20" : "md:pl-64"}`}>
         {banner}
-        <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-5 sm:py-6 md:px-6 lg:px-8 lg:py-8">
-          <TopBar />
+        <TopBar sections={sections} settings={settings} />
+        <div className="mx-auto max-w-[1600px] px-4 pb-10 pt-6 sm:px-5 md:px-6 md:pt-8 lg:px-8 lg:pb-14">
           {children}
         </div>
       </main>

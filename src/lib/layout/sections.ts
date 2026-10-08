@@ -3,7 +3,7 @@ import { CORE_SCREENS, hrefFor } from "./registry";
 
 export type SectionId = "command" | "brand" | "agentic" | "grow" | "serve" | "run";
 export type EntryState = "built" | "ready" | "soon";
-export type NavEntry = { key: string; label: string; href: string; state: EntryState; badge: number };
+export type NavEntry = { key: string; label: string; blurb: string; href: string; state: EntryState; badge: number };
 export type NavHeading = { label: string; entries: NavEntry[] };
 export type NavSection = { id: SectionId; label: string; blurb: string; headings: NavHeading[]; badge: number };
 export type OwnPage = { id: string; label: string; blurb: string; group?: string; state: EntryState };
@@ -59,7 +59,7 @@ function jobEntries(category: CategoryId, badges: Record<string, number>): NavEn
   const c = CATEGORIES.find((x) => x.id === category)!;
   return c.subcategories.map((s) => {
     const key = `${c.id}.${s.id}`;
-    return { key, label: s.label, href: hrefFor(c.id, s.id), state: key in CORE_SCREENS ? "built" : "ready", badge: badges[key] ?? 0 };
+    return { key, label: s.label, blurb: s.blurb, href: hrefFor(c.id, s.id), state: key in CORE_SCREENS ? "built" : "ready", badge: badges[key] ?? 0 };
   });
 }
 
@@ -70,7 +70,7 @@ function ownHeadings(section: "brand" | "agentic", badges: Record<string, number
     let h = headings.find((x) => x.label === label);
     if (!h) headings.push((h = { label, entries: [] }));
     const key = `${section}.${p.id}`;
-    h.entries.push({ key, label: p.label, href: `/admin/${section}/${p.id}`, state: p.state, badge: badges[key] ?? 0 });
+    h.entries.push({ key, label: p.label, blurb: p.blurb, href: `/admin/${section}/${p.id}`, state: p.state, badge: badges[key] ?? 0 });
   }
   return headings;
 }
@@ -105,6 +105,13 @@ export function activeEntry(pathname: string, sections: NavSection[], settings: 
     if (hit && (!best || e.href.length > best.href.length)) best = e;
   }
   return best?.key ?? null;
+}
+
+const STATE_WORDS: Record<EntryState, string> = { built: "running", ready: "ready to set up", soon: "coming soon" };
+
+// What a screen reader hears for a job in any list: its name, then its state, then anything waiting.
+export function entryLabel(e: NavEntry): string {
+  return [e.label, STATE_WORDS[e.state], e.badge > 0 ? `${e.badge} waiting` : ""].filter(Boolean).join(", ");
 }
 
 export function findOwnPage(section: "brand" | "agentic", id: string): OwnPage | undefined {
@@ -162,4 +169,16 @@ export function mobileBar(pathname: string, sections: NavSection[], settings: Na
   const tab = SECTION_TAB[section.id];
   const back = tab === "business" ? `/admin/business?stage=${section.id}` : TABS.find((t) => t.id === tab)!.href;
   return { title: entry.label, back };
+}
+
+// Where the desktop top bar says you are: the section, then the page. Hubs are one word.
+export function breadcrumb(pathname: string, sections: NavSection[], settings: NavHeading[]): string[] {
+  const hub = hubFor(pathname);
+  if (hub && hub !== "today") return [TABS.find((t) => t.id === hub)!.label];
+  if (pathname === "/admin/settings") return ["Settings"];
+  const key = activeEntry(pathname, sections, settings);
+  const entry = [...sections.flatMap((s) => s.headings), ...settings].flatMap((h) => h.entries).find((e) => e.key === key);
+  if (!key || !entry) return [SECTION_META.command.label];
+  const section = sectionOf(key, sections);
+  return [section ? section.label : "Settings", entry.label];
 }

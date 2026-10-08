@@ -4,6 +4,7 @@ import { keySettingState, listConnections } from "@/lib/data/connections";
 import { hasTester } from "@/lib/connections/tester";
 import { keyRoot } from "@/lib/key/write";
 import { TestButton } from "./TestButton";
+import { PageHeader } from "@/components/frame/PageHeader";
 
 const DOOR = { own: "Your own account", custom: "Built by Light Brands" } as const;
 const STATUS = { planned: "Planned", connected: "Connected", failing: "Needs a look", disconnected: "Disconnected" } as const;
@@ -16,11 +17,11 @@ export default async function ConnectionsPage() {
   for (const r of rows) if (await hasTester(keyRoot(), r.service)) testable.add(r.service);
   return (
     <div className="space-y-6">
-      <div>
-        <p className="kicker">Settings · Connect your tools</p>
-        <h1 className="mt-1 text-3xl text-admin-ink">Connect your tools</h1>
-        <p className="mt-2 max-w-xl text-admin-muted">Every service your business uses, how it was connected, and the name of the setting that holds its key. Keys stay in your host&apos;s settings, never here.</p>
-      </div>
+      <PageHeader
+        kicker="Settings · Connect your tools"
+        title="Connect your tools"
+        lede={<>Every service your business uses, how it was connected, and the name of the setting that holds its key. Keys stay in your host&apos;s settings, never here.</>}
+      />
       {rows.length === 0 ? (
         <p className="text-admin-muted">
           Nothing is connected yet. Each connection you add appears here with its status. <Link href="/admin/system/modules" className="text-admin-ink underline">See what you can add</Link>

@@ -53,7 +53,7 @@ export function adminCanvas(b: BrandTokens): string {
   return TONES[b.adminTone].neutrals.canvas;
 }
 
-// The Foundation's own brand: warm canvas, deep green, terracotta and gold, after the Transformational Epicenter.
+// The Foundation's own default brand, worn until a member sets theirs: a warm canvas, deep green, terracotta and gold.
 export const DEFAULT_BRAND: BrandTokens = {
   colors: {
     canvas: "#fbf9f5",

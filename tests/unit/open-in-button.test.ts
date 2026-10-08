@@ -34,3 +34,13 @@ describe("OpenIn", () => {
     expect(out).toContain("Open in Claude Desktop");
   });
 });
+
+describe("OpenIn, fix round 1", () => {
+  it("hides the setup link when learn is false and words the fallback label without a dot", () => {
+    const out = renderToStaticMarkup(createElement(RepoProvider, { value: { repo: null, folder: null, label: "your Foundation" } },
+      createElement(OpenIn, { prompt: "x", learn: false })));
+    expect(out).not.toContain("How this works");
+    expect(out).toContain("Opens in your Foundation folder. Check it is selected before you send.");
+    expect(out).toMatch(/<button[^>]*aria-haspopup="menu"[^>]*aria-expanded="false"[^>]*>Open in Claude Desktop/);
+  });
+});

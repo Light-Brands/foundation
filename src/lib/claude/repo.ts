@@ -1,5 +1,5 @@
 import "server-only";
-import { execFile } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 
 const NAME = /^[A-Za-z0-9_.-]+$/;
@@ -36,26 +36,56 @@ export function localFolder(folder: string | null, host: string | null, onVercel
   return LOCAL_HOSTS.has(name.toLowerCase()) ? folder : null;
 }
 
+/** The url of the `origin` remote in git config text, or null. */
+export function originFromConfig(text: string): string | null {
+  let inOrigin = false;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (line.startsWith("[")) {
+      inOrigin = /^\[remote\s+"origin"\]$/.test(line);
+      continue;
+    }
+    const m = inOrigin ? /^url\s*=\s*(.+)$/.exec(line) : null;
+    if (m) return m[1].trim();
+  }
+  return null;
+}
+
+/** Reads origin's url from the files in .git, for a plain checkout or a worktree. Any failure gives null. */
+export function readOriginUrl(cwd: string): string | null {
+  try {
+    const dot = path.join(cwd, ".git");
+    let configDir = dot;
+    if (fs.statSync(dot).isFile()) {
+      const m = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(dot, "utf8"));
+      if (!m) return null;
+      const gitdir = path.resolve(cwd, m[1].trim());
+      configDir = gitdir;
+      try {
+        configDir = path.resolve(gitdir, fs.readFileSync(path.join(gitdir, "commondir"), "utf8").trim());
+      } catch {
+        configDir = gitdir;
+      }
+    }
+    return originFromConfig(fs.readFileSync(path.join(configDir, "config"), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
 let cached: Promise<ReturnType<typeof resolveRepo>> | null = null;
 
 export function repoWhere() {
-  cached ??= new Promise((resolve) => {
+  cached ??= Promise.resolve().then(() => {
     const onVercel = process.env.VERCEL === "1";
-    if (onVercel) return resolve(resolveRepo(process.env, () => null, null, true));
+    if (onVercel) return resolveRepo(process.env, () => null, null, true);
     let cwd: string | null = null;
     try {
       cwd = process.cwd();
     } catch {
       cwd = null;
     }
-    const fallback = () => resolve(resolveRepo(process.env, () => null, cwd, false));
-    try {
-      execFile("git", ["remote", "get-url", "origin"], { cwd: cwd ?? undefined, timeout: 2000 }, (err, out) => {
-        resolve(resolveRepo(process.env, () => (err ? null : String(out)), cwd, false));
-      });
-    } catch {
-      fallback();
-    }
+    return resolveRepo(process.env, () => (cwd ? readOriginUrl(cwd) : null), cwd, false);
   });
   return cached;
 }

@@ -142,13 +142,12 @@ describe("runHandler", () => {
 });
 
 describe("process safety", () => {
-  // The one exception: claude/repo.ts runs `git remote get-url origin` with fixed arguments to name the repo in Open in links.
   it("nothing under src can start a process", () => {
     const walk = (d: string): string[] => readdirSync(d).flatMap((n) => {
       const f = path.join(d, n);
       return statSync(f).isDirectory() ? walk(f) : /\.(ts|tsx)$/.test(n) ? [f] : [];
     });
-    const hits = walk(path.join(ROOT, "src")).filter((f) => !f.endsWith(path.join("lib", "claude", "repo.ts")) && /child_process/.test(readFileSync(f, "utf8")));
+    const hits = walk(path.join(ROOT, "src")).filter((f) => /child_process/.test(readFileSync(f, "utf8")));
     expect(hits).toEqual([]);
   });
 });

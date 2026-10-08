@@ -39,7 +39,7 @@ export default async function Home() {
   return (
     <div data-today className="space-y-stack md:space-y-stack-lg">
       {/* The header and the grid read as one opening, so they sit closer than the sections below them. */}
-      <div className="space-y-6 md:space-y-8">
+      <div className="space-y-5 md:space-y-6">
         <PageHeader
           flush
           kicker={formatTodayKicker(profile.timezone, new Date())}
@@ -47,7 +47,7 @@ export default async function Home() {
           lede={profile.what_we_do || "Your command center is live. Here is where your business stands."}
         />
 
-        <div data-today-grid className="grid gap-4 lg:grid-cols-12">
+        <div data-today-grid className="grid gap-4 lg:grid-cols-12 lg:items-start">
           {preview && latest.length === 0 ? (
             <section data-needs-you="" className="surface rise p-card md:p-card-lg lg:col-span-8" style={{ "--i": 1 } as React.CSSProperties}>
               <h2 className="kicker">What needs you</h2>

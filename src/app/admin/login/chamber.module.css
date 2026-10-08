@@ -44,9 +44,11 @@
 
 .panel { position: relative; display: flex; flex-direction: column; padding: 1.25rem; min-width: 0; }
 @media (min-width: 640px) { .panel { padding: 2.5rem; } }
-.topBar { display: flex; align-items: center; justify-content: flex-end; }
+/* On a phone the band above already says whose room this is, so the label waits for the desk. */
+.topBar { display: none; align-items: center; justify-content: flex-end; }
+@media (min-width: 1024px) { .topBar { display: flex; } }
 .staff { font-family: var(--font-label); font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--color-admin-faint); }
-.formWrap { margin: auto; width: 100%; max-width: 22rem; padding: 2rem 0 1rem; }
+.formWrap { margin: auto; width: 100%; max-width: 22rem; padding: 0.5rem 0 1rem; }
 @media (min-width: 1024px) { .formWrap { padding: 3rem 0; } }
 .headline {
   font-family: var(--font-heading); font-size: 2rem; font-weight: var(--brand-heading-weight, 400);

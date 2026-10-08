@@ -1,14 +1,24 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db";
-import { getProfile } from "@/lib/data/profile";
-import { readEnv } from "@/lib/env";
+import { loadProfile } from "@/lib/data/safe";
 import { loadForms } from "@/lib/forms/public";
 import { ownHosts, sourceFields } from "@/lib/forms/source";
-import { formChoices, formReady, NOT_READY } from "@/lib/forms/options";
+import { formChoices, formReady, NOT_READY, type Choice } from "@/lib/forms/options";
+import type { FormDecl } from "@/lib/key/declarations";
 import { PublicForm } from "@/components/PublicForm";
 
 export const dynamic = "force-dynamic";
+
+/** The form's choices, or null when the database cannot be reached, so the page says the form is not ready. */
+async function loadFormChoices(form: FormDecl): Promise<Record<string, Choice[]> | null> {
+  try {
+    return await formChoices(await getDb(), form);
+  } catch (err) {
+    console.error("public form: the database could not be reached", err);
+    return null;
+  }
+}
 
 export default async function PublicFormPage({ params, searchParams }: {
   params: Promise<{ form: string }>;
@@ -17,9 +27,7 @@ export default async function PublicFormPage({ params, searchParams }: {
   const { form: key } = await params;
   const form = key === "contact" ? undefined : (await loadForms()).get(key);
   if (!form) notFound();
-  const db = await getDb();
-  const profile = await getProfile(db, readEnv().businessName);
-  const choices = await formChoices(db, form);
+  const [profile, choices] = await Promise.all([loadProfile(), loadFormChoices(form)]);
   const h = await headers();
   // A visit from the business's own site is never a referral.
   const source = sourceFields(await searchParams, h.get("referer"), ownHosts(h.get("host"), profile.website));
@@ -30,7 +38,7 @@ export default async function PublicFormPage({ params, searchParams }: {
         <h1 className="mt-1 text-3xl text-ink">{form.title}</h1>
         {form.intro && <p className="mt-2 text-ink-muted">{form.intro}</p>}
       </div>
-      {formReady(form, choices) ? <PublicForm form={form} source={source} choices={choices} /> : <p className="surface border-hairline bg-canvas-muted p-6 text-ink">{NOT_READY}</p>}
+      {choices && formReady(form, choices) ? <PublicForm form={form} source={source} choices={choices} /> : <p className="surface border-hairline bg-canvas-muted p-6 text-ink">{NOT_READY}</p>}
     </main>
   );
 }

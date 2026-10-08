@@ -1,9 +1,7 @@
 import Image from "next/image";
 import { readEnv } from "@/lib/env";
 import { safeNext } from "@/lib/auth/gate";
-import { getDb } from "@/lib/db";
-import { getProfile } from "@/lib/data/profile";
-import { getBrand } from "@/lib/data/brand";
+import { loadBrand, loadProfile } from "@/lib/data/safe";
 import { PromptBox } from "@/components/PromptBox";
 import { Keypad } from "./Keypad";
 import { Monogram } from "@/components/frame/Monogram";
@@ -17,8 +15,8 @@ const LEDE = "Your brand, your business and your AI team, in one quiet room.";
 export default async function SignIn({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const env = readEnv();
   const { next } = await searchParams;
-  const db = await getDb();
-  const [profile, brand] = await Promise.all([getProfile(db, env.businessName), getBrand(db)]);
+  // The PIN check needs no data, so the sign-in page opens even when the database cannot be reached.
+  const [profile, brand] = await Promise.all([loadProfile(), loadBrand()]);
   const logo = brand.logoLightUrl ?? brand.logoUrl;
   return (
     <div className={s.page}>

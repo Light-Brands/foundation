@@ -1,15 +1,13 @@
 import { headers } from "next/headers";
 import { ownHosts, sourceFields } from "@/lib/forms/source";
-import { getDb } from "@/lib/db";
-import { getProfile } from "@/lib/data/profile";
-import { readEnv } from "@/lib/env";
+import { loadProfile } from "@/lib/data/safe";
 import { CONTACT_FORM } from "@/lib/forms/public";
 import { PublicForm } from "@/components/PublicForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function ContactPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const profile = await getProfile(await getDb(), readEnv().businessName);
+  const profile = await loadProfile();
   const h = await headers();
   // A visit from the business's own site is never a referral.
   const source = sourceFields(await searchParams, h.get("referer"), ownHosts(h.get("host"), profile.website));

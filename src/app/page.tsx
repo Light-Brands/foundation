@@ -1,13 +1,11 @@
-import { getDb } from "@/lib/db";
-import { getProfile } from "@/lib/data/profile";
-import { readEnv } from "@/lib/env";
+import { loadProfile } from "@/lib/data/safe";
 
 export const dynamic = "force-dynamic";
 
 // A simple branded welcome until the landing page entry builds the real one: a faint glow field, an eyebrow
 // between hairlines, the name in the display face, and one action. Each part rises once, in order.
 export default async function PublicHome() {
-  const profile = await getProfile(await getDb(), readEnv().businessName);
+  const profile = await loadProfile();
   const at = (i: number) => ({ "--i": i }) as React.CSSProperties;
   return (
     <main className="public relative isolate flex min-h-dvh flex-col items-center justify-center overflow-hidden px-5 py-24 text-center">

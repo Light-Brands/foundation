@@ -1,5 +1,6 @@
 import { lessonHref, customHref, connectDoorPrompt, installCardCopy, connectCardCopy, CUSTOM_CARD_COPY } from "@/lib/links";
 import { OpenIn } from "@/components/OpenIn";
+import { PromptText } from "@/components/PromptText";
 
 // prompt: the job's dictionary prompt, opening with the chief of staff's name. hasEntry: its entry ships in ninja/,
 // so the install door builds it.
@@ -19,6 +20,7 @@ export function Doors({ categoryId, subId, subLabel, prompt, hasEntry, name }: {
         <span className="chip absolute -top-3 left-5 border-accent/30 bg-admin-surface font-medium text-admin-ink md:left-6">Recommended</span>
         <p className="kicker">2 · Install it with the Ninja framework</p>
         <p className="mt-3 text-sm leading-relaxed text-admin-muted">Open this in Claude. {installCardCopy(hasEntry, name)}</p>
+        <PromptText prompt={prompt} />
         <div className="mt-auto flex flex-wrap gap-2 pt-5">
           <OpenIn prompt={prompt} primary />
           <a className="btn-quiet" href={lessonHref(categoryId, subId)} target="_blank" rel="noreferrer">Open the Dojo</a>

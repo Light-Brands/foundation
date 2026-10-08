@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { CATEGORIES } from "@/lib/layout/categories";
 import {
   buildSections, buildSettings, activeEntry, findOwnPage, TABS, tabFor, mobileBar,
-  SECTION_DEPARTMENTS, SETTINGS_DEPARTMENTS, BRAND_PAGES, AGENTIC_PAGES, breadcrumb, entryLabel, hubOwner,
+  SECTION_DEPARTMENTS, SETTINGS_DEPARTMENTS, BRAND_PAGES, AGENTIC_PAGES, breadcrumb, entryState, hubOwner,
 } from "@/lib/layout/sections";
 
 describe("the six sections", () => {
@@ -114,14 +114,14 @@ describe("the desktop breadcrumb", () => {
   });
 });
 
-describe("entry labels", () => {
-  it("say the job, its state and anything waiting", () => {
+describe("entry states", () => {
+  it("say the job's state in words, for a screen reader to hear after its name", () => {
     const e = { key: "x", label: "Collect reviews", blurb: "", href: "/", badge: 0 };
-    expect(entryLabel({ ...e, state: "built" })).toBe("Collect reviews, running");
-    expect(entryLabel({ ...e, state: "ready" })).toBe("Collect reviews, ready to set up");
-    expect(entryLabel({ ...e, state: "soon" })).toBe("Collect reviews, coming soon");
-    expect(entryLabel({ ...e, state: "built", badge: 3 })).toBe("Collect reviews, running, 3 waiting");
+    expect(entryState({ ...e, state: "built" })).toBe("running");
+    expect(entryState({ ...e, state: "ready" })).toBe("ready to set up");
+    expect(entryState({ ...e, state: "soon" })).toBe("coming soon");
   });
+});
 
 describe("the sidebar's owner on a hub", () => {
   it("opens and marks the section a hub belongs to", () => {
@@ -135,5 +135,4 @@ describe("the sidebar's owner on a hub", () => {
   it("names no owner on Today, More, or a page", () => {
     for (const p of ["/admin", "/admin/more", "/admin/settings", "/admin/sell/leads", "/admin/brand/identity"]) expect(hubOwner(p, null), p).toBe("");
   });
-});
 });

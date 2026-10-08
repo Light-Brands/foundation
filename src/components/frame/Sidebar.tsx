@@ -4,7 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useId, useState } from "react";
 import { lockGate } from "./lock";
 import type { NavHeading, NavSection } from "@/lib/layout/sections";
-import { activeEntry, entryLabel, hubOwner } from "@/lib/layout/sections";
+import { activeEntry, entryState, hubOwner } from "@/lib/layout/sections";
 import { SECTION_ICONS, Settings, ExternalLink, ChevronLeft, ChevronDown, Lock } from "./icons";
 import { Monogram } from "./Monogram";
 import { StateDot } from "./SectionHub";
@@ -104,7 +104,6 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
                               <Link
                                 href={e.href}
                                 aria-current={isActive ? "page" : undefined}
-                                aria-label={entryLabel(e)}
                                 className={`flex items-center gap-2.5 rounded-control px-3 py-1.5 text-[13px] transition-colors duration-200 ease-breath ${
                                   isActive
                                     ? "nav-active"
@@ -114,12 +113,15 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
                                 }`}
                               >
                                 <StateDot state={e.state} />
-                                <span className="min-w-0 flex-1 leading-snug">{e.label}</span>
+                                <span className="min-w-0 flex-1 leading-snug">{e.label}<span className="sr-only">, {entryState(e)}</span></span>
                                 {e.state === "soon" && (
                                   <span className="inline-flex shrink-0 items-center rounded-full bg-admin-hover px-1.5 py-0.5 text-[11px] font-semibold uppercase leading-none tracking-wide text-admin-faint">Soon</span>
                                 )}
                                 {e.badge > 0 && (
                                   <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-on-accent" data-badge="">{e.badge}</span>
+                                )}
+                                {e.badge > 0 && (
+                                  <span className="sr-only">, waiting</span>
                                 )}
                               </Link>
                             </li>

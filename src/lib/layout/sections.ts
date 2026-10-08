@@ -109,9 +109,10 @@ export function activeEntry(pathname: string, sections: NavSection[], settings: 
 
 const STATE_WORDS: Record<EntryState, string> = { built: "running", ready: "ready to set up", soon: "coming soon" };
 
-// What a screen reader hears for a job in any list: its name, then its state, then anything waiting.
-export function entryLabel(e: NavEntry): string {
-  return [e.label, STATE_WORDS[e.state], e.badge > 0 ? `${e.badge} waiting` : ""].filter(Boolean).join(", ");
+// What a screen reader hears after a job's name in any list: its state. A link's name is its visible text plus these
+// words, never an aria-label that drops part of what is on screen (WCAG 2.5.3, label in name).
+export function entryState(e: NavEntry): string {
+  return STATE_WORDS[e.state];
 }
 
 // The section a hub page belongs to, so the sidebar opens and marks it. Business is the three stages, picked by

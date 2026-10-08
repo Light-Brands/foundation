@@ -28,9 +28,9 @@ export function MobileHeader({ sections, settings, businessName, logoUrl }: {
     <header className="bar bar-phone sticky top-0 z-20 flex min-h-12 items-center gap-1 border-b px-2 pt-[env(safe-area-inset-top)] md:hidden">
       {hub ? (
         <>
-          <Link href="/admin" aria-label={businessName} className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-control px-2">
+          <Link href="/admin" className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-control px-2">
             {mark}
-            {hub !== "today" && <span className="truncate text-[15px] font-semibold text-admin-ink">{businessName}</span>}
+            {hub !== "today" ? <span className="truncate text-[15px] font-semibold text-admin-ink">{businessName}</span> : <span className="sr-only">{businessName}</span>}
           </Link>
           {hub === "today" && (
             <Link

@@ -47,9 +47,11 @@ describe("sidebar", () => {
 
   it("names each job with its state", () => {
     const html = sidebar("/admin");
-    expect(html).toContain('aria-label="See your day, running"');
-    expect(html).toContain('aria-label="Collect reviews, ready to set up"');
-    expect(html).toContain('aria-label="Recipes, coming soon"');
+    expect(html).toContain('See your day<span class="sr-only">, running</span>');
+    expect(html).toContain('Collect reviews<span class="sr-only">, ready to set up</span>');
+    expect(html).toContain('Recipes<span class="sr-only">, coming soon</span>');
+    // A link's name is its visible text plus these words, so no aria-label can drop part of what is on screen.
+    expect(html).not.toMatch(/<a [^>]*aria-label=/);
   });
 
   it("sets group headings as kickers, never in the heading face", () => {
@@ -64,14 +66,14 @@ describe("section hub", () => {
   const html = renderToStaticMarkup(createElement(SectionHub, { headings: serve.headings }));
 
   it("says each job's state in words and in a dot", () => {
-    expect(html).toContain('aria-label="Collect reviews, ready to set up"');
+    expect(html).toContain('Collect reviews<span class="sr-only">, ready to set up</span>');
     expect(html).toContain("data-state=\"ready\"");
     const agentic = buildSections().find((s) => s.id === "agentic")!;
     const soon = renderToStaticMarkup(createElement(SectionHub, { headings: agentic.headings }));
-    expect(soon).toContain('aria-label="Recipes, coming soon"');
+    expect(soon).toContain('Recipes<span class="sr-only">, coming soon</span>');
     const command = buildSections().find((s) => s.id === "command")!;
     const running = renderToStaticMarkup(createElement(SectionHub, { headings: command.headings }));
-    expect(running).toContain('aria-label="See your day, running"');
+    expect(running).toContain('See your day<span class="sr-only">, running</span>');
     expect(running).toContain("data-state=\"built\"");
   });
 

@@ -51,9 +51,11 @@ describe("the phone header", () => {
   it("shows only the mark on Today, where the business name is the page title", () => {
     const h = html(createElement(MobileHeader, props));
     expect(h).toContain("HS");
-    expect(text(h)).not.toContain("Harbor Studio");
+    // The name is on the link for a screen reader only, so the link's name holds the mark's visible letters too.
+    expect(h).toContain('<span class="sr-only">Harbor Studio</span>');
+    expect(h).not.toMatch(/<a [^>]*aria-label="Harbor Studio"/);
+    expect(h).not.toMatch(/truncate[^>]*>Harbor Studio/);
     expect(text(h)).not.toContain("Today");
-    expect(h).toContain('aria-label="Harbor Studio"');
   });
   it("keeps back and the title deeper in, aligned to the back button's width", () => {
     pathname = "/admin/keep/reviews";

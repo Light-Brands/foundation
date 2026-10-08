@@ -6,11 +6,13 @@ import { getProfile } from "@/lib/data/profile";
 import { getBrand } from "@/lib/data/brand";
 import { PromptBox } from "@/components/PromptBox";
 import { Keypad } from "./Keypad";
+import { Monogram } from "@/components/frame/Monogram";
 import s from "./chamber.module.css";
 
 export const dynamic = "force-dynamic";
 
 const SECTIONS = ["Command center", "Brand", "Agentic", "Grow", "Serve", "Run"];
+const LEDE = "Your brand, your business and your AI team, in one quiet room.";
 
 export default async function SignIn({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const env = readEnv();
@@ -28,15 +30,13 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
           {logo ? (
             <Image src={logo} alt={profile.business} width={40} height={40} className="h-10 w-auto object-contain" unoptimized />
           ) : (
-            <p className={s.eyebrow}>Command center</p>
+            <Monogram name={profile.business} size="xl" />
           )}
         </div>
         <div className={s.content}>
           <p className={`${s.eyebrow} ${s.rise}`} style={{ animationDelay: "140ms" }}>Command center</p>
           <h2 className={`${s.wordmark} ${s.rise}`} style={{ animationDelay: "220ms" }}>{profile.business}</h2>
-          {profile.what_we_do && (
-            <p className={`${s.lede} ${s.rise}`} style={{ animationDelay: "320ms" }}>{profile.what_we_do}</p>
-          )}
+          <p className={`${s.lede} ${s.rise}`} style={{ animationDelay: "320ms" }}>{profile.what_we_do || LEDE}</p>
         </div>
         <ul className={`${s.content} ${s.sections} ${s.rise}`} style={{ animationDelay: "420ms" }}>
           {SECTIONS.map((x) => <li key={x}>{x}</li>)}
@@ -44,7 +44,14 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
       </aside>
       <main className={s.panel}>
         <header className={s.topBar}>
-          <span />
+          {/* On a desk the chamber already carries the mark, so this one only holds its place. */}
+          <span className="lg:invisible">
+            {brand.logoUrl ? (
+              <Image src={brand.logoUrl} alt="" width={36} height={36} className="h-9 w-auto object-contain" unoptimized />
+            ) : (
+              <Monogram name={profile.business} size="lg" />
+            )}
+          </span>
           <p className={s.staff}>Owner and team</p>
         </header>
         <div className={s.formWrap}>

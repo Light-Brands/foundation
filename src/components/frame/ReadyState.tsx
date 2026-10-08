@@ -2,7 +2,7 @@ import type { OwnPage } from "@/lib/layout/sections";
 import { READY } from "@/lib/layout/ready";
 import { pagePrompt } from "@/lib/dictionary/numbers";
 import { promptLead } from "@/lib/dictionary/prompt";
-import { CopyButton } from "@/components/CopyButton";
+import { OpenIn } from "@/components/OpenIn";
 
 // The lead sentence with its dictionary number in the figure face.
 function Lead({ text }: { text: string }) {
@@ -35,16 +35,14 @@ export function ReadyState({ page, section, name }: { page: OwnPage; section: "b
         ))}
       </ul>
       <div className="mt-6 border-t border-admin-line pt-5">
-        <p className="text-sm text-admin-muted">{soon ? "Until it arrives, paste this into Claude Code:" : "Paste this into Claude Code:"}</p>
+        <p className="text-sm text-admin-muted">{soon ? "Until it arrives, open this in Claude:" : "Open this in Claude:"}</p>
         <p data-prompt-lead="" className="mt-2 text-sm leading-relaxed text-admin-ink md:hidden"><Lead text={promptLead(prompt)} /></p>
         <details className="mt-2 md:hidden">
           <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium text-admin-muted underline decoration-admin-line-strong underline-offset-4">Show the whole prompt</summary>
           <p className="font-mono text-[13px] leading-relaxed break-all text-admin-ink">{prompt}</p>
         </details>
         <p data-prompt className="mt-2 hidden break-words font-mono text-sm leading-relaxed text-admin-ink md:block">{prompt}</p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <CopyButton text={prompt} className="btn-primary" />
-        </div>
+        <div className="mt-4"><OpenIn prompt={prompt} primary /></div>
       </div>
     </section>
   );

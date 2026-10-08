@@ -1,5 +1,5 @@
 import { lessonHref, customHref, connectDoorPrompt, installCardCopy, connectCardCopy, CUSTOM_CARD_COPY } from "@/lib/links";
-import { CopyButton } from "@/components/CopyButton";
+import { OpenIn } from "@/components/OpenIn";
 
 // prompt: the job's dictionary prompt, opening with the chief of staff's name. hasEntry: its entry ships in ninja/,
 // so the install door builds it.
@@ -13,14 +13,14 @@ export function Doors({ categoryId, subId, subLabel, prompt, hasEntry, name }: {
       <div data-door="connect" className="surface flex flex-col p-card md:p-card-lg">
         <p className="kicker">1 · Connect a tool you use</p>
         <p className="mt-3 text-sm leading-relaxed text-admin-muted">{connectCardCopy(subLabel, name)}</p>
-        <div className="mt-auto flex flex-wrap gap-2 pt-5"><CopyButton text={connectDoorPrompt(prompt)} /></div>
+        <div className="mt-auto flex flex-wrap gap-2 pt-5"><OpenIn prompt={connectDoorPrompt(prompt)} /></div>
       </div>
       <div data-door="install" className="surface relative mt-3 flex flex-col p-card ring-1 ring-accent/25 md:p-card-lg lg:mt-0">
         <span className="chip absolute -top-3 left-5 border-accent/30 bg-admin-surface font-medium text-admin-ink md:left-6">Recommended</span>
         <p className="kicker">2 · Install it with the Ninja framework</p>
-        <p className="mt-3 text-sm leading-relaxed text-admin-muted">Paste this into Claude Code. {installCardCopy(hasEntry, name)}</p>
+        <p className="mt-3 text-sm leading-relaxed text-admin-muted">Open this in Claude. {installCardCopy(hasEntry, name)}</p>
         <div className="mt-auto flex flex-wrap gap-2 pt-5">
-          <CopyButton text={prompt} className="btn-primary" />
+          <OpenIn prompt={prompt} primary />
           <a className="btn-quiet" href={lessonHref(categoryId, subId)} target="_blank" rel="noreferrer">Open the Dojo</a>
         </div>
       </div>

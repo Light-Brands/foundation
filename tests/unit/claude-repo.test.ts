@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { parseRemote, resolveRepo } from "@/lib/claude/repo";
+import { parseRemote, resolveRepo, localFolder } from "@/lib/claude/repo";
 
 describe("parseRemote", () => {
   it("reads ssh and https GitHub remotes", () => {
@@ -48,5 +48,18 @@ describe("repoWhere", () => {
     const r = await repoWhere();
     expect(r.folder).toBeNull();
     expect(typeof r.label).toBe("string");
+  });
+});
+
+describe("localFolder", () => {
+  it("keeps the folder only for a local session on a local host", () => {
+    for (const host of ["localhost", "localhost:3000", "127.0.0.1:3100", "[::1]:3000", "[::1]"]) expect(localFolder("/Users/jo/harbor", host, false)).toBe("/Users/jo/harbor");
+  });
+  it("drops it for a LAN address, a domain, Vercel or a missing host", () => {
+    expect(localFolder("/Users/jo/harbor", "192.168.1.20:3000", false)).toBeNull();
+    expect(localFolder("/Users/jo/harbor", "command.harbor.co", false)).toBeNull();
+    expect(localFolder("/Users/jo/harbor", "localhost:3000", true)).toBeNull();
+    expect(localFolder("/Users/jo/harbor", null, false)).toBeNull();
+    expect(localFolder(null, "localhost", false)).toBeNull();
   });
 });

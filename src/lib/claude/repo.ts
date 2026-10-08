@@ -27,6 +27,15 @@ export function resolveRepo(env: Partial<NodeJS.ProcessEnv>, readRemote: () => s
   return { repo, folder, label };
 }
 
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/** The folder goes to the browser only for a local session reached on this computer. Anywhere else the owner names it once. */
+export function localFolder(folder: string | null, host: string | null, onVercel: boolean): string | null {
+  if (!folder || !host || onVercel) return null;
+  const name = host.startsWith("[") ? host.slice(0, host.indexOf("]") + 1) : host.split(":")[0];
+  return LOCAL_HOSTS.has(name.toLowerCase()) ? folder : null;
+}
+
 let cached: Promise<ReturnType<typeof resolveRepo>> | null = null;
 
 export function repoWhere() {

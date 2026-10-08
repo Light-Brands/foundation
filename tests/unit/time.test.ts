@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { businessTimeZone, formatCardTime, businessDate, businessWeekday, businessWeekStart, businessClock, isOpenAt, workingHours, formatTodayKicker } from "@/lib/time";
+import { businessTimeZone, formatCardTime, formatRelativeTime, toIsoTime, businessDate, businessWeekday, businessWeekStart, businessClock, isOpenAt, workingHours, formatTodayKicker } from "@/lib/time";
 
 // 06:30 UTC on a Monday is still Sunday evening in Los Angeles: the card must show the business's day.
 const AT = "2026-10-05 06:30:00.123456+00";
@@ -119,5 +119,40 @@ describe("the Today kicker", () => {
     expect(formatTodayKicker("UTC", at)).toBe("Wednesday, October 7");
     expect(formatTodayKicker("America/Los_Angeles", at)).toBe("Tuesday, October 6");
     expect(formatTodayKicker(null, at)).toBe("Wednesday, October 7");
+  });
+});
+
+describe("relative card times", () => {
+  const LA = "America/Los_Angeles";
+  // 18:00 UTC on Wednesday, October 7 is 11:00 in Los Angeles.
+  const now = new Date("2026-10-07T18:00:00Z");
+  it("say minutes and hours on the same business day", () => {
+    expect(formatRelativeTime("2026-10-07T17:59:40Z", LA, now)).toBe("Just now");
+    expect(formatRelativeTime("2026-10-07T17:55:00Z", LA, now)).toBe("5m ago");
+    expect(formatRelativeTime("2026-10-07 16:00:00+00", LA, now)).toBe("2h ago");
+    expect(formatRelativeTime("2026-10-07T07:30:00Z", LA, now)).toBe("10h ago");
+  });
+  it("turn to Yesterday at the business's midnight, not the server's", () => {
+    // 06:59 UTC is 23:59 on Tuesday in Los Angeles, but already Wednesday in UTC.
+    expect(formatRelativeTime("2026-10-07T06:59:00Z", LA, now)).toBe("Yesterday");
+    expect(formatRelativeTime("2026-10-07T07:00:00Z", LA, now)).toBe("11h ago");
+    expect(formatRelativeTime("2026-10-07T06:59:00Z", "UTC", now)).toBe("11h ago");
+  });
+  it("keep a message from minutes ago in minutes across midnight", () => {
+    const justAfter = new Date("2026-10-08T07:10:00Z"); // 00:10 Thursday in Los Angeles
+    expect(formatRelativeTime("2026-10-08T06:30:00Z", LA, justAfter)).toBe("40m ago");
+    expect(formatRelativeTime("2026-10-08T05:00:00Z", LA, justAfter)).toBe("Yesterday");
+  });
+  it("show the date after yesterday, with the year only when it differs", () => {
+    expect(formatRelativeTime("2026-10-03T18:00:00Z", LA, now)).toBe("Oct 3");
+    expect(formatRelativeTime("2025-12-30T18:00:00Z", LA, now)).toBe("Dec 30, 2025");
+  });
+  it("treat a time slightly ahead of the clock as just now, and keep unreadable text as it is", () => {
+    expect(formatRelativeTime("2026-10-07T18:00:30Z", LA, now)).toBe("Just now");
+    expect(formatRelativeTime("not a time", LA, now)).toBe("not a time");
+  });
+  it("give the machine-readable instant for the time element", () => {
+    expect(toIsoTime("2026-10-05 06:30:00.123+00")).toBe("2026-10-05T06:30:00.123Z");
+    expect(toIsoTime("not a time")).toBeNull();
   });
 });

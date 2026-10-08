@@ -34,6 +34,10 @@ test("the first win: in with the PIN, profile saved, a real message in the Inbox
 
   await page.goto("/admin/command/inbox");
   await expect(page.getByText("Ada sent a message")).toBeVisible();
+  // Times read the way a person says them, with the full date kept in the time element.
+  const when = page.locator("li", { hasText: "Ada sent a message" }).locator("time").first();
+  await expect(when).toHaveText(/^(Just now|\d+m ago)$/);
+  await expect(when).toHaveAttribute("datetime", /^\d{4}-\d{2}-\d{2}T/);
   await expect(page.getByText("<script>alert(1)</script> Hello")).toBeVisible();
 
   await page.goto("/admin/system/modules");

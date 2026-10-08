@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { InboxItem } from "@/lib/data/inbox";
 import type { HandSend } from "@/lib/data/hand-send";
 import { formatCardTime } from "@/lib/time";
+import { CardTime } from "@/components/CardTime";
 import { CardActions } from "./CardActions";
 import { EmailDraft } from "./EmailDraft";
 
@@ -22,10 +23,10 @@ export type InboxCardProps = {
 // A job that groups or annotates the Inbox renders every card through this, so no action is ever lost.
 export function InboxCard({ item: i, timezone, mode, routes, handSend, below }: InboxCardProps) {
   return (
-    <li className="surface p-4">
+    <li id={`card-${i.id}`} className="surface scroll-mt-20 p-4">
       <div className="flex items-baseline justify-between gap-4">
         <p className="text-admin-ink">{i.title}</p>
-        <p className="font-mono text-xs text-admin-muted">{formatCardTime(i.created_at, timezone)}</p>
+        <CardTime at={i.created_at} timezone={timezone} className="shrink-0 font-mono text-xs text-admin-muted" />
       </div>
       {i.contact_email && <p className="text-sm text-admin-muted">{i.contact_email}</p>}
       <p className="mt-2 whitespace-pre-wrap text-sm text-admin-muted">{i.body}</p>

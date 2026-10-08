@@ -29,6 +29,35 @@ export function formatCardTime(at: string, tz: string | null | undefined): strin
   }).format(d);
 }
 
+/** The instant as ISO 8601 for a <time dateTime>, or null when the text is not a time. */
+export function toIsoTime(at: string): string | null {
+  const d = parseDbTime(at);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+function dayNumber(tz: string | null | undefined, at: Date): number {
+  return Date.parse(`${businessDate(tz, at)}T00:00:00Z`) / 86_400_000;
+}
+
+/**
+ * How long ago, the way a person says it, on the business's clock: "Just now", "5m ago", "2h ago" on the same day,
+ * "Yesterday" once the business's midnight has passed, then "Oct 3" (with the year when it is not this year).
+ * Anything under an hour stays in minutes, so a message from just before midnight never reads as yesterday's.
+ */
+export function formatRelativeTime(at: string, tz: string | null | undefined, now: Date): string {
+  const d = parseDbTime(at);
+  if (Number.isNaN(d.getTime())) return at;
+  const minutes = Math.floor((now.getTime() - d.getTime()) / 60_000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const days = dayNumber(tz, now) - dayNumber(tz, d);
+  if (days <= 0) return `${Math.floor(minutes / 60)}h ago`;
+  if (days === 1) return "Yesterday";
+  const zone = businessTimeZone(tz);
+  const sameYear = businessDate(tz, d).slice(0, 4) === businessDate(tz, now).slice(0, 4);
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }), timeZone: zone }).format(d);
+}
+
 export type WorkingHours = { days: Weekday[]; start: string; end: string };
 
 export function workingHours(p: Pick<Profile, "work_days" | "work_start" | "work_end">): WorkingHours | null {

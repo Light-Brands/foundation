@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { getDb, storageMode } from "@/lib/db";
-import { getProfile } from "@/lib/data/profile";
-import { countNewInbox, listInbox } from "@/lib/data/inbox";
+import { listInbox } from "@/lib/data/inbox";
+import { loadInboxCount, loadProfile } from "@/lib/data/safe";
 import { buildSections } from "@/lib/layout/sections";
 import { stackStatus } from "@/lib/setup/steps";
-import { connectionStatuses, emailSendingActive } from "@/lib/data/connections";
-import { readEnv } from "@/lib/env";
+import { connectionStatuses, EMAIL_SENDING } from "@/lib/data/connections";
 import { SECTION_ICONS } from "@/components/frame/icons";
 import { PageHeader } from "@/components/frame/PageHeader";
 import { formatTodayKicker } from "@/lib/time";
@@ -28,10 +27,14 @@ export default async function Home() {
       }
     });
   }
-  const profile = await getProfile(db, readEnv().businessName);
-  const latest = await listInbox(db, NEEDS_YOU_ROWS, { status: "new" });
-  const waiting = await countNewInbox(db);
-  const steps = stackStatus(process.env, { storage: storageMode(), connections: await connectionStatuses(db), emailSending: await emailSendingActive(db) });
+  // Independent reads start together. The profile and the count are the ones the frame already read this request.
+  const [profile, latest, waiting, connections] = await Promise.all([
+    loadProfile(),
+    listInbox(db, NEEDS_YOU_ROWS, { status: "new" }),
+    loadInboxCount(),
+    connectionStatuses(db),
+  ]);
+  const steps = stackStatus(process.env, { storage: storageMode(), connections, emailSending: connections[EMAIL_SENDING] === "connected" });
   const done = steps.filter((s) => s.status === "done").length;
   const next = steps.find((s) => s.status === "next")?.label ?? null;
   const departments = buildSections().filter((s) => s.id !== "command");

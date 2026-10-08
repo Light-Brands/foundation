@@ -242,7 +242,7 @@ export function personFields(definition: unknown, app: string): PersonRef[] {
  */
 export const CORE_TABLES = [
   "_migrations", "accounts", "business_profile", "check_runs", "connections", "contacts", "core_accounts", "core_brand", "core_settings", "form_counts",
-  "form_hits", "inbox_items", "opt_outs", "outbox", "pause", "webhook_events",
+  "form_hits", "gate_attempts", "gate_failures", "inbox_items", "opt_outs", "outbox", "pause", "webhook_events",
 ] as const;
 const isCoreTable = (t: string) => (CORE_TABLES as readonly string[]).includes(t) || t.startsWith("_") || t.startsWith("pg_");
 

@@ -7,11 +7,13 @@ import { copyText } from "@/lib/copy-text";
  * happens only once before resolves ok, and its message is shown when it does not. It wears the shared button scale:
  * btn-quiet unless a className such as btn-primary is passed.
  */
-export function CopyButton({ text, label = "Copy prompt", before, className = "" }: {
+export function CopyButton({ text, label = "Copy prompt", before, className = "", onCopied }: {
   text: string;
   label?: string;
   before?: () => Promise<{ ok: boolean; message: string }>;
   className?: string;
+  /** Called after a successful copy. */
+  onCopied?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [note, setNote] = useState("");
@@ -25,6 +27,7 @@ export function CopyButton({ text, label = "Copy prompt", before, className = ""
           setNote("");
           const r = await copyText(text, before);
           if (!r.ok) { setNote(r.message); return; }
+          onCopied?.();
           setCopied(true);
           setTimeout(() => setCopied(false), 1600);
         }}

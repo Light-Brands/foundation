@@ -43,3 +43,23 @@ export function writeFolder(store: Storage | null, folder: string): boolean {
     return false;
   }
 }
+
+const OPENED_KEY = "foundation.openIn.opened";
+
+export function readOpened(store: Storage | null): boolean {
+  try {
+    return store?.getItem(OPENED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function markOpened(store: Storage | null): boolean {
+  try {
+    if (!store) return false;
+    store.setItem(OPENED_KEY, "1");
+    return true;
+  } catch {
+    return false;
+  }
+}

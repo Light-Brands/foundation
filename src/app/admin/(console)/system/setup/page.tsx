@@ -5,6 +5,8 @@ import { StatusLight } from "@/components/StatusLight";
 import { PromptBox } from "@/components/PromptBox";
 import { customHref } from "@/lib/links";
 import { PageHeader } from "@/components/frame/PageHeader";
+import { WorkWithClaude } from "@/components/WorkWithClaude";
+import { readPrompt } from "@/lib/prompts";
 import { DictionaryKicker } from "@/components/frame/DictionaryKicker";
 
 const LIGHT_LABEL = { done: "Live", next: "Your next step", later: "Coming up" } as const;
@@ -12,6 +14,7 @@ const LIGHT_LABEL = { done: "Live", next: "Your next step", later: "Coming up" }
 export default async function SetupPage() {
   const db = await getDb();
   const steps = stackStatus(process.env, { storage: storageMode(), connections: await connectionStatuses(db), emailSending: await emailSendingActive(db) });
+  const lesson = await readPrompt("work-with-claude");
   return (
     <div className="space-y-8">
       <PageHeader
@@ -44,6 +47,7 @@ export default async function SetupPage() {
           </li>
         ))}
       </ol>
+      <WorkWithClaude prompt={lesson} />
     </div>
   );
 }

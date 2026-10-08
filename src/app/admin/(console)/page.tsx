@@ -14,6 +14,7 @@ import { checkDeps } from "@/lib/checks/deps";
 import { runChecksIfDue } from "@/lib/checks/runner";
 import { InstallHint } from "@/components/pwa/InstallHint";
 import { PREVIEW_INBOX_LINE } from "@/lib/setup/preview";
+import { LearnClaudeCard } from "./LearnClaudeCard";
 import { SetupCard } from "./SetupCard";
 import { NeedsYouCard, NEEDS_YOU_ROWS } from "./NeedsYouCard";
 
@@ -74,6 +75,8 @@ export default async function Home() {
           </div>
         </div>
       </div>
+
+      <LearnClaudeCard />
 
       <InstallHint businessName={profile.business} />
 

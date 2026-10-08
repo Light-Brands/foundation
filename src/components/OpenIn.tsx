@@ -5,29 +5,9 @@ import { CopyButton } from "@/components/CopyButton";
 import { ChevronDown, Sparkles } from "@/components/frame/icons";
 import { useRepo } from "@/components/RepoProvider";
 import { openInLink, TARGETS, TARGET_HINT, TARGET_LABEL, type Target } from "@/lib/claude/open-in";
-import { readDefault, readFolder, writeDefault, writeFolder } from "@/lib/claude/default";
+import { markOpened, readDefault, readFolder, writeDefault, writeFolder } from "@/lib/claude/default";
+import { browserStore, notify, subscribe } from "@/lib/claude/browser-store";
 
-function browserStore(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
-// The remembered choices live in the browser. They are read as an external store, so the server and the first client
-// render both show Claude Desktop and the stored choice appears right after. Writes in this tab notify the listeners;
-// writes in another tab arrive as storage events.
-const listeners = new Set<() => void>();
-function subscribe(fn: () => void) {
-  listeners.add(fn);
-  window.addEventListener("storage", fn);
-  return () => {
-    listeners.delete(fn);
-    window.removeEventListener("storage", fn);
-  };
-}
-const notify = () => listeners.forEach((fn) => fn());
 const readTarget = () => readDefault(browserStore());
 const readStoredFolder = () => readFolder(browserStore());
 const serverTarget = (): Target => "desktop";
@@ -131,6 +111,10 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
     }
   };
 
+  const opened = () => {
+    if (markOpened(browserStore())) notify();
+  };
+
   const look = primary ? "btn-primary" : "btn-quiet";
   const text = compact ? (mainLabel ?? "Claude") : `Open in ${TARGET_LABEL[target]}`;
   const sm = compact ? " btn-sm" : "";
@@ -155,7 +139,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex items-stretch">
           {main.ok ? (
-            <a ref={mainRef} href={main.href} className={`${look}${sm} rounded-r-none${asIcon ? " min-h-11 min-w-11 justify-center px-2" : ""}`} {...mainName}>{mainBody}</a>
+            <a ref={mainRef} href={main.href} onClick={opened} className={`${look}${sm} rounded-r-none${asIcon ? " min-h-11 min-w-11 justify-center px-2" : ""}`} {...mainName}>{mainBody}</a>
           ) : (
             <button
               ref={mainRef}
@@ -186,7 +170,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
             <ChevronDown aria-hidden className="h-4 w-4" />
           </button>
         </div>
-        {!compact && <CopyButton text={prompt} />}
+        {!compact && <CopyButton text={prompt} onCopied={opened} />}
       </div>
       {open && (
         <div className={`surface absolute z-20 p-2 shadow-lg ${asIcon ? "inset-x-4 top-full mt-1" : `${align === "right" ? "right-0" : "left-0"} mt-2 w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)]`}`}>
@@ -231,7 +215,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
                   </div>
                 </div>
               )}
-              <CopyButton text={prompt} className="btn-sm" />
+              <CopyButton text={prompt} className="btn-sm" onCopied={opened} />
             </div>
           )}
           {compact && <div className="mt-2 border-t border-admin-line pt-2">{repoLine}</div>}

@@ -101,19 +101,9 @@ describe("readOriginUrl", () => {
 });
 
 describe("publicWhere", () => {
-  const found = { repo: "harbor-studio/command-center", folder: "/Users/jo/harbor", label: "command-center" };
-  it("never carries the repo or a label made from it", () => {
-    for (const [host, vercel] of [["localhost:3000", false], ["command.harbor.co", true], [null, false]] as const) {
-      const w = publicWhere(found, host, vercel);
-      expect(w.repo).toBeNull();
-      expect(w.label).toBe("your Foundation");
-      expect(JSON.stringify(w)).not.toContain("harbor-studio");
-      expect(JSON.stringify(w)).not.toContain("command-center");
-    }
-  });
-  it("keeps the folder only for localhost", () => {
-    expect(publicWhere(found, "localhost:3000", false).folder).toBe("/Users/jo/harbor");
-    expect(publicWhere(found, "command.harbor.co", false).folder).toBeNull();
-    expect(publicWhere(found, "localhost", true).folder).toBeNull();
+  it("carries no repo, no repo-derived label and no folder", () => {
+    const w = publicWhere();
+    expect(w).toEqual({ repo: null, folder: null, label: "your Foundation" });
+    expect(JSON.stringify(w)).not.toContain("command-center");
   });
 });

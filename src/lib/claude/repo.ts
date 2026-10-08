@@ -73,9 +73,9 @@ export function readOriginUrl(cwd: string): string | null {
   }
 }
 
-/** What a public page may hand the browser: never the GitHub repo or a label made from it, and the folder only on localhost. */
-export function publicWhere(where: { folder: string | null }, host: string | null, onVercel: boolean) {
-  return { repo: null, folder: localFolder(where.folder, host, onVercel), label: "your Foundation" };
+/** What a public page may hand the browser: no GitHub repo, no label made from it, and no folder, since the Host header can be forged. */
+export function publicWhere() {
+  return { repo: null, folder: null, label: "your Foundation" };
 }
 
 let cached: Promise<ReturnType<typeof resolveRepo>> | null = null;

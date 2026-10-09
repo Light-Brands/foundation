@@ -126,3 +126,24 @@ test("every sidebar group has a label", async ({ page }) => {
     expect(unlabeled.bad, `${label} has an unlabeled group`).toBe(0);
   }
 });
+
+test.describe("deployed session, repo known and no folder", () => {
+  test.use({ baseURL: "http://localhost:3101" });
+
+  test("choosing claude.ai/code turns the main button into a link and focus stays on it", async ({ page }) => {
+    await signIn(page);
+    await page.goto("/admin/context/story");
+    const install = page.locator('[data-door="install"]');
+    // Desktop needs a folder the server does not know, so the main part is a button that opens the menu.
+    await expect(install.getByRole("button", { name: /Open in Claude Desktop/ })).toBeVisible();
+    const chevron = install.getByRole("button", { name: "Choose where to open" });
+    await expect(async () => {
+      if ((await chevron.getAttribute("aria-expanded")) !== "true") await chevron.click();
+      await expect(page.getByRole("menu")).toBeVisible({ timeout: 1000 });
+    }).toPass();
+    await page.getByRole("menuitemradio", { name: /claude\.ai\/code/ }).click();
+    const link = install.getByRole("link", { name: /Open in claude\.ai\/code/ });
+    await expect(link).toHaveAttribute("href", /^https:\/\/claude\.ai\/code\?.*repositories=harbor-studio%2Fcommand-center/);
+    await expect(link).toBeFocused();
+  });
+});

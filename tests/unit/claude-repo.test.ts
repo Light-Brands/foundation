@@ -10,6 +10,12 @@ describe("parseRemote", () => {
     expect(parseRemote("https://github.com/harbor-studio/command-center")).toBe("harbor-studio/command-center");
     expect(parseRemote("https://github.com/harbor-studio/command-center.git\n")).toBe("harbor-studio/command-center");
   });
+  it("reads the ssh:// form of a GitHub remote", () => {
+    expect(parseRemote("ssh://git@github.com/harbor-studio/command-center.git")).toBe("harbor-studio/command-center");
+    expect(parseRemote("ssh://git@github.com/harbor-studio/command-center")).toBe("harbor-studio/command-center");
+    expect(parseRemote("ssh://git@gitlab.com/harbor-studio/command-center.git")).toBeNull();
+    expect(parseRemote("ssh://git@github.com-work/harbor-studio/command-center.git")).toBeNull();
+  });
   it("refuses anything that is not a GitHub owner and name", () => {
     for (const bad of ["", "https://gitlab.com/a/b", "git@github.com:onlyowner", "https://github.com/a/b/c", "https://github.com/a b/c"]) expect(parseRemote(bad)).toBeNull();
   });

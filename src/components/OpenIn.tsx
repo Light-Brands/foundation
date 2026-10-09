@@ -40,7 +40,7 @@ const MENU_CAP = 512;
  * Nothing is sent: the owner reads the prompt and presses Enter. learn=false hides the setup link before sign-in;
  * align="right" always anchors the picker to the chevron, otherwise it anchors there when the page has room.
  */
-export function OpenIn({ prompt, primary = false, learn = true, align = "left", compact = false, label: mainLabel, icon = false, defaultOpen = false, copyInMenu = false, extra, line = "full", className }: {
+export function OpenIn({ prompt, primary = false, learn = true, align = "left", compact = false, label: mainLabel, icon = false, defaultOpen = false, copyInMenu = false, extra, line = "full", webReason, className }: {
   prompt: string; primary?: boolean; learn?: boolean; align?: "left" | "right";
   /** Compact: the main part reads the label (Claude by default), and Copy and the repo line move into the menu. */
   compact?: boolean; label?: string;
@@ -54,6 +54,8 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
   extra?: React.ReactNode;
   /** The repo line: the sentence, or only the repo chip and the setup link for a card that already says it. */
   line?: "full" | "chip";
+  /** Replaces the reason shown for claude.ai/code when no GitHub repo is known, for a page where Setup is out of reach. */
+  webReason?: string;
   /** The wrapper's class. "contents" lets a card's grid place the button row and the repo line. */
   className?: string;
 }) {
@@ -74,7 +76,9 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
   const scrim = useRef<HTMLDivElement>(null);
   const chevron = useRef<HTMLButtonElement>(null);
   const mainRef = useRef<HTMLAnchorElement & HTMLButtonElement>(null);
-  const opener = useRef<HTMLElement | null>(null);
+  // Which part opened the menu. Focus returns to the live node at that moment, since the main part can swap between a
+  // button and a link when the chosen target changes.
+  const opener = useRef<"main" | "chevron">("chevron");
   const menuId = useId();
 
   const asIcon = compact && icon;
@@ -137,22 +141,23 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
     return { up, right, max: Math.max(160, Math.min(cap, up ? above : below)) };
   };
 
-  const openFrom = (el: HTMLElement | null) => {
-    opener.current = el;
+  const openerEl = () => (opener.current === "main" ? mainRef.current : chevron.current) ?? chevron.current;
+  const openFrom = (from: "main" | "chevron") => {
+    opener.current = from;
     setNote("");
     if (!sheet) setPlace(measure());
     setOpen(true);
   };
-  const closeTo = (el: HTMLElement | null) => {
+  const closeTo = (el: () => HTMLElement | null) => {
     setOpen(false);
     setNote("");
-    later(() => el?.focus());
+    later(() => el()?.focus());
   };
 
   const onRootKey = (e: React.KeyboardEvent) => {
     if (open && e.key === "Escape") {
       e.preventDefault();
-      closeTo(opener.current ?? chevron.current);
+      closeTo(openerEl);
     }
   };
   const onMenuKey = (e: React.KeyboardEvent) => {
@@ -180,7 +185,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
     const to = at + (e.shiftKey ? -1 : 1);
     e.preventDefault();
     if (at >= 0 && to >= 0 && to < stops.length) { stops[to]!.focus(); return; }
-    const trigger = opener.current ?? chevron.current;
+    const trigger = openerEl();
     setOpen(false);
     setNote("");
     if (e.shiftKey || !trigger) { trigger?.focus(); return; }
@@ -198,7 +203,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
   const choose = (t: Target) => {
     if (writeDefault(browserStore(), t)) notify();
     else setKept((k) => ({ ...k, target: t }));
-    closeTo(mainRef.current);
+    closeTo(() => mainRef.current);
   };
   const saveFolder = () => {
     if (writeFolder(browserStore(), draft)) {
@@ -293,7 +298,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
                     {needsFolder && <span className="rounded-full border border-admin-line-strong px-1.5 text-[11px] leading-4 text-admin-muted">Needs folder</span>}
                   </span>
                   <span className="block text-xs leading-5 text-admin-muted">{TARGET_HINT[t]}</span>
-                  {!built.ok && !needsFolder && <span className="block text-xs leading-5 text-admin-muted">{built.reason}</span>}
+                  {!built.ok && !needsFolder && <span className="block text-xs leading-5 text-admin-muted">{t === "web" && webReason && !where.repo && prompt.length <= LIMIT.web ? webReason : built.reason}</span>}
                 </span>
               </button>
             </li>
@@ -328,7 +333,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
               aria-expanded={open}
               className={`${look} rounded-r-none${size}${asIcon ? " min-h-11 min-w-11 justify-center px-2" : ""}`}
               {...mainName}
-              onClick={(e) => (open ? closeTo(e.currentTarget) : openFrom(e.currentTarget))}
+              onClick={() => (open ? closeTo(openerEl) : openFrom("main"))}
             >{mainBody}</button>
           )}
           <button
@@ -339,11 +344,11 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
             aria-controls={open ? menuId : undefined}
             aria-label="Choose where to open"
             className={`${look} min-w-11 rounded-l-none${size} border-l border-l-admin-line-strong px-2`}
-            onClick={(e) => (open ? closeTo(e.currentTarget) : openFrom(e.currentTarget))}
+            onClick={() => (open ? closeTo(() => chevron.current) : openFrom("chevron"))}
             onKeyDown={(e) => {
               if (e.key === "ArrowDown" && !open) {
                 e.preventDefault();
-                openFrom(e.currentTarget);
+                openFrom("chevron");
               }
             }}
           >
@@ -358,7 +363,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
       )}
       {portal && menu && createPortal(
         <>
-          <div ref={scrim} aria-hidden className="fixed inset-0 z-40 bg-admin-canvas/60" onClick={() => closeTo(opener.current ?? chevron.current)} />
+          <div ref={scrim} aria-hidden className="fixed inset-0 z-40 bg-admin-canvas/60" onClick={() => closeTo(openerEl)} />
           {menu}
         </>,
         document.body,

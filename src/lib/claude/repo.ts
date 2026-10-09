@@ -11,7 +11,7 @@ function isName(s: string): boolean {
 
 /** owner/name from a GitHub remote address, or null for anything else. */
 export function parseRemote(url: string): string | null {
-  const m = /^(?:git@github\.com:|https:\/\/github\.com\/)([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/.exec(url.trim());
+  const m = /^(?:git@github\.com:|https:\/\/github\.com\/|ssh:\/\/git@github\.com\/)([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/.exec(url.trim());
   if (!m || !isName(m[1]) || !isName(m[2])) return null;
   return `${m[1]}/${m[2]}`;
 }

@@ -6,7 +6,7 @@ import { parseLog } from "@/lib/key/log";
 import { PageHeader } from "@/components/frame/PageHeader";
 import { DictionaryKicker } from "@/components/frame/DictionaryKicker";
 import { EmptyState } from "@/components/frame/EmptyState";
-import { CopyButton } from "@/components/CopyButton";
+import { OpenIn } from "@/components/OpenIn";
 import { loadProfile } from "@/lib/data/safe";
 import { chiefName, checkSystemPrompt } from "@/lib/dictionary/prompt";
 
@@ -49,7 +49,7 @@ export default async function ModulesPage() {
         <EmptyState
           title="Nothing is built yet."
           body="Your system record and build log fill in after your first build session. To start, paste this into Claude Code: it reads what is installed and ranks your next moves."
-          action={<CopyButton text={checkSystemPrompt(chiefName(await loadProfile()))} label="Copy: Check my system" className="btn-primary" />}
+          action={<OpenIn prompt={checkSystemPrompt(chiefName(await loadProfile()))} primary />}
         />
       ) : (
         <>

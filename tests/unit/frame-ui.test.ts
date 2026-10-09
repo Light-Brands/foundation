@@ -264,9 +264,11 @@ describe("the Claude button, fix round 1", () => {
     expect(menu({ icon: true })).toContain("z-50");
   });
 
-  it("shows no phone Claude button off the hubs", () => {
+  it("ends the back bar on deeper pages with the Claude icon too", () => {
     pathname = "/admin/context/story";
     const html = renderToStaticMarkup(createElement(MobileHeader, { sections: buildSections(), settings: buildSettings(), businessName: "Harbor Studio", logoUrl: null, chiefName: "Sage" }));
-    expect(html).not.toContain("Open Claude");
+    expect(html).toContain('aria-label="Back"');
+    expect(html).toContain("Open Claude");
+    expect(html).toContain("pr-4");
   });
 });

@@ -87,7 +87,7 @@ The system lead directs this entry when the owner has the Master Agent Library, 
 - **Run lead:** the stages, the plan and the gates, every commit, and in a recipe run, the order of its steps.
 - **Business analyst:** the read, the questions and each recipe's Asked again.
 - **Experience designer:** the list, each detail and every state.
-- **Copywriter:** each recipe's name, When to use and every label, in plain words.
+- **Copywriter:** each name, When to use and label, in plain words.
 - **Builder:** `src/lib/recipes/yours.ts`, the page, the command word and their tests, written test first.
 - **Automation engineer:** at Complete, the routine, its handler and its two card kinds.
 - **Security reviewer:** that an export carries no answer, name, fact or secret from the business.
@@ -111,7 +111,7 @@ No app and no table. A recipe is a file in the Key that points at records the Ke
 - **What an entry is today:** the entry's file in `ninja/`, read when a recipe runs, so a recipe always runs the current entry.
 - **Each week's offer:** one card in the core table `inbox_items`, at Complete.
 
-A recipe, the shape the copywriter writes, for Harbor Studio:
+A recipe, the shape the copywriter writes, for Willow Bakery, a second sample business, which installed Department leads on October 6:
 
 ```markdown
 ---
@@ -232,7 +232,7 @@ Not part of this entry. A recipe's steps make their own connections, each throug
 
 **Proven.** passes when a real recipe, saved from the owner's own run, ran again to its close on the owner's yes.
 
-**Coherent.** passes when both doors meet the same recipes: a recipe saved through Claude shows on the page at the next load, and the page and `npm run recipes -- yours` print the same steps.
+**Coherent.** passes when a recipe saved through Claude shows on the page at the next load, and the page and `npm run recipes -- yours` print the same steps.
 
 **Reversible.** passes when remove takes out the list, the code, the command word, the routine and their tests, keeps every recipe and brief, and `npm test` stays green.
 

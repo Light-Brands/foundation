@@ -189,7 +189,7 @@ Not part of this entry. A quick win never needs a new one, by its rule.
 
 **Setup.** The Library is installed, and the owner has answered the questions.
 
-**The run.** The QA lead opens Quick wins and checks each pick against the rule, one by one: its file ships, it is not in `installed`, it is no framework, its parts are installed, its Connections section passes, its job is not the owner's alone. It checks the order against `focus`. Then, through Claude, it installs the top pick on the owner's yes, loads the page again, and finds that entry under Done lately and the next one risen. `npm run recipes -- quick` prints, for Harbor Studio:
+**The run.** The QA lead opens Quick wins and checks each pick against the rule, one by one: its file ships, it is not in `installed`, it is no framework, its parts are installed, its Connections section passes, its job is not the owner's alone. It checks the order against `focus`. On the day Quick wins was installed, `npm run recipes -- quick` prints, for Harbor Studio:
 
 ```text
 This week's wins (3)
@@ -201,8 +201,10 @@ More that pass (3)
 Done lately (5)
   Quick wins, 2026-10-09
   Library, 2026-10-08
-  Monday brief, Write the brief, Chief of staff, 2026-10-05
+  Monday brief, Write the brief, Chief of staff (agent), 2026-10-05
 ```
+
+Then, through Claude, it installs the top pick, Your team, on the owner's yes, and at the next load finds it under Done lately and Build crew risen into the wins.
 
 **The completion test.** All of these pass:
 

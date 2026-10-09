@@ -78,6 +78,10 @@ Each entry's `target` says where it can land: `foundation`, `ninja-home` or `any
 - **Stopping between entries is fine.** When an entry's proof has passed, the owner can stop there for an hour or a week. End on the line that picks it up again.
 - **Resuming.** The owner says "Continue installing the Ninja framework". Look before you ask, and work out where they are from what exists. No `key.yaml` means Home is next, after Prep's quick confirmation. A `key.yaml` with `home: folder` means Home is built and Foundation is next. A `key/key.yaml` with `home: repo` means the Foundation is deployed, and the request continues at the tier the brief names. When the owner pastes the brief block, it answers every question it holds. When every entry is already done, with `home: repo` and the Foundation deployed or running, say so in one line and offer the first install as the next move, such as "Install the Monday brief." Installs for the department jobs arrive in coming updates of the dictionary.
 
+### Requests an installed entry defines
+
+Two requests name no single entry: "install the <department> kit", which [Department kits](../modules/agentic/department-kits.md) defines, and "run my recipe <name>", which [Your recipes](../modules/agentic/your-recipes.md) defines. Each exists only once its entry is installed, and until then, say which entry to install first and offer it. Once it is, read how the request runs from that entry's How it is done, and run it the way parts run first: every entry in it as its own run, with its own brief in `key/runs/`, its own commits and its own `installed` row, and the tier, each consent and every shared answer asked once and carried to each run. The first brief's `# Brief` names the request in the owner's words, and "Continue the Sales kit" or "Continue my recipe <name>" reads the briefs to find the next run.
+
 ### Turn the request into a verb and an entry
 
 Every run is one verb acting on one entry.

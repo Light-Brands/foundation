@@ -61,13 +61,13 @@ Adds: one code file that reads the catalog, one command, the page and their test
 
 Adds: the detail view on the page and `npm run recipes -- show <entry>`. No new table.
 
-**Mastery.** Adds the library check. It names anything out of place: an installed entry the dictionary no longer ships, an installed entry whose parts are not installed, a numbered job whose entry file is missing, and an installed entry behind the dictionary's version. The page shows each with the line that repairs it.
+**Mastery.** Adds the library check. It fails only on a broken install: an installed entry whose parts are not installed, or one the dictionary no longer ships. It reports, without failing, an installed entry behind the dictionary's version and a numbered job whose entry file is missing, a gap on the dictionary's side. The page shows each with its line.
 
 Adds: `npm run recipes -- check`, and the check inside `npm test`. No new table.
 
 ## Questions
 
-Asked after [the questionnaire](../../runner/questionnaire.md), one at a time, each with its default. Before the first question, the run reads `ninja/index.md`, the map and `installed`, and reflects back what it found, such as "You have installed the Monday brief and Write the brief, twelve entries are ready, and most department jobs are still coming."
+Asked after [the questionnaire](../../runner/questionnaire.md), one at a time, each with its default. Before the first question, the run reads `ninja/index.md`, the map and `installed`, and reflects back what it found, such as "You have installed the Monday brief with its two parts, fifteen entries are ready, and most department jobs are still coming."
 
 1. **How to sort.** "When you open the Library, do you want it sorted by department, or by what you have and what you do not?" The default is by department. It sets the page's first view, and the other is one tap away.
 2. **What to show first.** "Which department should sit at the top?" The default is the department with the most entries ready to install. It sets the order of the departments on the page.
@@ -111,12 +111,12 @@ What the entry builds at Essentials:
 - **The command:** `src/lib/recipes/recipes-command.ts`, run as `npm run recipes`, with its `prerecipes` line generating the build secret first, as every command does. The other three entries in the Recipes group each add their own word to this one command.
 - **The page:** `src/app/admin/(console)/agentic/[page]/LibraryPage.tsx`, passed as the page's `above` when the page is `recipes`, the way Your team passes its chief of staff card.
 - **Tests:** `tests/unit/library.test.ts`, which builds a fixture Foundation with an index of three entries, a map with one coming job, one installed row and one add-on row, and checks every group, and `tests/e2e/library.spec.ts`, which signs in through the PIN gate, finds each group and searches for one entry, at phone width and at desktop width.
-- **Shared edits named in the plan:** `package.json` gains `"prerecipes": "node scripts/gen-build-secret.mjs"` and `"recipes": "tsx --conditions=react-server src/lib/recipes/recipes-command.ts"`, the way the Monday brief's command runs. `src/lib/dictionary/prompt.ts` gains `installPrompt`, beside `dictionaryPrompt`, so an install line and a page's copied prompt are written by one file. The `recipes` row in `src/lib/layout/sections.ts` changes its `state` from `soon` to `ready`. `next.config.ts` needs no change: its tracing already includes `./key/**/*` and `./ninja/**/*`.
+- **Shared edits named in the plan:** `package.json` gains `"prerecipes": "node scripts/gen-build-secret.mjs"` and `"recipes": "tsx --conditions=react-server src/lib/recipes/recipes-command.ts"`, the way the Monday brief's command runs. `src/lib/dictionary/prompt.ts` gains `installPrompt`, beside `dictionaryPrompt`, which appends `Online: <link>/raw` when the entry has a link, so an install line and a page's copied prompt are written by one file. The `recipes` row in `src/lib/layout/sections.ts` changes its `state` from `soon` to `ready`. `next.config.ts` needs no change: its tracing already includes `./key/**/*` and `./ninja/**/*`.
 
 One item, as `readLibrary` returns it, for Harbor Studio, the sample business whose context block is in [the Ninja home](../../foundation/ninja-home.md):
 
 ```json
-{"group": "ready", "id": "modules/agentic/research", "title": "Research", "line": "answers to your questions about your market, every finding kept with its source.", "section": "Agentic", "page": "agentic/research", "tiers": ["essentials", "complete", "mastery"], "parts": [], "version": 1, "installed": null, "link": "https://lb-share.lightbrands.ai/s/<its address>", "install": "Avery, install Research from the Ninja dictionary. In this project it is ninja/modules/agentic/research.md.", "problems": []}
+{"group": "ready", "id": "modules/agentic/research", "title": "Research", "line": "answers to your questions about your market, every finding kept with its source.", "section": "Agentic", "page": "agentic/research", "tiers": ["essentials", "complete", "mastery"], "parts": [], "version": 1, "installed": null, "link": "https://lb-share.lightbrands.ai/s/f2nj4gd5qflugj1p", "install": "Avery, install Research from the Ninja dictionary. In this project it is ninja/modules/agentic/research.md. Online: https://lb-share.lightbrands.ai/s/f2nj4gd5qflugj1p/raw", "problems": []}
 ```
 
 - `line` is the entry's line in `ninja/index.md`, after the colon.
@@ -169,13 +169,14 @@ Not part of this entry. A connection's own entry shows in the Library like any o
 **The run, the way it will run.** The QA lead opens the Library and checks each group against the files: every entry line in `ninja/index.md` has a card, every `installed` row shows as installed and never as ready, and every map row with no entry shows as coming. It searches "brief" and finds Write the brief and the Monday brief. Then, through Claude, it copies the install line of one ready entry the owner chose, runs the install to its close, and loads the page again: the entry has moved to Installed with its tier, with no edit to any list. Then it runs `npm run recipes`, which prints, for Harbor Studio:
 
 ```text
-Ready to install (12)
+Ready to install (13)
   Agentic: Your team, Chief of staff, Department leads, Specialists, Build crew, ...
-Installed (3)
-  Monday brief, essentials, 2026-10-05
-  Write the brief, essentials, 2026-10-05
-  Research, essentials, 2026-10-09
-Coming (43)
+Installed (5)
+  Chief of staff (agent), Write the brief, Monday brief, essentials, 2026-10-05
+  Library, essentials, 2026-10-08
+  Your skills, essentials, 2026-10-09
+Coming (58)
+The path (4)
 Add-ons (0)
 ```
 
@@ -233,9 +234,9 @@ Adding an entry to the catalog is a dictionary update from Light Brands, never a
 - `npm run recipes` lists Ready to install, Installed, Coming, The path and Add-ons, in the order the page shows them.
 - `npm run recipes -- find <words>` prints the entries that match, the same way the search does.
 - `npm run recipes -- show <entry>`, at Complete, prints one entry's tiers, parts, link and `installed` row, and says when the dictionary has a newer version.
-- `npm run recipes -- check`, at Mastery, prints each problem and exits with a failure when there is one, so a run can stop on it.
+- `npm run recipes -- check`, at Mastery, prints each finding and exits with a failure only on a broken install, so a run can stop on it.
 
-Your agents use the same door: before any build, the runner and every section lead look in the Library first, through `npm run recipes -- find`, as [the library](../../library.md) asks.
+Your agents can use the same door: before any build, the runner and every section lead look in the Library first, through `npm run recipes -- find` once it is installed, or by reading `ninja/index.md`, as [the library](../../library.md) asks.
 
 **What upgrade adds, tier by tier.** This entry has no part. Its run compares each file in its row's `code` three ways, the original from the commit that added the entry's newest install or upgrade brief, as [upgrade](../../runner/verbs/upgrade.md) describes.
 

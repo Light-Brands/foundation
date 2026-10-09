@@ -56,7 +56,7 @@ Adds: one code file that reads the kits, the page, the word on the recipes comma
 
 Adds: one step in each lead's review routine and its handler. No new card kind and no table.
 
-**Mastery.** Adds the kit check: each installed job running below its plan's rung, with the line that takes it there, reported in the lead's review. A finished kit can be saved as one recipe on [Your recipes](your-recipes.md), so a second location sets up the same department the same way.
+**Mastery.** Adds the kit check: each installed job running below its plan's rung, with the line that takes it there, reported in the lead's review. A finished kit can be saved as one recipe on [Your recipes](your-recipes.md), listing each install's brief in order, so a second location sets up the same department the same way.
 
 Adds: `npm run recipes -- kits --check` and the check step in each review. No table.
 
@@ -115,7 +115,7 @@ What the entry builds at Essentials:
 - **The page:** `src/app/admin/(console)/agentic/[page]/KitsPage.tsx`, passed as the page's `above` when the page is `department-kits`.
 - **The command word:** `src/lib/recipes/recipes-command.ts` gains `kits`.
 - **Tests:** `tests/unit/kits.test.ts`, which builds a fixture Foundation with two leads, a plan that reorders the jobs, a dictionary with one ready job entry and one coming, and a Finance job whose plan asks for Runs and reports, and checks the order, the states and that the Finance job's target stays at Drafts for approval, and `tests/e2e/kits.spec.ts`, which signs in through the PIN gate and finds one kit, at phone width and at desktop width.
-- **Shared edits named in the plan:** the `department-kits` row in `src/lib/layout/sections.ts` changes its `state` from `soon` to `ready`. The page links each lead to its card on the Department leads page.
+- **Shared edits named in the plan:** the `department-kits` row in `src/lib/layout/sections.ts` changes its `state` from `soon` to `ready`, and its blurb to "A whole department from its lead's plan, one install at a time." The page links each lead to its card on the Department leads page.
 
 One kit, as `readKits` returns it, for Harbor Studio's Sales lead, today:
 
@@ -166,7 +166,7 @@ Not part of this entry. Each job's entry makes its own connections, on the Conne
 
 **The rung.** Drafts for approval. The lead proposes the next kit entry, and every install in a kit waits for its own plan's yes.
 
-**The next rung.** Acts within policy, through the lead: once Department leads is at Mastery, a lead's `## Policy` may let it put the next kit entry into `## Next` without a card. Every install itself still waits for its plan's yes, at every rung.
+**The next rung.** There is none above Drafts for approval. A kit changes the plan and installs into the Foundation, so every change to the plan and every install waits for the owner's yes at every rung, as in [Department leads](department-leads.md).
 
 **What stays with the owner.** Which kit, how deep, every plan inside it, and every job in Finance, Sign contracts, Manage your team and Hire, at every rung.
 
@@ -203,7 +203,7 @@ Not part of this entry. Each job's entry makes its own connections, on the Conne
 
 **Connected.** passes when each kit links to its lead's card on Department leads and to the Library, each ready kit carries its kit line, and from Complete each next kit entry reaches the owner as exactly one Plan update card.
 
-**Recorded.** passes when each install in a kit has its own `installed` row and log entry, and the kit request's one run brief names every entry and which are done.
+**Recorded.** passes when each install in a kit has its own brief in `key/runs/`, its own `installed` row and log entry, and the first brief names the kit request.
 
 **Tested.** passes when the tests in `tests/unit/kits.test.ts` and `tests/e2e/kits.spec.ts` failed before the code that passes them existed, and `npm test` and `npm run e2e` pass.
 
@@ -234,7 +234,7 @@ A kit has no file of its own, so every change to a kit is a change to its lead's
 - `npm run recipes -- kits <department id>` prints one kit and the installs a kit request would run, in order.
 - `npm run recipes -- kits --check`, at Mastery, prints each job below its plan's rung and exits with a failure only on a broken plan.
 
-A kit request runs in Claude Code: "Install the Sales kit from Department kits." Stopping between installs is fine, and "Continue the Sales kit" picks it up from its run brief.
+A kit request runs in Claude Code: "Install the Sales kit from Department kits." Stopping between installs is fine, and "Continue the Sales kit" reads the kit's briefs to pick it up.
 
 **What upgrade adds, tier by tier.** Parts upgrade first, each in its own run. Then each file in the row's `code` is compared three ways, the original from the commit that added the entry's newest install or upgrade brief, and every line the owner wrote stays.
 
@@ -245,7 +245,7 @@ A kit request runs in Claude Code: "Install the Sales kit from Department kits."
 
 ## How it is done
 
-**How a kit request runs.** The run lead reads the kit through `readKits` and runs each ready entry in order as a full install, the way [the runner](../../runner/run.md) runs Install the Ninja framework: one run brief for the whole request, whose `# Brief` names every entry in the kit and which are done, the tier and each consent asked once, each entry's own questions asked with the plan's answers skipped, and each entry's own plan, proof, work commit and `installed` row. An entry already installed is skipped and named. An entry whose parts are not installed installs them first, as install always does. Each install takes the plan's target rung, except an owner-only job, which installs at Drafts for approval with its decisions as owner cards.
+**How a kit request runs.** A kit request is one of the [requests an installed entry defines](../../runner/run.md), so it exists once this entry is installed. The run lead reads the kit through `readKits` and runs each ready entry in order as its own install, the way parts run first: each with its own brief in `key/runs/`, its own plan, proof, work commit and `installed` row. The tier from question 2, each consent and every shared answer are asked once and carried to each run, and each entry's own questions skip what the plan already answers. The first brief's `# Brief` names the request, such as "Install the Sales kit", and "Continue the Sales kit" reads the briefs to find the next entry. An entry already installed is skipped and named, and one whose parts are not installed installs them first. Each install takes the tier from question 2 and the rung from the plan, capped at Drafts for approval for an owner-only job, whose decisions stay owner cards.
 
 **Why the plan is the kit.** The lead already holds the department's order, its target rungs and what stays with the owner. A separate kit file would be a second plan, and the day the two differed, the kit would install in an order the lead no longer holds.
 
@@ -258,4 +258,4 @@ A kit request runs in Claude Code: "Install the Sales kit from Department kits."
 - Give the department a lead and a plan first, on [Department leads](department-leads.md): "Add a lead for Customer care."
 - Browse each job's entry, ready or coming, in the [Library](recipes.md).
 - [Upgrade](../../runner/verbs/upgrade.md) to Complete, so each lead proposes its next kit entry on Fridays: "Upgrade Department kits to Complete."
-- Save a finished kit as one recipe for your next location, on [Your recipes](your-recipes.md).
+- Save a finished kit as one recipe for your next location, on [Your recipes](your-recipes.md), from the briefs of its installs.

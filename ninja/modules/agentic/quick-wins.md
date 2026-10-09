@@ -29,7 +29,7 @@ A module, which is a whole job with its screen, its data and the work that runs 
 
 - **Ready to install.** The entry's file ships in your `ninja/` folder, `installed` in `key/key.yaml` does not name it, and it is a job to install, outside the frameworks of the path.
 - **Nothing first.** Every part it uses is installed already, so the run installs one entry and no other.
-- **No new connection.** Its Connections section says "Not part of this entry", so nothing waits on a login or a key.
+- **No new connection.** Its Connections section begins "Not part of this entry" or "Essentials uses none", so nothing at Essentials waits on a login or a key.
 - **Never the owner's own ground.** It sits outside Finance, Sign contracts, Manage your team and Hire, the jobs the Key checker keeps for the owner alone. Those come through their [Department kit](department-kits.md), or by name.
 - **At Essentials.** Each quick win installs at its first tier, the shortest run an entry has.
 
@@ -61,7 +61,7 @@ Adds: the ranking step in the code and the reason on each card. No table.
 
 ## Questions
 
-Asked after [the questionnaire](../../runner/questionnaire.md), one at a time, each with its default. Before the first question, the run reads what the Library reads, applies the rule, and reflects back what it found, such as "Five entries pass: Your team, Your skills, Research, Numbers and Write the brief. All five sit in Agentic."
+Asked after [the questionnaire](../../runner/questionnaire.md), one at a time, each with its default. Before the first question, the run reads what the Library reads, applies the rule, and reflects back what it found, such as "Seven entries pass, such as Your team, Your skills and Story and voice. Six sit in Agentic."
 
 1. **Your focus.** "Which parts of your business should your quick wins come from first? You can name departments, such as Sales, or Context or Agentic." The default is the parts with the most entries that pass. It becomes `focus` in `key/knowledge/quick-wins.yaml`, as category ids and `context` or `agentic`.
 2. **How many.** "How many quick wins should the page show at once?" The default is three. It becomes `limit`.
@@ -130,12 +130,12 @@ What the entry builds at Essentials:
 - **The page:** `src/app/admin/(console)/agentic/[page]/QuickWinsPage.tsx`, passed as the page's `above` when the page is `quick-wins`.
 - **The command word:** `src/lib/recipes/recipes-command.ts` gains `quick`.
 - **Tests:** `tests/unit/quick-wins.test.ts`, which builds a fixture dictionary with one entry for each rule it must fail and two that pass, and checks the picks and their order, and `tests/e2e/quick-wins.spec.ts`, which signs in through the PIN gate and finds the picks, at phone width and at desktop width.
-- **Shared edits named in the plan:** `docs/standards/key.md` gains `key/knowledge/quick-wins.yaml` and its three fields, with `checkQuickWins` in `src/lib/key/formats.ts`, called by `checkKeyFolder`, rejecting an unknown focus, a `limit` outside one to ten and a `skip` row with no real date, its test written first. The dictionary's [primer](../../foundation/primer.md) lists the same in its Key table. The `quick-wins` row in `src/lib/layout/sections.ts` changes its `state` from `soon` to `ready`.
+- **Shared edits named in the plan:** `docs/standards/key.md` gains `key/knowledge/quick-wins.yaml` and its three fields, with `checkQuickWins` in `src/lib/key/formats.ts`, called by `checkKeyFolder`, rejecting an unknown focus, a `limit` outside one to ten and a `skip` row with no real date, its test written first. The dictionary's [primer](../../foundation/primer.md) lists the same in its Key table. The `quick-wins` row in `src/lib/layout/sections.ts` changes its `state` from `soon` to `ready`, and its blurb to "The few installs that need nothing first, fitted to what you put first."
 
 One pick, as `readQuickWins` returns it:
 
 ```json
-{"id": "modules/agentic/skills", "title": "Your skills", "job": "knowing what your agents know how to do.", "section": "Agentic", "reason": "focus", "install": "Avery, install Your skills from the Ninja dictionary. In this project it is ninja/modules/agentic/skills.md."}
+{"id": "modules/agentic/skills", "title": "Your skills", "job": "knowing what your agents know how to do.", "section": "Agentic", "reason": "focus", "install": "Avery, install Your skills from the Ninja dictionary. In this project it is ninja/modules/agentic/skills.md. Online: https://lb-share.lightbrands.ai/s/v7wnvat7oq7fvde8/raw"}
 ```
 
 ## Screens and panels
@@ -189,15 +189,19 @@ Not part of this entry. A quick win never needs a new one, by its rule.
 
 **Setup.** The Library is installed, and the owner has answered the questions.
 
-**The run.** The QA lead opens Quick wins and checks each pick against the rule, one by one: its file ships, it is not in `installed`, it is no framework, its parts are installed, its Connections section skips, its job is not the owner's alone. It checks the order against `focus`. Then, through Claude, it installs the top pick on the owner's yes, loads the page again, and finds that entry under Done lately and the next one risen. `npm run recipes -- quick` prints, for Harbor Studio:
+**The run.** The QA lead opens Quick wins and checks each pick against the rule, one by one: its file ships, it is not in `installed`, it is no framework, its parts are installed, its Connections section passes, its job is not the owner's alone. It checks the order against `focus`. Then, through Claude, it installs the top pick on the owner's yes, loads the page again, and finds that entry under Done lately and the next one risen. `npm run recipes -- quick` prints, for Harbor Studio:
 
 ```text
 This week's wins (3)
-  Your skills: knowing what your agents know how to do.
-  Research: finding things out properly.
   Your team: keeping track of who works for your business.
-Done lately (1)
-  Write the brief, 2026-10-05
+  Chief of staff: being the only one who holds the whole business in mind.
+  Your skills: knowing what your agents know how to do.
+More that pass (3)
+  Build crew, Your recipes, Story and voice
+Done lately (5)
+  Quick wins, 2026-10-09
+  Library, 2026-10-08
+  Monday brief, Write the brief, Chief of staff, 2026-10-05
 ```
 
 **The completion test.** All of these pass:
@@ -251,7 +255,7 @@ The completion test: the card is in the Inbox with the install line, and running
 |---|---|---|
 | Your focus | `key/knowledge/quick-wins.yaml` | `focus`, in order. |
 | How many show | `key/knowledge/quick-wins.yaml` | `limit`. |
-| Set a win aside | `key/knowledge/quick-wins.yaml` | One `skip` row with its date. "Not now for Research, until December." |
+| Set a win aside | `key/knowledge/quick-wins.yaml` | One `skip` row with its date. "Not now for Story and voice, until December." |
 | The pick's day or time | `key/routines/quick-win-pick.md` | The `cron` line. Monday at 08:00 is `cron: "0 8 * * 1"`. |
 
 The rule itself is the dictionary's, so modify never loosens it: a win that needs a part or a connection is a bigger install, and the Library holds it.

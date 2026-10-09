@@ -26,6 +26,9 @@ describe("frontMatter", () => {
   });
 });
 
+// These specialists ship with the Master Agent Library add-on, so they have no crew file here.
+const ADDON_SPECIALISTS = new Set(["story-and-voice"]);
+
 // This repository always ships the dictionary, so a missing ninja/VERSION is a failure, never a skip.
 describe("the shipped Ninja framework", () => {
   it("has a valid version", () => {
@@ -47,12 +50,20 @@ describe("the shipped Ninja framework", () => {
     const have = CATEGORIES.map((c) => [c.id, c.label, c.subcategories.map((s) => [s.id, s.label])]);
     expect(have).toEqual(want);
   });
+  it("keeps the add-on allowlist honest: no add-on specialist is also a crew file", () => {
+    for (const r of ADDON_SPECIALISTS) expect(existsSync(`ninja/crew/${r}.md`), `${r} has a crew file, so drop it from the allowlist`).toBe(false);
+  });
   it("ships every crew role an entry names", () => {
     const agents = new Set(readdirSync(".claude/agents").filter((f) => f.startsWith("crew-")).map((f) => f.slice(5, -3)));
     const files = readdirSync("ninja", { recursive: true }) as string[];
     for (const f of files.filter((x) => /^(frameworks|blueprints|modules|agents|skills|routines|connections)\/.*\.md$/.test(x))) {
       const fm = frontMatter(`ninja/${f}`);
-      for (const r of [...(fm.crew ?? []), ...(fm.specialists ?? [])]) expect(agents.has(r), `${f} names ${r}`).toBe(true);
+      for (const r of fm.crew ?? []) expect(agents.has(r), `${f} names ${r}`).toBe(true);
+      for (const r of fm.specialists ?? []) {
+        if (ADDON_SPECIALISTS.has(r)) continue;
+        expect(existsSync(`ninja/crew/${r}.md`), `${f} names specialist ${r}, which is neither a crew role nor an add-on specialist`).toBe(true);
+        expect(agents.has(r), `${f} names specialist ${r}, which has no .claude/agents/crew-${r}.md`).toBe(true);
+      }
     }
   });
 });

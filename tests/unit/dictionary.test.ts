@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { entryForPage, entryPath, entryWritten, sectionLabel, pagePrompt } from "@/lib/dictionary/numbers";
+import { entryForPage, entryLink, entryPath, entryWritten, sectionLabel, pagePrompt } from "@/lib/dictionary/numbers";
 import { dictionaryPrompt, chiefName, checkSystemPrompt, connectDoorPrompt, promptLead, FRONT_DOOR } from "@/lib/dictionary/prompt";
 import { dictionaryPrompt as fromLinks } from "@/lib/links";
 import { cleanChiefName, validateProfile, PROFILE_FIELDS, type Profile } from "@/lib/validate";
@@ -43,8 +43,8 @@ describe("chief_name validation", () => {
 describe("the dictionary numbers", () => {
   it("find a job, a Brand page and an Agentic page by the ids numbers.yaml uses", () => {
     expect(entryForPage("sell/leads")).toEqual({ number: "4.2.1", title: "Capture leads", entry: null });
-    expect(entryForPage("brand/story")).toEqual({ number: "2.3", title: "Story and voice", entry: null });
-    expect(entryForPage("agentic/agents")).toEqual({ number: "3.1", title: "Agents", entry: null });
+    expect(entryForPage("context/story")).toEqual({ number: "2.1.3", title: "Story and voice", entry: "modules/brand/story" });
+    expect(entryForPage("agentic/agents")).toEqual({ number: "3.1.1", title: "Your team", entry: "modules/agentic/agents" });
   });
   it("give null for a page that has no number", () => {
     expect(entryForPage("sell/nothing-here")).toBeNull();
@@ -88,12 +88,12 @@ describe("the dictionary numbers", () => {
 });
 
 describe("dictionaryPrompt", () => {
-  const written = dictionaryPrompt({ name: "Sage", number: "0.3", title: "Foundation", entry: "frameworks/foundation" });
-  const coming = dictionaryPrompt({ name: "Sage", number: "4.2.1", title: "Capture leads", entry: null });
-  const plain = dictionaryPrompt({ name: "Sage", number: null, title: "Capture leads", entry: null });
+  const written = dictionaryPrompt({ name: "Sage", number: "0.3", title: "Foundation", entry: "frameworks/foundation", link: null });
+  const coming = dictionaryPrompt({ name: "Sage", number: "4.2.1", title: "Capture leads", entry: null, link: null });
+  const plain = dictionaryPrompt({ name: "Sage", number: null, title: "Capture leads", entry: null, link: null });
 
   it("points at the entry's file and the Dojo Dictionary when the entry is written", () => {
-    expect(written).toBe(`Sage, follow 0.3 Foundation from the Ninja dictionary. In this project it is ninja/frameworks/foundation.md. Online, it is in the Dojo Dictionary at ${FRONT_DOOR}/raw.`);
+    expect(written).toBe(`Sage, follow 0.3 Foundation from the Ninja dictionary. In this project it is ninja/frameworks/foundation.md. Online: ${FRONT_DOOR}/raw`);
   });
   it("plans with the owner and changes nothing when the entry is still coming", () => {
     expect(coming).toBe(`Sage, follow 4.2.1 Capture leads from the Ninja dictionary. Its entry arrives in a coming update, so read ninja/library.md, ask me a few questions about what I want, plan it with me in planning mode, and change nothing until I approve. Online, the Dojo Dictionary is at ${FRONT_DOOR}/raw.`);
@@ -129,5 +129,43 @@ describe("dictionaryPrompt", () => {
   });
   it("names the chief of staff in Check my system", () => {
     expect(checkSystemPrompt("Sage")).toBe("Sage, check my system with the Ninja framework runner.");
+  });
+});
+
+describe("prompts point at the entry's own page", () => {
+  it("uses the entry's link when it is published", () => {
+    expect(dictionaryPrompt({ name: "Sage", number: "2.1.3", title: "Story and voice", entry: "modules/brand/story", link: "https://lb-share.lightbrands.ai/s/abc" }))
+      .toBe("Sage, follow 2.1.3 Story and voice from the Ninja dictionary. In this project it is ninja/modules/brand/story.md. Online: https://lb-share.lightbrands.ai/s/abc/raw");
+  });
+  it("falls back to the Dojo Dictionary front door without a link", () => {
+    const p = dictionaryPrompt({ name: "Sage", number: "2.1.3", title: "Story and voice", entry: "modules/brand/story", link: null });
+    expect(p).toContain(`${FRONT_DOOR}/raw`);
+  });
+  it("reads the shipped map with the new numbers", () => {
+    expect(entryForPage("context/story")?.number).toBe("2.1.3");
+    expect(entryForPage("agentic/voice-and-writing")?.number).toBe("3.2.2");
+    expect(entryForPage("command/home")?.number).toBe("1.1.1");
+    expect(entryForPage("brand/story")).toBeNull();
+  });
+  it("reads each published entry's own link from links.yaml", () => {
+    expect(entryLink("modules/brand/story")).toBe("https://lb-share.lightbrands.ai/s/nbokpww2y36yos1c");
+    expect(entryLink("modules/nothing/here")).toBeNull();
+  });
+  it("accepts only lb-share addresses and survives a missing links file", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "dict-links-"));
+    mkdirSync(path.join(root, "ninja/foundation"), { recursive: true });
+    writeFileSync(path.join(root, "ninja/foundation/links.yaml"), "links:\n  a/b: https://lb-share.lightbrands.ai/s/ok\n  c/d: http://evil.example/s/x\n  e/f: https://lb-share.lightbrands.ai/s/ok/\n  g/h: \"https://lb-share.lightbrands.ai/s/ok x\"\n");
+    expect(entryLink("a/b", root)).toBe("https://lb-share.lightbrands.ai/s/ok");
+    expect(entryLink("c/d", root)).toBeNull();
+    expect(entryLink("e/f", root), "trailing slash").toBeNull();
+    expect(entryLink("g/h", root), "space").toBeNull();
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const empty = mkdtempSync(path.join(tmpdir(), "dict-nolinks-"));
+    expect(entryLink("a/b", empty)).toBeNull();
+    expect(entryLink("a/b", empty)).toBeNull();
+    expect(log).toHaveBeenCalledTimes(1);
+  });
+  it("pagePrompt carries the page's own link", () => {
+    expect(pagePrompt("Sage", "context/story", "Story and voice")).toContain("Online: https://lb-share.lightbrands.ai/s/nbokpww2y36yos1c/raw");
   });
 });

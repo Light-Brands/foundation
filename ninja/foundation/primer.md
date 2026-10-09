@@ -32,22 +32,28 @@ The Key is the `key/` folder. It holds the business's knowledge, roles, skills, 
 |---|---|
 | `key/key.yaml` | The ring: the list of everything the Key holds |
 | `key/CLAUDE.md` | One line telling the assistant to read `knowledge/context-block.yaml` and `knowledge/system.md` first, because they are the business and everything built for it so far |
-| `key/knowledge/` | `context-block.yaml` (the business facts) and `system.md` (the plain-words record of what is built) |
-| `key/agents/<role>/charter.md` | One charter per role, eight sections |
-| `key/skills/<slug>/SKILL.md` | One skill per folder: front matter, then Input, Steps, Output, Check |
-| `key/routines/<slug>.md` | One routine per file: front matter with a trigger, then Goal, Steps, Expected output, Check, When blocked |
+| `key/knowledge/` | `context-block.yaml` (the business facts), `system.md` (the plain-words record of what is built) and, once [Story and voice](../modules/brand/story.md) is installed, `voice.md` (the voice guide every draft is written and checked against, shown on the Story and voice page in the Brand group of Context). Once [Numbers](../modules/agentic/numbers.md) is installed, `numbers.yaml` (each number defined once, with the one read-only query that counts it), and once [Research](../modules/agentic/research.md) is installed, `research/` (one note per question, every finding with its source, and at Complete `watch.yaml`). Once [Quick wins](../modules/agentic/quick-wins.md) is installed, `quick-wins.yaml` (the owner's `focus`, `limit` and `skip` rows) |
+| `key/agents/<role>/charter.md` | One charter per role, eight sections. A department lead's role is `lead-<department id>`, and no role starts with `crew-` or `own-` |
+| `key/skills/<slug>/SKILL.md` | One skill per folder: front matter, then Input, Steps, Output, Check. Once [Tools](../modules/agentic/tools.md) is installed, the front matter may name the services the skill uses, as `connections` |
+| `key/connections/<service>.yaml` | A service's file, when it has a webhook, a sender or, once [Tools](../modules/agentic/tools.md) is installed, `actions`: what agents may read or draft with it. Tools writes the file and its first `actions` for a catalog row whose own entry did not |
+| `key/routines/<slug>.md` | One routine per file: front matter with a trigger and, once [Department leads](../modules/agentic/department-leads.md) is installed, a `rung:`, checked when present to name one of the three rungs, then Goal, Steps, Expected output, Check, When blocked |
+| `key/knowledge/plans/<department id>.md` | Once [Department leads](../modules/agentic/department-leads.md) is installed, one plan per department with a lead, under fixed headings |
+| `key/build-roles/<name>.md` | Once [Build crew](../modules/agentic/build-crew.md) is at Complete, one source per build role of the owner's own, placed for Claude Code as its twin `.claude/agents/own-<name>.md` |
+| `key/recipes/<slug>.md` | Once [Your recipes](../modules/agentic/your-recipes.md) is installed, one recipe per file: front matter with `name`, `description`, `made` and either `runs` (finished run briefs in `key/runs/`, in order) or `steps` (for a recipe shared in), then When to use, Asked again, Check |
 | `key/apps/<app>/` | `definition.yaml` and `migrations/` for each data app |
 | `key/runs/` | One run brief per run of this dictionary, named `<YYYY-MM-DD>-<verb>-<entry with each / as ->.md`, so a stopped run can resume |
 | `key/log/<YYYY-MM>.md` | The monthly build log, one entry for each thing built |
 
 `key.yaml` carries these lists:
 
-- `roster`: every role, with its `persona`, `role`, `charter`, `added` and `version`.
+- `roster`: every role, with its `persona`, `role`, `charter`, `added` and `version`, and for a lead or specialist its `reports_to`, the role it answers to.
+- `build_roles`: each build role of the owner's own, with its `slug`, `path` and `when` (`named`, `screens` or `every`), once [Build crew](../modules/agentic/build-crew.md) is at Complete.
 - `skills`: every skill, with its `slug`, `path` and `agent`.
 - `apps`: every app, with its `slug`, `definition` and `category`.
+- `recipes`: each recipe, with its `slug` and `path`, once [Your recipes](../modules/agentic/your-recipes.md) is installed.
 - `routines`: every routine, with its `slug`, `path`, `agent` and `category`.
 - `runs`: a list every `key.yaml` carries, empty in a new Foundation. The run briefs themselves are files in `key/runs/`, one per run of this dictionary, in the format `docs/standards/key.md` defines.
-- `installed`: every entry installed from this dictionary, with `entry`, `from` (such as `dictionary@0.1.0`), `tier`, `version` (the `version` in the entry's front matter), `files` (paths relative to `key/`), `code` (the app files the entry created, as paths from the repository root under `src/` or `modules/`, left out when there are none) and `installed` (the date). This is how `upgrade` keeps the owner's own edits, and how `check` knows an entry has a newer version.
+- `installed`: every entry installed from this dictionary, with `entry`, `from` (such as `dictionary@0.1.0`), `tier`, `version` (the `version` in the entry's front matter), `files` (paths relative to `key/`), `code` (the app files the entry created, as paths from the repository root under `src/` or `modules/`, left out when there are none) and `installed` (the date). This is how `upgrade` keeps the owner's own edits, and how `check` knows an entry has a newer version. The Master Agent Library's install writes an `installed` row too, with `from: master-agent-library@<version>` and the `.claude/agents/<id>.md` files it placed, and a file there is the add-on only when such a row names it.
 
 Names are slugs: lowercase letters and digits joined by single hyphens. A role's slug is its key everywhere. Every file `key.yaml` names must exist. A Key that still says `workflows` is told to rename it to `routines`.
 
@@ -63,7 +69,7 @@ Field types are `text`, `number`, `date`, `select`, `multi_select`, `checkbox`, 
 
 - **Next.js 16.** Several APIs changed. The request gate is `src/proxy.ts`. `params` and `searchParams` are promises. Read `node_modules/next/dist/docs/` before using an API you are unsure of.
 - **Data through `getDb()`** from `src/lib/db`. On the owner's computer it is PGlite, real Postgres stored in `.data/`.
-- **On Vercel with no database,** the app runs as a preview that does not save. Supabase is the cloud database, and connecting it arrives as an update from Light Brands. Never run a local database container.
+- **On Vercel with no database,** the app runs as a preview that does not save. Connecting the owner's own Neon database from Setup makes it save there. Never run a local database container.
 - **The PIN gate.** The app sits behind a PIN of 6 to 12 digits. Visitors without a session are sent to the sign in page at `/admin/login`. The command center lives under `/admin`, and the public pages, such as the welcome page at `/` and the contact page at `/contact`, are open to anyone. After five wrong tries in ten minutes, the gate refuses further tries for ten minutes. Every server action behind the gate calls `hasSession()` first. The one public action is the form action shared by the contact page and every public form at `/f/<form>`, and it only adds a declared form's message. The webhook receiver at `/api/hooks/<connection>` and the unsubscribe link at `/u/<token>` are public too, and each verifies its signature or token before it writes anything. The owner sets the PIN in their own terminal with `npm run setup -- --name "<business>" --pin-prompt`.
 
 ## The standards

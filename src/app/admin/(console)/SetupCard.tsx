@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { RunChecksButton } from "./RunChecksButton";
+import { LearnClaudeLink } from "./LearnClaudeLink";
 
-// The Set up card on Today: how much of the stack is live, the next step, and the checks button in its footer.
+// The Set up card on Today: how much of the stack is live, the next step, and the checks button in its footer, with
+// the first lesson's link beneath it until this browser has opened a prompt.
 // It is a plain section with links inside, so the checks form never sits inside a link.
 export function SetupCard({ done, total, next, showChecks }: { done: number; total: number; next: string | null; showChecks: boolean }) {
   const pct = total ? Math.round((done / total) * 100) : 0;
@@ -24,14 +26,18 @@ export function SetupCard({ done, total, next, showChecks }: { done: number; tot
           "Every step is live."
         )}
       </p>
-      {showChecks && (
-        <div className="mt-auto pt-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-admin-line pt-3">
-            <p className="text-xs text-admin-muted">Checks run on their own every 15 minutes</p>
-            <RunChecksButton />
-          </div>
+      {/* The footer: the checks, and for a member new to Claude, the way to the first lesson. */}
+      <div className="mt-auto pt-5">
+        <div className={`space-y-3 ${showChecks ? "border-t border-admin-line pt-3" : ""}`}>
+          {showChecks && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-admin-muted">Checks run on their own every 15 minutes</p>
+              <RunChecksButton />
+            </div>
+          )}
+          <LearnClaudeLink />
         </div>
-      )}
+      </div>
     </section>
   );
 }

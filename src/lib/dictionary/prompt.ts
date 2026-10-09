@@ -13,20 +13,21 @@ const PLAN_FIRST = "plan it with me in planning mode, and change nothing until I
 /**
  * The one prompt every ready page copies: it opens with the chief of staff's name, then points at the page's
  * numbered entry in the Ninja dictionary, in this project and online. entry is the entry's id when its file ships
- * in ninja/, else null. number is null only for a page the dictionary has no number for.
+ * in ninja/, else null. link is the entry's own page online, or null for the front door. number is null only for a page the dictionary has no number for.
  */
-export function dictionaryPrompt({ name, number, title, entry }: {
+export function dictionaryPrompt({ name, number, title, entry, link }: {
   name: string;
   number: string | null;
   title: string;
   entry: string | null;
+  link: string | null;
 }): string {
   if (number === null) {
     return `${name}, read ninja/library.md and help me with ${title}. Ask me a few questions about what I want, ${PLAN_FIRST}.`;
   }
   const follow = `${name}, follow ${number} ${title} from the Ninja dictionary.`;
   if (entry !== null) {
-    return `${follow} In this project it is ninja/${entry}.md. Online, it is in the Dojo Dictionary at ${FRONT_DOOR}/raw.`;
+    return `${follow} In this project it is ninja/${entry}.md. Online: ${link ?? FRONT_DOOR}/raw`;
   }
   return `${follow} Its entry arrives in a coming update, so read ninja/library.md, ask me a few questions about what I want, ${PLAN_FIRST}. Online, the Dojo Dictionary is at ${FRONT_DOOR}/raw.`;
 }
@@ -44,4 +45,9 @@ export function connectDoorPrompt(prompt: string): string {
 
 export function checkSystemPrompt(name: string): string {
   return `${name}, check my system with the Ninja framework runner.`;
+}
+
+/** The prompt behind the Claude button in the frame: a session on the owner's own Foundation, with no page chosen. */
+export function blankSessionPrompt(name: string, business: string): string {
+  return `${name}, read CLAUDE.md and ninja/library.md. I want to work on ${business}'s command center. Ask me what I want to do.`;
 }

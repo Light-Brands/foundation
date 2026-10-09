@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
-import { buildSections, buildSettings, BRAND_PAGES, AGENTIC_PAGES } from "@/lib/layout/sections";
+import { buildSections, buildSettings, CONTEXT_PAGES, AGENTIC_PAGES } from "@/lib/layout/sections";
 
 // Wave B of the frame: weight and entrance, the brand on the phone, the sign-in keys, relative times, the
 // What needs you rows, the More actions and the ready pages. Markup only; the look is checked by eye.
@@ -15,7 +15,9 @@ const { PageHeader } = await import("@/components/frame/PageHeader");
 const { Sidebar } = await import("@/components/frame/Sidebar");
 const { Keypad } = await import("@/app/admin/login/Keypad");
 const { SiteActions } = await import("@/components/frame/SiteActions");
-const { ReadyState } = await import("@/components/frame/ReadyState");
+const { PromptPage } = await import("@/components/PromptPage");
+const { RepoProvider } = await import("@/components/RepoProvider");
+const { pagePrompt } = await import("@/lib/dictionary/numbers");
 const { NeedsYouCard } = await import("@/app/admin/(console)/NeedsYouCard");
 const { READY } = await import("@/lib/layout/ready");
 const { entryForPage } = await import("@/lib/dictionary/numbers");
@@ -42,9 +44,9 @@ describe("card times", () => {
 });
 
 describe("the phone header", () => {
-  const props = { sections: buildSections(), settings: buildSettings(), businessName: "Harbor Studio", logoUrl: null };
+  const props = { sections: buildSections(), settings: buildSettings(), businessName: "Harbor Studio", logoUrl: null, chiefName: "Sage" };
   it("shows the brand on a hub, since the page's own title names the tab", () => {
-    pathname = "/admin/brand";
+    pathname = "/admin/context";
     const h = html(createElement(MobileHeader, props));
     expect(h).toContain("HS");
     expect(h).toContain("Harbor Studio");
@@ -64,7 +66,7 @@ describe("the phone header", () => {
     const h = html(createElement(MobileHeader, props));
     expect(h).toContain('aria-label="Back"');
     expect(h).toContain("Collect reviews");
-    pathname = "/admin/brand";
+    pathname = "/admin/context";
     expect(html(createElement(MobileHeader, { ...props, logoUrl: "/logo.png" }))).toContain('src="/logo.png"');
   });
 });
@@ -148,7 +150,7 @@ describe("the More screen's site actions", () => {
 
 describe("ready pages", () => {
   it("every Brand and Agentic page says what it will hold, and has a number in the dictionary", () => {
-    for (const [section, pages] of [["brand", BRAND_PAGES], ["agentic", AGENTIC_PAGES]] as const) {
+    for (const [section, pages] of [["context", CONTEXT_PAGES], ["agentic", AGENTIC_PAGES]] as const) {
       for (const p of pages) {
         const r = READY[p.id];
         expect(r, p.id).toBeDefined();
@@ -159,17 +161,22 @@ describe("ready pages", () => {
     }
   });
   it("renders the dictionary prompt, opening with the name, as the page's one primary action, and marks coming pages", () => {
-    const ready = html(createElement(ReadyState, { page: BRAND_PAGES.find((p) => p.id === "offers")!, section: "brand", name: "Sage" }));
+    const view = (section: "context" | "agentic", p: { id: string; label: string; blurb: string; state?: string }) => html(createElement(RepoProvider, { value: { repo: "h/c", folder: "/x", label: "c" } },
+      createElement(PromptPage, {
+        page: `${section}/${p.id}`, kicker: "k", title: p.label, blurb: p.blurb, state: p.state === "soon" ? "soon" : "ready", hours: null,
+        doors: { category: section, sub: p.id, label: p.label }, prompt: pagePrompt("Sage", `${section}/${p.id}`, p.label), hasEntry: true, name: "Sage",
+        card: { title: "What this page will hold", lines: READY[p.id]!.holds },
+      })));
+    const ready = view("context", CONTEXT_PAGES.find((p) => p.id === "offers")!);
     expect(ready).toContain("What this page will hold");
     expect(ready).toContain("btn-primary");
     expect(ready).not.toContain("Coming soon");
-    expect(text(ready)).toContain("Sage, follow 2.4 Offers from the Ninja dictionary.");
-    // A phone shows the first sentence and keeps the whole prompt in a native disclosure, with no script.
-    expect(ready).toMatch(/<details[^>]*class="[^"]*md:hidden/);
+    expect(text(ready)).toContain("Sage, follow 2.1.4 Offers from the Ninja dictionary.");
+    // The same inset block on a phone and a desk, held to four lines, with the control that shows it whole.
+    expect(ready).toMatch(/<div data-prompt="" class="[^"]*bg-admin-canvas[^"]*"><p[^>]*class="font-mono text-\[13px\] leading-6[^"]*\[overflow-wrap:anywhere\][^"]*max-h-24[^"]*">Sage, follow 2\.1\.4 Offers/);
+    expect(ready).not.toContain("md:hidden");
     expect(ready).toContain("Show the whole prompt");
-    expect(ready).toMatch(/<p class="font-mono text-\[13px\][^"]*break-all[^"]*">Sage, follow 2\.4 Offers/);
-    expect(ready).toMatch(/<p data-prompt-lead="" class="[^"]*md:hidden[^"]*">Sage, follow <span class="font-mono[^"]*">2\.4<\/span> Offers from the Ninja dictionary\.<\/p>/);
-    const soon = html(createElement(ReadyState, { page: AGENTIC_PAGES.find((p) => p.id === "routines")!, section: "agentic", name: "Sage" }));
+    const soon = view("agentic", AGENTIC_PAGES.find((p) => p.id === "routines")!);
     expect(soon).toContain("Coming soon");
     expect(text(soon)).toContain("Sage, follow 3.4.1 Routines");
   });

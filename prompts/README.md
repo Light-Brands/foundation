@@ -5,6 +5,7 @@ Every step of your command center has a prompt. Copy one, paste it into Claude, 
 | Prompt | Use it to |
 |---|---|
 | `first-session.md` | Get oriented and find your three biggest time savers |
+| `work-with-claude.md` | Say hello to Claude and see your next setup step |
 | `setup/deploy.md` | Deploy your command center |
 | `setup/run-locally.md` | Run it on your own computer, saving everything |
 | `setup/set-pin.md` | Set or change your PIN |

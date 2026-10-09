@@ -2,18 +2,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { mobileBar, type NavHeading, type NavSection } from "@/lib/layout/sections";
+import { blankSessionPrompt } from "@/lib/dictionary/prompt";
+import { ClaudeButton } from "./ClaudeButton";
 import { ChevronLeft, Inbox } from "./icons";
 import { Monogram } from "./Monogram";
 
 // The phone's top bar. On a hub the page's large title already names the tab, so the bar carries the brand: its
 // mark and name, or on Today, whose title is the business name, the mark with the inbox and its waiting count on the
-// right. Deeper in, it is back plus the title. The leading slot is always 44px wide, so titles line up whether or not
-// there is a back button.
-export function MobileHeader({ sections, settings, businessName, logoUrl }: {
+// right. Deeper in, it is back plus the title, with the Claude icon at the end, so every page has a way into Claude. The leading slot is always 44px wide, so titles line up whether or not
+// there is a back button. When the Claude button ends the bar, it ends 16px from the edge, the page's own gutter;
+// on Today the inbox ends it, and its 44px square carries its own air.
+export function MobileHeader({ sections, settings, businessName, logoUrl, chiefName }: {
   sections: NavSection[];
   settings: NavHeading[];
   businessName: string;
   logoUrl: string | null;
+  chiefName: string;
 }) {
   const pathname = usePathname();
   const { title, back, hub } = mobileBar(pathname, sections, settings);
@@ -25,18 +29,21 @@ export function MobileHeader({ sections, settings, businessName, logoUrl }: {
     <Monogram name={businessName} size="sm" />
   );
   return (
-    <header className="bar bar-phone sticky top-0 z-20 flex min-h-12 items-center gap-1 border-b px-2 pt-[env(safe-area-inset-top)] md:hidden">
+    <header className={`bar bar-phone sticky top-0 z-20 flex min-h-12 items-center gap-1 border-b pl-2 pt-[env(safe-area-inset-top)] md:hidden ${hub === "today" ? "pr-2" : "pr-4"}`}>
       {hub ? (
         <>
           <Link href="/admin" className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-control px-2">
             {mark}
             {hub !== "today" ? <span className="truncate text-[15px] font-semibold text-admin-ink">{businessName}</span> : <span className="sr-only">{businessName}</span>}
           </Link>
+          <div className="ml-auto flex shrink-0 items-center">
+            <ClaudeButton prompt={blankSessionPrompt(chiefName, businessName)} icon />
+          </div>
           {hub === "today" && (
             <Link
               href="/admin/command/inbox"
               aria-label={waiting > 0 ? `Inbox, ${waiting} waiting` : "Inbox"}
-              className="relative ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-admin-muted transition-colors duration-200 ease-breath hover:bg-admin-hover hover:text-admin-ink"
+              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-admin-muted transition-colors duration-200 ease-breath hover:bg-admin-hover hover:text-admin-ink"
             >
               <Inbox size={22} strokeWidth={1.75} aria-hidden />
               {waiting > 0 && (
@@ -53,6 +60,9 @@ export function MobileHeader({ sections, settings, businessName, logoUrl }: {
             <ChevronLeft size={22} aria-hidden />
           </Link>
           <span className="truncate text-[15px] font-semibold text-admin-ink">{title}</span>
+          <div className="ml-auto flex shrink-0 items-center">
+            <ClaudeButton prompt={blankSessionPrompt(chiefName, businessName)} icon />
+          </div>
         </>
       )}
     </header>

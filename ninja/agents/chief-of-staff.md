@@ -2,7 +2,6 @@
 id: agents/chief-of-staff
 kind: agent
 title: Chief of staff
-number: null
 lead: null
 state: live
 target: foundation
@@ -48,7 +47,7 @@ Adds: three standing tasks in the Tasks section, such as reading the Inbox each 
 
 Asked after [the questionnaire](../runner/questionnaire.md), one at a time, each with its default.
 
-1. **The name.** "What would you like to call your chief of staff? I suggest Avery." The default is Avery. The name is the role's display name, and the owner can rename it at any time with [modify](../runner/verbs/modify.md). The role itself, `chief-of-staff`, never changes, because it is the role's key everywhere.
+1. **The name.** "What would you like to call your chief of staff? I suggest Avery." The default is Avery. The name is the role's display name, and the owner can rename it at any time with [modify](../runner/verbs/modify.md). In a Foundation, the name every prompt opens with lives in the business profile, so the owner saves it in their own terminal with `npm run chief -- "<name>"`, the Foundation's one writer of the name, and the roster row's `persona` and the charter's first line take the same name. Once [Chief of staff](../modules/agentic/chief-of-staff.md) is installed, that save writes them. Until then, the run writes them itself right after the save. The role itself, `chief-of-staff`, never changes, because it is the role's key everywhere.
 2. **Who it answers to.** "Your chief of staff answers to <the owner's first name from your context block>. Is that right?" The default is yes.
 3. **Complete only. How you like to work.** "How do you like to hear from your chief of staff? I suggest: short and plain, with the one thing that needs you first." The default is the suggestion. Each answer becomes one Memory line.
 4. **Mastery only. The standing tasks.** "Which three things should your chief of staff do every week? I suggest: read the Inbox each morning and name what needs you first, flag any card older than three days, and close the week with what moved." The default is the three suggested.
@@ -144,7 +143,7 @@ The chief of staff acts through the routines and skills that name it, such as th
 
 ## Changing it
 
-**What modify may change.** The name, which is the `persona` in the roster row and the name on the charter's first line, changed together. The text under any section of the charter. A Memory line added at any time. The role `chief-of-staff`, the charter's path and the eight section headings stay, because every skill and routine that names the role finds it by them.
+**What modify may change.** The name, which is the `persona` in the roster row and the name on the charter's first line, changed together. In a Foundation, a rename goes through `npm run chief -- "<name>"` first, so the profile, every prompt and these two lines move as one. The text under any section of the charter. A Memory line added at any time. The role `chief-of-staff`, the charter's path and the eight section headings stay, because every skill and routine that names the role finds it by them.
 
 **What upgrade adds, tier by tier.** One file, `key/agents/chief-of-staff/charter.md`, compared three ways: the original is the charter as it stood at the commit that added this entry's newest install or upgrade run brief, as [upgrade](../runner/verbs/upgrade.md) describes, and the new version is that charter with the lines the new tier adds below, filled from this business's answers. The charter in How it is done is a draft for one sample business, so it is never applied in place of the owner's charter. The roster row moves to the next `version`.
 
@@ -198,3 +197,4 @@ The skills in key/key.yaml whose agent is chief-of-staff.
 
 - Install [Write the brief](../skills/write-the-brief.md), the first skill your chief of staff runs: "Install Write the brief."
 - Install the [Monday brief](../routines/monday-brief.md), which your chief of staff runs every week: "Install the Monday brief."
+- Give your chief of staff its own page, with its name in every prompt kept in step everywhere: "Install Chief of staff." See the [Chief of staff](../modules/agentic/chief-of-staff.md) page entry, and your whole team on [Your team](../modules/agentic/agents.md).

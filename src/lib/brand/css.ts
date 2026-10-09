@@ -38,6 +38,21 @@ function surfaces(tone: AdminTone): Record<SurfaceStyle, Record<string, string>>
   };
 }
 
+// A menu over the page sits one step above the cards: on dim and dark the hover neutral is its fill and its edge
+// takes a little of the ghost, since a surface fill there would melt into the card beneath it.
+function menu(tone: AdminTone): Record<string, string> {
+  const { ink, k, edge } = SHADOW_TONE[tone];
+  const sh = (a: number) => `rgb(${ink} / ${round(Math.min(a * k, 0.7))})`;
+  const shadow = `${edge}0 2px 6px ${sh(0.06)}, 0 16px 36px -12px ${sh(0.2)}`;
+  if (tone === "light") return { bg: "var(--color-admin-surface)", border: "var(--color-admin-line-strong)", hover: "var(--color-admin-hover)", shadow };
+  return {
+    bg: "var(--color-admin-hover)",
+    border: "color-mix(in oklch, var(--color-admin-line-strong) 65%, var(--color-admin-ghost))",
+    hover: "var(--color-admin-line-strong)",
+    shadow,
+  };
+}
+
 // The bars follow the surface style: how much of the surface shows through, the blur behind, and a shadow for raised.
 function bars(tone: AdminTone): Record<SurfaceStyle, Record<string, string>> {
   const { ink, k } = SHADOW_TONE[tone];
@@ -118,6 +133,7 @@ export function brandCss(b: BrandTokens): string {
     // Only glass sets a filter: a backdrop filter of any kind makes a new containing block, so the others say none.
     `--surface-filter:${surface.filter};`,
     ...Object.entries(bars(b.adminTone)[b.surface]).map(([k, v]) => `--bar-${k}:${v};`),
+    ...Object.entries(menu(b.adminTone)).map(([k, v]) => `--menu-${k}:${v};`),
     ...Object.entries(nav).map(([k, v]) => (k.startsWith("seg") ? `--${k}-active:${v};` : `--nav-active-${k}:${v};`)),
     `--chamber-shaft:${chamber.shaft};`,
     `--chamber-grain:${chamber.grain};`,

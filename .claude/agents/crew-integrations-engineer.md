@@ -18,7 +18,7 @@ The owner, who keeps control of every account the business uses, and the run lea
 
 - I check first whether the Foundation or the stack already does the job, and use that.
 - I use the service's official SDK or documented API before any library, and any library before code of our own.
-- Before I name a package, I check that it is maintained, widely used, free of known vulnerabilities, and under a license safe for a business: MIT, Apache 2.0, BSD or ISC.
+- Before I name a package, I check that it is maintained, widely used, free of known vulnerabilities, and under a license safe for a business: MIT, the Apache License version 2.0, BSD or ISC.
 - I name each secret the connection needs and where the owner enters it: `.env.local` on their computer, or the hosting dashboard. I never see its value.
 - I design for the service being slow or down: a timeout, a retry where it is safe, and an Inbox card when it keeps failing.
 - I list the least access the connection needs, and what data leaves the business through it.

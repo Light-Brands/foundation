@@ -2,7 +2,6 @@
 id: frameworks/foundation
 kind: framework
 title: Foundation
-number: "0.3"
 lead: null
 state: live
 target: any
@@ -60,7 +59,7 @@ Not part of this entry.
 
 ## Data
 
-- **The database.** Every business has three tables from the start: contacts, the Inbox cards and the business profile, in `core/db/migrations/`. On the owner's computer they live in PGlite, real Postgres stored in `.data/`. On Vercel without a database the app runs as a preview that does not save. Supabase, the cloud database, arrives as an update from Light Brands.
+- **The database.** Every business has three tables from the start: contacts, the Inbox cards and the business profile, in `core/db/migrations/`. On the owner's computer they live in PGlite, real Postgres stored in `.data/`. On Vercel without a database the app runs as a preview that does not save. On Vercel, it saves once the owner connects their own Neon database from Setup.
 - **The Key.** `key/key.yaml` says `home: repo` and carries `roster`, `skills`, `apps`, `routines`, `runs` and `installed`. The business facts are in `key/knowledge/context-block.yaml`, and after setup, the Preferences save is its one writer.
 - **The environment.** `FOUNDATION_PIN` and `FOUNDATION_BUSINESS_NAME` on Vercel, and `.env.local` on the owner's computer, written by the setup command. Secrets never go in the Key.
 

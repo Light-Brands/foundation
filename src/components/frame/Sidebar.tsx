@@ -62,7 +62,7 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
         </button>
       </div>
 
-      <nav aria-label="Command center" className="focus-inset min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3">
+      <nav aria-label="Command center" className="focus-inset min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-8 pt-3 [mask-image:linear-gradient(to_bottom,black_calc(100%-2rem),transparent)]">
         {sections.map((s) => {
           const Icon = SECTION_ICONS[s.id];
           const isOpen = open === s.id && !collapsed;
@@ -95,7 +95,7 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
                 <div className="overflow-hidden" inert={!isOpen}>
                   {s.headings.map((h) => (
                     <div key={h.label || "main"} className="mt-1">
-                      {h.label && <h3 className="kicker mb-1 mt-3 pl-9">{h.label}</h3>}
+                      {h.label && <h3 data-group={h.label} className="kicker mb-1 mt-3 pl-9">{h.label}</h3>}
                       <ul className="space-y-0.5 pl-6">
                         {h.entries.map((e) => {
                           const isActive = active === e.key;

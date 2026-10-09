@@ -8,6 +8,8 @@ export function ChiefCard({ name, saved }: { name: string; saved: string }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(saveProfileAction, null);
   const [value, setValue] = useState(saved);
   const error = state?.errors?.chief_name;
+  // Save stays quiet until the field differs from the saved name.
+  const changed = value.trim() !== saved.trim();
   return (
     <section data-chief className="surface rise mb-6 max-w-2xl p-card md:p-card-lg" style={{ "--i": 1 } as React.CSSProperties} aria-labelledby="chief-title">
       <h2 id="chief-title" className="kicker">Your chief of staff</h2>
@@ -25,10 +27,11 @@ export function ChiefCard({ name, saved }: { name: string; saved: string }) {
             autoComplete="off"
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? "chief-error" : undefined}
+            placeholder="Claude"
             className="field mt-1 bg-admin-canvas"
           />
         </label>
-        <button type="submit" className="btn-primary" disabled={pending}>{pending ? "Saving" : "Save"}</button>
+        <button type="submit" className={changed ? "btn-primary" : "btn-quiet"} disabled={pending}>{pending ? "Saving" : "Save"}</button>
       </form>
       {error ? (
         <p id="chief-error" role="status" className="mt-2 text-sm text-warn">{error}</p>

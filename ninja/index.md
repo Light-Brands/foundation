@@ -4,7 +4,7 @@ Your business is a set of departments, and each department is a set of jobs. The
 
 Start with [the guide](guide.md). It is short, and it shows you how to ask.
 
-Dictionary version 0.2.0.
+Dictionary version 0.3.1.
 
 ## How to ask for anything
 
@@ -20,7 +20,7 @@ Say what you want to your AI assistant, in plain words. Seven verbs cover everyt
 
 Every request runs the same way: a few questions, one plan you approve, then the crew builds, reviews, tests and proves it. Nothing is written until you approve the plan. The [runner](runner/run.md) is the full set of steps.
 
-**Autopilot first, and by number.** Every run starts by asking what can run on its own: it connects the tools you already use, schedules what can be scheduled, and leaves you only the decisions. Each job also has a number, the same on the command center's pages and here, so you can ask "follow 2.3" as well as "install the Monday brief". Your assistant looks in [the library](library.md) first: this dictionary, then the Dojo Dictionary online, and builds from scratch only when no entry does the job.
+**Autopilot first, and by number.** Every run starts by asking what can run on its own: it connects the tools you already use, schedules what can be scheduled, and leaves you only the decisions. Each job also has a number, shown on the command center's page and listed in [the directory](foundation/directory.md), so you can ask "follow" with a job's name or number as well as "install the Monday brief". Your assistant looks in [the library](library.md) first: this dictionary, then the Dojo Dictionary online, and builds from scratch only when no entry does the job.
 
 ## The path
 
@@ -40,6 +40,7 @@ The path itself.
 - [Prep](frameworks/prep.md): get your environment ready, by level.
 - [Home](frameworks/home.md): build your Ninja home.
 - [Foundation](frameworks/foundation.md): deploy your Foundation on your home.
+- [Work with Claude](frameworks/work-with-claude.md): open any prompt in Claude with your Foundation selected, and send it yourself.
 
 ### Agents
 
@@ -59,15 +60,41 @@ Recurring work on a schedule or a trigger.
 
 - [Monday brief](routines/monday-brief.md): every Monday morning, a one-screen brief of your week in your Inbox.
 
+### Modules
+
+A whole job, with its screen, its data and the work that runs on its own.
+
+- [Story and voice](modules/brand/story.md): your story and your voice in one guide, with every draft your business writes checked against it.
+
+### Agentic
+
+Your AI team, what it knows how to do, and the installs it can run, each part built into its own page in the Agents, Skills and Recipes groups of your command center.
+
+- [Your team](modules/agentic/agents.md): every agent in your Foundation on one page, read from their files, with your chief of staff's name at the top.
+- [Chief of staff](modules/agentic/chief-of-staff.md): the agent whose name opens every prompt, with its own page and the Monday brief it writes.
+- [Department leads](modules/agentic/department-leads.md): one lead per department, holding its plan and proposing the next step each week.
+- [Specialists](modules/agentic/specialists.md): agents named for one job a lead calls them in for, each with the skill it follows.
+- [Build crew](modules/agentic/build-crew.md): the roles that build every change you approve, and build roles of your own.
+- [Your skills](modules/agentic/skills.md): every skill your agents follow on one page, read from their files, with who owns each and where it runs.
+- [Voice and writing](modules/agentic/voice-and-writing.md): one writing skill that drafts in your voice on every channel, lists its claims and checks itself.
+- [Research](modules/agentic/research.md): answers to your questions about your market, every finding kept with its source.
+- [Numbers](modules/agentic/numbers.md): the numbers that matter, each defined once, read from your records and explained.
+- [Tools](modules/agentic/tools.md): your agents using the services you connected, only for what you allow, with every write a draft.
+- [Library](modules/agentic/recipes.md): everything your dictionary can install, what you already have, and the line that adds the next thing.
+- [Quick wins](modules/agentic/quick-wins.md): the few installs that need nothing first, fitted to the parts of your business you put first.
+- [Department kits](modules/agentic/department-kits.md): a whole department installed from its lead's plan in one request, with money and people kept for you.
+- [Your recipes](modules/agentic/your-recipes.md): a finished run saved to run again or share, asking only what changes.
+
 ### Coming later
 
-Blueprints, modules and connections are coming in a later release. Installs for the department jobs below, such as Capture leads, arrive in coming updates. Until then, ask for one and the runner names the closest entry that exists.
+Blueprints, connections and more modules are coming in a later release. Installs for the department jobs below, such as Capture leads, arrive in coming updates. Until then, ask for one and the runner names the closest entry that exists.
 
 ### Your Foundation
 
 - [What a Foundation is](foundation/primer.md): its structure, the Key, the app and the commands.
 - [The Ninja home](foundation/ninja-home.md): the folder your business lives in before the Foundation.
 - [The rules](foundation/rules.md): what every run obeys, and why.
+- [The directory](foundation/directory.md): every number, the same as your command center's pages.
 
 ### The crew
 

@@ -100,6 +100,16 @@ h1, h2:not(.kicker), h3:not(.kicker), h4 { font-family: var(--font-heading); }
     box-shadow: var(--surface-shadow, 0 1px 2px rgb(15 23 42 / 0.04));
     backdrop-filter: var(--surface-filter, none);
   }
+  /* A menu that opens over the page: lifted off the surface beneath it. The brand style tag sets the tone's values
+     (a raised fill, a firmer edge and a deeper shadow on dim and dark); the light tone is the fallback. */
+  .menu-surface {
+    border-radius: var(--radius-card);
+    border: 1px solid var(--menu-border, var(--color-admin-line-strong));
+    background-color: var(--menu-bg, var(--color-admin-surface));
+    box-shadow: var(--menu-shadow, var(--shadow-lift));
+  }
+  .menu-row { transition: background-color 150ms var(--ease-breath); }
+  .menu-row:hover { background-color: var(--menu-hover, var(--color-admin-hover)); }
   .kicker { @apply font-label text-xs font-semibold uppercase tracking-[0.14em] text-admin-faint; }
   /* The title's size follows the brand's type ratio; its weight, tracking and case follow its type character. */
   .page-title {

@@ -11,14 +11,14 @@ test.describe("desktop", () => {
   test("the sidebar shows six sections and opens the one in use", async ({ page }) => {
     await signIn(page);
     const nav = page.getByRole("navigation", { name: "Command center" });
-    for (const label of ["Command center", "Brand", "Agentic", "Grow", "Serve", "Run"]) {
+    for (const label of ["Command center", "Context", "Agentic", "Grow", "Serve", "Run"]) {
       await expect(nav.getByRole("button", { name: label })).toBeVisible();
     }
     await nav.getByRole("button", { name: "Grow" }).click();
     await expect(nav.getByText("Marketing")).toBeVisible();
     await expect(nav.getByRole("link", { name: "Capture leads" })).toBeVisible();
     await nav.getByRole("button", { name: "Agentic" }).click();
-    await expect(nav.getByRole("link", { name: /Recipes/ })).toContainText("Soon");
+    await expect(nav.getByRole("link", { name: /Quick wins/ })).toContainText("Soon");
     await expect(nav.getByRole("link", { name: /Routines/ })).toContainText("Soon");
   });
 
@@ -34,14 +34,19 @@ test.describe("desktop", () => {
     const bar = page.locator("[data-top-bar]");
     await expect(bar).toContainText("Serve");
     await expect(bar).toContainText("Collect reviews");
-    await expect(bar.getByRole("button", { name: "Check my system" })).toBeVisible();
+    await expect(bar.getByRole("link", { name: "Check my system" })).toBeVisible();
     await expect(bar.getByRole("link", { name: "View my site" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Command center" }).getByRole("link", { name: /Collect reviews/ })).toHaveAttribute("aria-current", "page");
   });
 
   test("the sidebar collapses and remembers it", async ({ page }) => {
     await signIn(page);
-    await page.getByRole("button", { name: "Collapse the menu" }).click();
+    // A press before the page hydrates does nothing, so press until the menu says it is collapsed.
+    await expect(async () => {
+      const collapse = page.getByRole("button", { name: "Collapse the menu" });
+      if (await collapse.isVisible()) await collapse.click();
+      await expect(page.getByRole("button", { name: "Expand the menu" })).toBeVisible({ timeout: 1000 });
+    }).toPass();
     await page.reload();
     await expect(page.getByRole("button", { name: "Expand the menu" })).toBeVisible();
     await page.getByRole("button", { name: "Expand the menu" }).click();
@@ -54,7 +59,7 @@ test.describe("phone", () => {
   test("the tab bar is always there, with no sidebar and no sideways scroll", async ({ page }) => {
     await signIn(page);
     const tabs = page.getByRole("navigation", { name: "Tabs" });
-    for (const label of ["Today", "Brand", "Business", "Agentic", "More"]) {
+    for (const label of ["Today", "Context", "Business", "Agentic", "More"]) {
       await expect(tabs.getByRole("link", { name: label })).toBeVisible();
     }
     await expect(page.getByRole("navigation", { name: "Command center" })).toBeHidden();
@@ -93,10 +98,10 @@ test.describe("phone", () => {
   });
 
   test("the header carries the brand on a hub, and More's site actions are full-size rows", async ({ page }) => {
-    await signIn(page, "/admin/brand");
+    await signIn(page, "/admin/context");
     const banner = page.getByRole("banner");
     await expect(banner.getByRole("link", { name: "Harbor Studio" })).toContainText("Harbor Studio");
-    await expect(banner).not.toContainText("Brand");
+    await expect(banner).not.toContainText("Context");
     await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "More" }).click();
     await expect(page.getByRole("heading", { name: "Your site" })).toBeVisible();
     for (const row of [page.getByRole("link", { name: "View my site" }), page.getByRole("button", { name: "Check my system" }), page.getByRole("button", { name: "Lock" })]) {

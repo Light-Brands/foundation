@@ -15,6 +15,11 @@ const { SectionHub } = await import("@/components/frame/SectionHub");
 const { PageHeader } = await import("@/components/frame/PageHeader");
 const { SetupCard } = await import("@/app/admin/(console)/SetupCard");
 const { Doors } = await import("@/components/Doors");
+const { TopBar } = await import("@/components/frame/TopBar");
+const { MobileHeader } = await import("@/components/frame/MobileHeader");
+const { RepoProvider } = await import("@/components/RepoProvider");
+const { OpenIn: OpenInButton } = await import("@/components/OpenIn");
+const { blankSessionPrompt } = await import("@/lib/dictionary/prompt");
 const BusinessHub = (await import("@/app/admin/(console)/business/page")).default;
 
 function sidebar(path: string): string {
@@ -49,7 +54,7 @@ describe("sidebar", () => {
     const html = sidebar("/admin");
     expect(html).toContain('See your day<span class="sr-only">, running</span>');
     expect(html).toContain('Collect reviews<span class="sr-only">, ready to set up</span>');
-    expect(html).toContain('Recipes<span class="sr-only">, coming soon</span>');
+    expect(html).toContain('Chief of staff<span class="sr-only">, coming soon</span>');
     // A link's name is its visible text plus these words, so no aria-label can drop part of what is on screen.
     expect(html).not.toMatch(/<a [^>]*aria-label=/);
   });
@@ -70,7 +75,7 @@ describe("section hub", () => {
     expect(html).toContain("data-state=\"ready\"");
     const agentic = buildSections().find((s) => s.id === "agentic")!;
     const soon = renderToStaticMarkup(createElement(SectionHub, { headings: agentic.headings }));
-    expect(soon).toContain('Recipes<span class="sr-only">, coming soon</span>');
+    expect(soon).toContain('Chief of staff<span class="sr-only">, coming soon</span>');
     const command = buildSections().find((s) => s.id === "command")!;
     const running = renderToStaticMarkup(createElement(SectionHub, { headings: command.headings }));
     expect(running).toContain('See your day<span class="sr-only">, running</span>');
@@ -128,6 +133,12 @@ describe("set up card", () => {
     expect(html).toContain("Vercel");
   });
 
+  it("carries the first lesson's link in its footer, beside the checks", () => {
+    expect(html).toContain("data-learn-claude");
+    expect(html.indexOf("Run today")).toBeLessThan(html.indexOf("Learn how Claude opens your Foundation"));
+    expect(html).toContain('href="/admin/system/setup#work-with-claude"');
+  });
+
   it("leaves the checks out when there is no database", () => {
     const preview = renderToStaticMarkup(createElement(SetupCard, { done: 0, total: 8, next: "Vercel", showChecks: false }));
     expect(preview).not.toContain("<form");
@@ -148,6 +159,21 @@ describe("doors", () => {
     expect(doors[2]).toContain("btn-quiet");
   });
 
+  it("gives the install door more room and lines up every door's buttons on one row", () => {
+    expect(html).toContain("xl:grid-cols-[1fr_1.6fr_1fr]");
+    expect((html.match(/xl:grid-rows-subgrid/g) ?? []).length).toBe(3);
+    const doors = html.split('data-door="').slice(1);
+    // The install door: Open in and Copy on one row, with the Dojo as a quiet link under the repo line.
+    expect(doors[1]).toContain("Copy prompt");
+    expect(doors[1]).toMatch(/<a class="[^"]*underline[^"]*" href="[^"]*" target="_blank"[^>]*>Open the Dojo/);
+    // The connect door keeps Copy in its menu, so its one row is the split button.
+    expect(doors[0]).not.toContain("Copy prompt");
+    // One line of small text under the install door's buttons: the repo sentence, How this works and the Dojo.
+    expect(doors[1]).toMatch(/<p class="text-xs[^"]*">Opens in (?:(?!<\/p>).)*How this works(?:(?!<\/p>).)*Open the Dojo(?:(?!<\/p>).)*<\/p>/);
+    // The connect door says only its repo chip and the setup link.
+    expect(doors[0]).not.toContain("Check it is selected");
+  });
+
   it("speaks plainly, without dashes", () => {
     const text = html.replace(/<[^>]+>/g, " ");
     expect(text).not.toMatch(/[–—]/);
@@ -160,5 +186,89 @@ describe("doors", () => {
     expect(text).toContain("Sage asks what you want");
     expect(text).not.toContain("until you say so");
     expect(text).not.toContain("Claude plans");
+  });
+});
+
+describe("the Claude button", () => {
+  const repo = { repo: "h/c", folder: "/x", label: "c" };
+  const bar = () => renderToStaticMarkup(createElement(RepoProvider, { value: repo },
+    createElement(TopBar, { sections: buildSections(), settings: buildSettings(), chiefName: "Sage", businessName: "Harbor Studio" })));
+
+  it("sits in the top bar as a quiet split button, before Check my system", () => {
+    const html = bar();
+    expect(html).toMatch(/>Claude</);
+    expect(html).toContain('aria-haspopup="menu"');
+    expect(html.indexOf(">Claude<")).toBeLessThan(html.indexOf("Check my system"));
+    expect(html).toContain(">Check my system<");
+    expect(html).not.toContain("btn-primary");
+    expect(html).not.toContain("Copy prompt");
+  });
+
+  it("is an icon button on a phone hub, named Open Claude", () => {
+    pathname = "/admin";
+    const html = renderToStaticMarkup(createElement(RepoProvider, { value: repo },
+      createElement(MobileHeader, { sections: buildSections(), settings: buildSettings(), businessName: "Harbor Studio", logoUrl: null, chiefName: "Sage" })));
+    expect(html).toContain('aria-label="Open Claude"');
+  });
+
+  it("builds the blank session prompt", () => {
+    const p = blankSessionPrompt("Sage", "Harbor Studio");
+    expect(p.startsWith("Sage, ")).toBe(true);
+    expect(p).toContain("Harbor Studio");
+    expect(p).not.toMatch(/[\u2013\u2014]|\s-\s/);
+  });
+});
+
+describe("the Claude button, fix round 1", () => {
+  const where = { repo: "h/c", folder: "/Users/me/c", label: "c" };
+  const menu = (extra: object = {}) => renderToStaticMarkup(createElement(RepoProvider, { value: where },
+    createElement(OpenInButton, { prompt: "Sage, hello.", compact: true, defaultOpen: true, ...extra })));
+
+  it("carries the console's repo and folder into the top bar", async () => {
+    vi.resetModules();
+    vi.doMock("next/navigation", () => ({ usePathname: () => "/admin", useSearchParams: () => new URLSearchParams() }));
+    vi.doMock("next/headers", () => ({ headers: async () => new Headers({ host: "localhost:3000" }) }));
+    vi.doMock("@/lib/db", () => ({ storageMode: () => "local" }));
+    vi.doMock("@/lib/data/safe", () => ({
+      loadProfile: async () => ({ business: "Harbor Studio", chief_name: "Sage" }),
+      loadBrand: async () => ({ logoUrl: null }),
+      loadInboxCount: async () => 0,
+    }));
+    vi.doMock("@/lib/claude/repo", () => ({ repoWhere: async () => ({ repo: "h/c", folder: "/Users/me/c", label: "c" }), localFolder: (f: string) => f }));
+    const Layout = (await import("@/app/admin/(console)/layout")).default;
+    const html = renderToStaticMarkup(await Layout({ children: null }));
+    const hrefs = (html.match(/href="claude:\/\/code\/new\?[^"]*"/g) ?? []).join(" ");
+    expect(hrefs).toContain("folder=");
+    expect(decodeURIComponent(hrefs.replace(/&amp;/g, "&"))).toContain("/Users/me/c");
+    vi.doUnmock("@/lib/claude/repo");
+  });
+
+  it("puts Copy and the repo line in the compact menu, not beside the button", () => {
+    const html = menu();
+    expect(html).toContain("Copy prompt");
+    expect(html).toContain("Opens in");
+    const closed = renderToStaticMarkup(createElement(RepoProvider, { value: where }, createElement(OpenInButton, { prompt: "Sage, hello.", compact: true })));
+    expect(closed).not.toContain("Copy prompt");
+    expect(closed).not.toContain("Opens in");
+  });
+
+  it("keeps the phone popup inside the viewport, as a sheet above the tab bar", () => {
+    const html = menu({ icon: true });
+    expect(html).toContain("fixed inset-x-4");
+    expect(html).toContain("bottom-[calc(72px+env(safe-area-inset-bottom))]");
+    expect(html).not.toContain("w-[min(22rem");
+  });
+
+  it("puts a scrim behind the phone sheet that closes it", () => {
+    // The scrim is portaled with the sheet in the browser; the markup test sees the sheet itself, raised above it.
+    expect(menu({ icon: true })).toContain("z-50");
+  });
+
+  it("ends the back bar on deeper pages with the Claude icon too", () => {
+    pathname = "/admin/context/story";
+    const html = renderToStaticMarkup(createElement(MobileHeader, { sections: buildSections(), settings: buildSettings(), businessName: "Harbor Studio", logoUrl: null, chiefName: "Sage" }));
+    expect(html).toContain('aria-label="Back"');
+    expect(html).toContain("Open Claude");
+    expect(html).toContain("pr-4");
   });
 });

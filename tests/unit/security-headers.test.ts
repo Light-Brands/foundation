@@ -74,9 +74,12 @@ describe("the proxy's redirects", () => {
     const moved = await proxy(new NextRequest("http://localhost/command/inbox?x=1"));
     expect(moved.status).toBe(308);
     expect(moved.headers.get("location")).toBe("http://localhost/admin/command/inbox?x=1");
-    const out = await proxy(new NextRequest("http://localhost/admin/brand"));
+    const old = await proxy(new NextRequest("http://localhost/admin/brand/story?x=1"));
+    expect(old.status).toBe(308);
+    expect(old.headers.get("location")).toBe("http://localhost/admin/context/story?x=1");
+    const out = await proxy(new NextRequest("http://localhost/admin/context"));
     expect(out.status).toBe(307);
-    expect(out.headers.get("location")).toBe("http://localhost/admin/login?next=%2Fadmin%2Fbrand");
+    expect(out.headers.get("location")).toBe("http://localhost/admin/login?next=%2Fadmin%2Fcontext");
     vi.unstubAllEnvs();
   });
 });

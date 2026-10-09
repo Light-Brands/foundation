@@ -2,7 +2,6 @@
 id: frameworks/prep
 kind: framework
 title: Prep
-number: "0.1"
 lead: null
 state: live
 target: any

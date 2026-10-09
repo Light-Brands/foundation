@@ -95,7 +95,7 @@ Every run is one verb acting on one entry.
 - take out, turn off, delete: **remove**
 - how does, why, explain, teach me: **learn**
 - connect, make them work together: **weave**
-- follow, as in "follow Story and voice": look the job up by name, or by the number on its command center page or in [the directory](../foundation/directory.md), in [numbers.yaml](../foundation/numbers.yaml). When its row names an entry, the verb is **install** if that entry is not in `installed`, and **upgrade** or **modify** if it is, asking which one the owner wants. When the row names no entry yet, plan the job with the owner the dictionary's way, as step 4 of [the library](../library.md) describes.
+- follow, as in "follow Story and voice": look the job up by name, or by the number on its command center page or in [the directory](../foundation/directory.md), in [numbers.yaml](../foundation/numbers.yaml). A number whose row is marked `retired`, such as one in an old saved prompt, resolves to the live number for the same page or entry, and the opening read says so. A title that two pages share, such as Library, is settled by asking which one, naming each with its section. When its row names an entry, the verb is **install** if that entry is not in `installed`, and **upgrade** or **modify** if it is, asking which one the owner wants. When the row names no entry yet, plan the job with the owner the dictionary's way, as step 4 of [the library](../library.md) describes.
 
 When the words fit more than one verb, ask which one they mean, naming both.
 

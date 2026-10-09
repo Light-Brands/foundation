@@ -172,11 +172,10 @@ describe("ready pages", () => {
     expect(ready).toContain("btn-primary");
     expect(ready).not.toContain("Coming soon");
     expect(text(ready)).toContain("Sage, follow 2.1.4 Offers from the Ninja dictionary.");
-    // A phone shows the first sentence and keeps the whole prompt in a native disclosure, with no script.
-    expect(ready).toMatch(/<details[^>]*class="[^"]*md:hidden/);
+    // The same inset block on a phone and a desk, held to about six lines, with the control that shows it whole.
+    expect(ready).toMatch(/<div data-prompt="" class="[^"]*bg-admin-canvas[^"]*"><p[^>]*class="font-mono text-\[13px\] leading-6[^"]*\[overflow-wrap:anywhere\][^"]*max-h-36[^"]*">Sage, follow 2\.1\.4 Offers/);
+    expect(ready).not.toContain("md:hidden");
     expect(ready).toContain("Show the whole prompt");
-    expect(ready).toMatch(/<p class="font-mono text-\[13px\][^"]*break-all[^"]*">Sage, follow 2\.1\.4 Offers/);
-    expect(ready).toMatch(/<p data-prompt-lead="" class="[^"]*md:hidden[^"]*">Sage, follow <span class="font-mono[^"]*">2\.1\.4<\/span> Offers from the Ninja dictionary\.<\/p>/);
     const soon = view("agentic", AGENTIC_PAGES.find((p) => p.id === "routines")!);
     expect(soon).toContain("Coming soon");
     expect(text(soon)).toContain("Sage, follow 3.4.1 Routines");

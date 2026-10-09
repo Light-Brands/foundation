@@ -49,7 +49,10 @@ test.describe("named prompts", () => {
     await expect(page.locator("header [data-state]")).toHaveText("Ready to set up");
     await page.locator('[data-door="install"]').getByRole("button", { name: "Copy prompt" }).click();
     expect(await lastCopy(page)).toMatch(/^Sage, follow 4\.2\.1 Capture leads from the Ninja dictionary\./);
-    await page.locator('[data-door="connect"]').getByRole("button", { name: "Copy prompt" }).click();
+    // The connect door keeps Copy in its menu, so its card holds one row of buttons.
+    const connect = page.locator('[data-door="connect"]');
+    await connect.getByRole("button", { name: "Choose where to open" }).click();
+    await connect.getByRole("button", { name: "Copy prompt" }).click();
     expect(await lastCopy(page)).toMatch(/^Sage, .* Start by mapping how a tool I already use for this could connect\.$/);
   });
 

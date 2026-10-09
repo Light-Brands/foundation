@@ -41,7 +41,12 @@ test.describe("desktop", () => {
 
   test("the sidebar collapses and remembers it", async ({ page }) => {
     await signIn(page);
-    await page.getByRole("button", { name: "Collapse the menu" }).click();
+    // A press before the page hydrates does nothing, so press until the menu says it is collapsed.
+    await expect(async () => {
+      const collapse = page.getByRole("button", { name: "Collapse the menu" });
+      if (await collapse.isVisible()) await collapse.click();
+      await expect(page.getByRole("button", { name: "Expand the menu" })).toBeVisible({ timeout: 1000 });
+    }).toPass();
     await page.reload();
     await expect(page.getByRole("button", { name: "Expand the menu" })).toBeVisible();
     await page.getByRole("button", { name: "Expand the menu" }).click();

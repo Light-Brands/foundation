@@ -19,7 +19,7 @@ describe("OpenIn", () => {
   it("names the repo under the button and points at Work with Claude", () => {
     const out = html("harbor-studio/command-center", "/Users/jo/harbor");
     const words = out.replace(/<[^>]+>/g, "");
-    expect(words).toContain("Opens in command-center. Check it is selected before you send.");
+    expect(words).toContain("Opens in command-center. Check it is selected.");
     // The name is a chip in the figure face, with a folder mark for the Desktop default.
     expect(out).toMatch(/<span class="inline-flex[^"]*font-mono[^"]*"><svg[^>]*lucide-folder/);
   });
@@ -41,7 +41,7 @@ describe("OpenIn, fix round 1", () => {
     const out = renderToStaticMarkup(createElement(RepoProvider, { value: { repo: null, folder: null, label: "your Foundation" } },
       createElement(OpenIn, { prompt: "x", learn: false })));
     expect(out).not.toContain("How this works");
-    expect(out.replace(/<[^>]+>/g, "")).toContain("Opens in your Foundation folder. Check it is selected before you send.");
+    expect(out.replace(/<[^>]+>/g, "")).toContain("Opens in your folder. Check it is selected.");
     expect(out).toMatch(/<button[^>]*aria-haspopup="menu"[^>]*aria-expanded="false"[^>]*>Open in Claude Desktop/);
   });
 });
@@ -76,6 +76,23 @@ describe("OpenIn, design round", () => {
       createElement(OpenIn, { prompt: "x", copyInMenu: true })));
     expect(closed).not.toContain("Copy prompt");
     expect(menu({ copyInMenu: true })).toContain("Copy prompt");
+  });
+  it("puts Copy in the menu only where it is not beside the button, whatever the folder state", () => {
+    // No folder: the door still has Copy beside the button, so the menu leaves it out.
+    expect((menu().match(/Copy prompt/g) ?? []).length).toBe(1);
+    const withFolder = renderToStaticMarkup(createElement(RepoProvider, { value: { ...where, folder: "/x" } },
+      createElement(OpenIn, { prompt: "x", defaultOpen: true })));
+    expect((withFolder.match(/Copy prompt/g) ?? []).length).toBe(1);
+  });
+  it("can say only the repo chip and the setup link, with the period flush on the sentence form", () => {
+    const short = renderToStaticMarkup(createElement(RepoProvider, { value: { ...where, folder: "/x" } },
+      createElement(OpenIn, { prompt: "x", line: "chip", copyInMenu: true })));
+    expect(short.replace(/<[^>]+>/g, "")).toMatch(/command-center ·\s*How this works/);
+    expect(short).not.toContain("Check it is selected");
+    expect(menu()).toMatch(/command-center<\/span>\. Check it is selected\./);
+  });
+  it("shows a fade at the foot of a capped menu while more sits below", () => {
+    expect(menu()).toContain("group-data-[more=true]/menu:block");
   });
   it("caps the menu's height and lets it scroll", () => {
     expect(menu()).toContain("max-h-[min(70vh,32rem)]");

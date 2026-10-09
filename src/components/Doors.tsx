@@ -14,13 +14,13 @@ export function Doors({ categoryId, subId, subLabel, prompt, hasEntry, name }: {
   // Every door's buttons sit on one line across the row however long the words above them run.
   const door = "surface flex flex-col p-card md:p-card-lg xl:row-span-3 xl:grid xl:grid-rows-subgrid xl:gap-0";
   return (
-    <div className="rise relative z-10 grid items-stretch gap-4 xl:grid-cols-[1fr_1.4fr_1fr] xl:grid-rows-[auto_auto_auto] xl:gap-y-0" style={{ "--i": 1 } as React.CSSProperties}>
+    <div className="rise relative z-10 grid items-stretch gap-4 xl:grid-cols-[1fr_1.6fr_1fr] xl:grid-rows-[auto_auto_auto] xl:gap-y-0" style={{ "--i": 1 } as React.CSSProperties}>
       <div data-door="connect" className={door}>
         <div className="flex-1 pb-5">
           <p className="kicker">1 · Connect a tool you use</p>
           <p className="mt-3 text-sm leading-relaxed text-admin-muted">{connectCardCopy(subLabel, name)}</p>
         </div>
-        <OpenIn prompt={connectDoorPrompt(prompt)} copyInMenu className="contents" />
+        <OpenIn prompt={connectDoorPrompt(prompt)} copyInMenu line="chip" className="contents" />
       </div>
       <div data-door="install" className={`${door} relative mt-3 ring-1 ring-accent/25 xl:mt-0`}>
         <span className="chip absolute -top-3 left-5 border-accent/30 bg-admin-surface font-medium text-admin-ink md:left-6">Recommended</span>
@@ -34,11 +34,9 @@ export function Doors({ categoryId, subId, subLabel, prompt, hasEntry, name }: {
           primary
           className="contents"
           extra={
-            <p className="text-xs leading-5 text-admin-muted">
-              <a className="-my-3.5 inline-flex min-h-11 items-center gap-1 underline decoration-admin-line-strong underline-offset-4 hover:text-admin-ink hover:decoration-accent" href={lessonHref(categoryId, subId)} target="_blank" rel="noreferrer">
-                Open the Dojo<ExternalLink aria-hidden className="size-3" />
-              </a>
-            </p>
+            <a className="-my-3.5 inline-flex min-h-11 items-center gap-1 underline decoration-admin-line-strong underline-offset-4 hover:text-admin-ink hover:decoration-accent" href={lessonHref(categoryId, subId)} target="_blank" rel="noreferrer">
+              Open the Dojo<ExternalLink aria-hidden className="size-3" />
+            </a>
           }
         />
       </div>

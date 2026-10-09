@@ -63,6 +63,10 @@ test.describe("phone", () => {
     const tabs = await page.getByRole("navigation", { name: "Tabs" }).boundingBox();
     expect(box!.y + box!.height).toBeLessThanOrEqual(tabs!.y);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // A light scrim sits behind the sheet; a tap on it closes the sheet and lands nowhere else.
+    await page.mouse.click(187, 120);
+    await expect(menu).toBeHidden();
+    await expect(page).toHaveURL(/\/admin$/);
   });
 });
 

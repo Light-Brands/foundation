@@ -172,8 +172,8 @@ describe("ready pages", () => {
     expect(ready).toContain("btn-primary");
     expect(ready).not.toContain("Coming soon");
     expect(text(ready)).toContain("Sage, follow 2.1.4 Offers from the Ninja dictionary.");
-    // The same inset block on a phone and a desk, held to about six lines, with the control that shows it whole.
-    expect(ready).toMatch(/<div data-prompt="" class="[^"]*bg-admin-canvas[^"]*"><p[^>]*class="font-mono text-\[13px\] leading-6[^"]*\[overflow-wrap:anywhere\][^"]*max-h-36[^"]*">Sage, follow 2\.1\.4 Offers/);
+    // The same inset block on a phone and a desk, held to four lines, with the control that shows it whole.
+    expect(ready).toMatch(/<div data-prompt="" class="[^"]*bg-admin-canvas[^"]*"><p[^>]*class="font-mono text-\[13px\] leading-6[^"]*\[overflow-wrap:anywhere\][^"]*max-h-24[^"]*">Sage, follow 2\.1\.4 Offers/);
     expect(ready).not.toContain("md:hidden");
     expect(ready).toContain("Show the whole prompt");
     const soon = view("agentic", AGENTIC_PAGES.find((p) => p.id === "routines")!);

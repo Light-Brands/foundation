@@ -40,7 +40,7 @@ const MENU_CAP = 512;
  * Nothing is sent: the owner reads the prompt and presses Enter. learn=false hides the setup link before sign-in;
  * align="right" always anchors the picker to the chevron, otherwise it anchors there when the page has room.
  */
-export function OpenIn({ prompt, primary = false, learn = true, align = "left", compact = false, label: mainLabel, icon = false, defaultOpen = false, copyInMenu = false, extra, className }: {
+export function OpenIn({ prompt, primary = false, learn = true, align = "left", compact = false, label: mainLabel, icon = false, defaultOpen = false, copyInMenu = false, extra, line = "full", className }: {
   prompt: string; primary?: boolean; learn?: boolean; align?: "left" | "right";
   /** Compact: the main part reads the label (Claude by default), and Copy and the repo line move into the menu. */
   compact?: boolean; label?: string;
@@ -50,8 +50,10 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
   defaultOpen?: boolean;
   /** Copy lives in the menu, so a narrow card keeps one row of buttons. */
   copyInMenu?: boolean;
-  /** A quiet line under the repo line, such as a link to the lesson. */
+  /** A quiet link at the end of the repo line, such as the lesson in the Dojo. */
   extra?: React.ReactNode;
+  /** The repo line: the sentence, or only the repo chip and the setup link for a card that already says it. */
+  line?: "full" | "chip";
   /** The wrapper's class. "contents" lets a card's grid place the button row and the repo line. */
   className?: string;
 }) {
@@ -69,6 +71,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
   const [note, setNote] = useState("");
   const anchor = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  const scrim = useRef<HTMLDivElement>(null);
   const chevron = useRef<HTMLButtonElement>(null);
   const mainRef = useRef<HTMLAnchorElement & HTMLButtonElement>(null);
   const opener = useRef<HTMLElement | null>(null);
@@ -90,11 +93,25 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
     focusChecked();
     const away = (e: PointerEvent) => {
       const t = e.target as Node;
-      if (!panel.current?.contains(t) && !anchor.current?.contains(t)) setOpen(false);
+      // The scrim closes the sheet on its own click, so the press never lands on the page beneath it.
+      if (!panel.current?.contains(t) && !anchor.current?.contains(t) && !scrim.current?.contains(t)) setOpen(false);
     };
     document.addEventListener("pointerdown", away);
     return () => document.removeEventListener("pointerdown", away);
   }, [open, focusChecked]);
+
+  // A capped menu shows a fade at its foot while more rows sit below, so it never reads as cut off. The mark is a
+  // data attribute on the panel, so the fade follows the scroll without a render.
+  useEffect(() => {
+    const el = panel.current;
+    if (!open || !el) return;
+    const mark = () => { el.dataset.more = String(el.scrollTop + el.clientHeight < el.scrollHeight - 2); };
+    mark();
+    el.addEventListener("scroll", mark, { passive: true });
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(mark);
+    ro?.observe(el);
+    return () => { el.removeEventListener("scroll", mark); ro?.disconnect(); };
+  }, [open]);
 
   const folder = provided ?? stored;
   const where = { repo, folder };
@@ -206,18 +223,24 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
   const mainName = asIcon ? { "aria-label": "Open Claude" } : {};
   const mainBody = asIcon ? <Sparkles aria-hidden className="h-5 w-5" /> : text;
   const PlaceIcon = target === "web" ? GitBranch : Folder;
+  // The repo chip: a visible edge so the sentence's period sits flush against it.
+  // With no repo known it names the folder in plain words, in the same chip.
+  const chip = (
+    <span className={`inline-flex items-center gap-1 rounded-control border border-admin-line-strong bg-admin-hover px-1.5 align-[-1px] leading-[18px] text-admin-ink ${fallback ? "text-xs" : "font-mono text-[12px]"}`}>
+      <PlaceIcon aria-hidden className="size-3.5 text-admin-muted" />{fallback ? "your folder" : repoLabel}
+    </span>
+  );
+  const how = learn && (
+    <Link href="/admin/system/setup#work-with-claude" className="-my-3.5 inline-flex min-h-11 items-center underline decoration-admin-line-strong underline-offset-4 hover:text-admin-ink hover:decoration-accent">How this works</Link>
+  );
   const repoLine = (
     <p className="text-xs leading-5 text-admin-muted">
-      Opens in{" "}
-      {fallback ? (
-        <span className="text-admin-ink">your Foundation folder</span>
+      {line === "chip" ? (
+        <>{chip}{how && <>{" "}<span className="whitespace-nowrap"><span aria-hidden>·</span> {how}</span></>}</>
       ) : (
-        <span className="inline-flex items-center gap-1 rounded-control bg-admin-hover pl-1.5 pr-1 align-[-1px] font-mono text-[12px] leading-5 text-admin-ink">
-          <PlaceIcon aria-hidden className="size-3.5 text-admin-muted" />{repoLabel}
-        </span>
+        <>Opens in {chip}. Check it is selected.{how && <> {how}</>}</>
       )}
-      . Check it is selected before you send.
-      {learn && <>{" "}<Link href="/admin/system/setup#work-with-claude" className="-my-3.5 inline-flex min-h-11 items-center underline decoration-admin-line-strong underline-offset-4 hover:text-admin-ink hover:decoration-accent">How this works</Link></>}
+      {extra && <>{" "}<span className="whitespace-nowrap"><span aria-hidden>·</span> {extra}</span></>}
     </p>
   );
 
@@ -226,8 +249,8 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
       ref={panel}
       onKeyDown={onPanelKey}
       style={sheet ? undefined : { maxHeight: place.max }}
-      className={`menu-surface focus-inset overflow-y-auto overscroll-contain p-1.5 text-left ${sheet
-        ? "fixed inset-x-4 bottom-[calc(72px+env(safe-area-inset-bottom))] z-40 max-h-[min(70vh,32rem)]"
+      className={`group/menu menu-surface focus-inset overflow-y-auto overscroll-contain p-1.5 text-left ${sheet
+        ? "fixed inset-x-4 bottom-[calc(72px+env(safe-area-inset-bottom))] z-50 max-h-[min(70vh,32rem)]"
         : `absolute z-30 w-[min(22rem,calc(100vw-2rem))] max-h-[min(70vh,32rem)] ${place.up ? "bottom-full mb-2" : "top-full mt-2"} ${place.right ? "right-0" : "left-0"}`}`}
     >
       {askFolder && (
@@ -277,13 +300,15 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
           );
         })}
       </ul>
-      {(!main.ok || compact || copyInMenu) && (
+      {/* Copy sits in the menu wherever it is not already beside the button, in every state. */}
+      {(compact || copyInMenu) && (
         <div className="mt-1.5 border-t border-admin-line p-1.5 pt-3">
           <CopyButton text={prompt} className="w-full md:min-h-11" onCopied={opened} />
         </div>
       )}
       {compact && <div className="mt-1.5 border-t border-admin-line px-2.5 pb-1 pt-2.5">{repoLine}</div>}
       <p role="status" className="px-2.5 pb-1 text-xs text-admin-muted empty:hidden">{note}</p>
+      <div aria-hidden className="pointer-events-none sticky -bottom-1.5 -mx-1.5 -mb-1.5 -mt-8 hidden h-8 rounded-b-card bg-linear-to-t from-[var(--menu-bg,var(--color-admin-surface))] to-transparent group-data-[more=true]/menu:block" />
     </div>
   ) : null;
   // The sheet lives on the page's body, clear of any bar that would trap a fixed element.
@@ -329,12 +354,15 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
         {!compact && !copyInMenu && <CopyButton text={prompt} className="md:min-h-11" onCopied={opened} />}
       </div>
       {!compact && (
-        <div className="mt-2 space-y-1">
-          {repoLine}
-          {extra}
-        </div>
+        <div className="mt-2">{repoLine}</div>
       )}
-      {portal && menu && createPortal(menu, document.body)}
+      {portal && menu && createPortal(
+        <>
+          <div ref={scrim} aria-hidden className="fixed inset-0 z-40 bg-admin-canvas/60" onClick={() => closeTo(opener.current ?? chevron.current)} />
+          {menu}
+        </>,
+        document.body,
+      )}
     </div>
   );
 }

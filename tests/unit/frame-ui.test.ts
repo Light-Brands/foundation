@@ -160,7 +160,7 @@ describe("doors", () => {
   });
 
   it("gives the install door more room and lines up every door's buttons on one row", () => {
-    expect(html).toContain("xl:grid-cols-[1fr_1.4fr_1fr]");
+    expect(html).toContain("xl:grid-cols-[1fr_1.6fr_1fr]");
     expect((html.match(/xl:grid-rows-subgrid/g) ?? []).length).toBe(3);
     const doors = html.split('data-door="').slice(1);
     // The install door: Open in and Copy on one row, with the Dojo as a quiet link under the repo line.
@@ -168,6 +168,10 @@ describe("doors", () => {
     expect(doors[1]).toMatch(/<a class="[^"]*underline[^"]*" href="[^"]*" target="_blank"[^>]*>Open the Dojo/);
     // The connect door keeps Copy in its menu, so its one row is the split button.
     expect(doors[0]).not.toContain("Copy prompt");
+    // One line of small text under the install door's buttons: the repo sentence, How this works and the Dojo.
+    expect(doors[1]).toMatch(/<p class="text-xs[^"]*">Opens in (?:(?!<\/p>).)*How this works(?:(?!<\/p>).)*Open the Dojo(?:(?!<\/p>).)*<\/p>/);
+    // The connect door says only its repo chip and the setup link.
+    expect(doors[0]).not.toContain("Check it is selected");
   });
 
   it("speaks plainly, without dashes", () => {
@@ -253,6 +257,11 @@ describe("the Claude button, fix round 1", () => {
     expect(html).toContain("fixed inset-x-4");
     expect(html).toContain("bottom-[calc(72px+env(safe-area-inset-bottom))]");
     expect(html).not.toContain("w-[min(22rem");
+  });
+
+  it("puts a scrim behind the phone sheet that closes it", () => {
+    // The scrim is portaled with the sheet in the browser; the markup test sees the sheet itself, raised above it.
+    expect(menu({ icon: true })).toContain("z-50");
   });
 
   it("shows no phone Claude button off the hubs", () => {

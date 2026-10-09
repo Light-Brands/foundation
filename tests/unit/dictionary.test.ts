@@ -44,7 +44,7 @@ describe("the dictionary numbers", () => {
   it("find a job, a Brand page and an Agentic page by the ids numbers.yaml uses", () => {
     expect(entryForPage("sell/leads")).toEqual({ number: "4.2.1", title: "Capture leads", entry: null });
     expect(entryForPage("context/story")).toEqual({ number: "2.1.3", title: "Story and voice", entry: "modules/brand/story" });
-    expect(entryForPage("agentic/agents")).toEqual({ number: "3.1.1", title: "Your team", entry: null });
+    expect(entryForPage("agentic/agents")).toEqual({ number: "3.1.1", title: "Your team", entry: "modules/agentic/agents" });
   });
   it("give null for a page that has no number", () => {
     expect(entryForPage("sell/nothing-here")).toBeNull();

@@ -133,6 +133,12 @@ describe("set up card", () => {
     expect(html).toContain("Vercel");
   });
 
+  it("carries the first lesson's link in its footer, beside the checks", () => {
+    expect(html).toContain("data-learn-claude");
+    expect(html.indexOf("Run today")).toBeLessThan(html.indexOf("Learn how Claude opens your Foundation"));
+    expect(html).toContain('href="/admin/system/setup#work-with-claude"');
+  });
+
   it("leaves the checks out when there is no database", () => {
     const preview = renderToStaticMarkup(createElement(SetupCard, { done: 0, total: 8, next: "Vercel", showChecks: false }));
     expect(preview).not.toContain("<form");
@@ -151,6 +157,17 @@ describe("doors", () => {
     expect(doors[0]).not.toContain("btn-primary");
     expect(doors[2]).not.toContain("btn-primary");
     expect(doors[2]).toContain("btn-quiet");
+  });
+
+  it("gives the install door more room and lines up every door's buttons on one row", () => {
+    expect(html).toContain("xl:grid-cols-[1fr_1.4fr_1fr]");
+    expect((html.match(/xl:grid-rows-subgrid/g) ?? []).length).toBe(3);
+    const doors = html.split('data-door="').slice(1);
+    // The install door: Open in and Copy on one row, with the Dojo as a quiet link under the repo line.
+    expect(doors[1]).toContain("Copy prompt");
+    expect(doors[1]).toMatch(/<a class="[^"]*underline[^"]*" href="[^"]*" target="_blank"[^>]*>Open the Dojo/);
+    // The connect door keeps Copy in its menu, so its one row is the split button.
+    expect(doors[0]).not.toContain("Copy prompt");
   });
 
   it("speaks plainly, without dashes", () => {
@@ -231,9 +248,10 @@ describe("the Claude button, fix round 1", () => {
     expect(closed).not.toContain("Opens in");
   });
 
-  it("keeps the phone popup inside the viewport", () => {
+  it("keeps the phone popup inside the viewport, as a sheet above the tab bar", () => {
     const html = menu({ icon: true });
-    expect(html).toContain("inset-x-4");
+    expect(html).toContain("fixed inset-x-4");
+    expect(html).toContain("bottom-[calc(72px+env(safe-area-inset-bottom))]");
     expect(html).not.toContain("w-[min(22rem");
   });
 

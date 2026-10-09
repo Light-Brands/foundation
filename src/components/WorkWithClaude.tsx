@@ -14,8 +14,8 @@ export function WorkWithClaude({ prompt = "" }: { prompt?: string }) {
     <section id="work-with-claude" className="surface scroll-mt-24 p-card">
       <p className="kicker">Lesson 1</p>
       <h2 className="mt-1 text-lg text-admin-ink">Work with Claude</h2>
-      <p className="mt-2 text-sm text-admin-muted">Every prompt in your command center opens in Claude with one press. Here is how it works.</p>
-      <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-admin-ink">
+      <p className="mt-2 max-w-[65ch] text-sm leading-relaxed text-admin-muted">Every prompt in your command center opens in Claude with one press. Here is how it works.</p>
+      <ol className="mt-4 max-w-[65ch] list-decimal space-y-2 pl-5 text-[15px] leading-relaxed text-admin-ink">
         {STEPS.map((s, i) => <li key={i}>{s}</li>)}
       </ol>
       <div className="mt-5">

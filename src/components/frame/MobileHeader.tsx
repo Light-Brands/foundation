@@ -10,7 +10,8 @@ import { Monogram } from "./Monogram";
 // The phone's top bar. On a hub the page's large title already names the tab, so the bar carries the brand: its
 // mark and name, or on Today, whose title is the business name, the mark with the inbox and its waiting count on the
 // right. Deeper in, it is back plus the title. The leading slot is always 44px wide, so titles line up whether or not
-// there is a back button.
+// there is a back button. When the Claude button ends the bar, it ends 16px from the edge, the page's own gutter;
+// on Today the inbox ends it, and its 44px square carries its own air.
 export function MobileHeader({ sections, settings, businessName, logoUrl, chiefName }: {
   sections: NavSection[];
   settings: NavHeading[];
@@ -28,7 +29,7 @@ export function MobileHeader({ sections, settings, businessName, logoUrl, chiefN
     <Monogram name={businessName} size="sm" />
   );
   return (
-    <header className="bar bar-phone sticky top-0 z-20 flex min-h-12 items-center gap-1 border-b px-2 pt-[env(safe-area-inset-top)] md:hidden">
+    <header className={`bar bar-phone sticky top-0 z-20 flex min-h-12 items-center gap-1 border-b pl-2 pt-[env(safe-area-inset-top)] md:hidden ${hub && hub !== "today" ? "pr-4" : "pr-2"}`}>
       {hub ? (
         <>
           <Link href="/admin" className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-control px-2">

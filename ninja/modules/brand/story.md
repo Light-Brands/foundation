@@ -546,5 +546,6 @@ The pass rule, every mark 4 or more and no hits, is this entry's own rule, and m
 - Install the [Monday brief](../../routines/monday-brief.md) when it is not installed yet, so the voice check has a draft to check every week: "Install the Monday brief."
 - [Modify](../../runner/verbs/modify.md) the guide as the business changes: "Modify my voice guide to avoid the word 'journey'."
 - [Upgrade](../../runner/verbs/upgrade.md) it to Complete, so the newsletter and social posts feed the guide: "Upgrade Story and voice to Complete."
+- Give every agent one way to write from this guide, on [Voice and writing](../agentic/voice-and-writing.md): "Install Voice and writing."
 - The Offers and Audience pages, when they arrive in the dictionary, build on the same profile the guide builds on, and every page they write passes the voice check. The Offers page gives the claims mark a confirmed source for every price.
 - [Check](../../runner/verbs/check.md) the system to see which writing jobs can now run in the business's voice, such as social posts, email replies and proposals.

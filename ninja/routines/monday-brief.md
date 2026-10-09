@@ -403,3 +403,6 @@ To Mastery, from Complete, the two part runs first, the chief of staff's and the
 - [Upgrade](../runner/verbs/upgrade.md) it to Complete for the comparison with last week and the drafted email copy: "Upgrade my Monday brief to Complete."
 - [Check](../runner/verbs/check.md) your system to see what the brief can report next.
 - Install Capture leads when it arrives in the dictionary, so every inquiry shows in the brief.
+- Give the chief of staff who writes it a page of its own, with this week's brief on it: "Install Chief of staff." See [Chief of staff](../modules/agentic/chief-of-staff.md).
+- Add [Department leads](../modules/agentic/department-leads.md), so each department adds its own line to the brief every week: "Install Department leads."
+- Define the numbers that matter once, so the brief lists them every week, on [Numbers](../modules/agentic/numbers.md): "Install Numbers."

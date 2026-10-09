@@ -166,7 +166,7 @@ Not part of this entry. A connection's own entry shows in the Library like any o
 
 **Setup.** The Foundation carries the dictionary in `ninja/`, and the owner has installed at least one entry, such as the Monday brief.
 
-**The run, the way it will run.** The QA lead opens the Library and checks each group against the files: every entry line in `ninja/index.md` has a card, every `installed` row shows as installed and never as ready, and every map row with no entry shows as coming. It searches "brief" and finds Write the brief and the Monday brief. Then, through Claude, it copies the install line of one ready entry the owner chose, runs the install to its close, and loads the page again: the entry has moved to Installed with its tier, with no edit to any list. Then it runs `npm run recipes`, which prints, for Harbor Studio:
+**The run, the way it will run.** The QA lead opens the Library and checks each group against the files: every entry line in `ninja/index.md` has a card, every `installed` row shows as installed and never as ready, and every map row with no entry shows as coming. It searches "brief" and finds Write the brief and the Monday brief. Then, through Claude, it copies the install line of the ready entry the owner chose, Quick wins, runs the install to its close, and loads the page again: the entry has moved to Installed with its tier, with no edit to any list. Then it runs `npm run recipes`, which prints, for Harbor Studio:
 
 ```text
 Ready to install (13)
@@ -174,7 +174,7 @@ Ready to install (13)
 Installed (5)
   Chief of staff (agent), Write the brief, Monday brief, essentials, 2026-10-05
   Library, essentials, 2026-10-08
-  Your skills, essentials, 2026-10-09
+  Quick wins, essentials, 2026-10-09
 Coming (58)
 The path (4)
 Add-ons (0)

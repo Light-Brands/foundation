@@ -41,7 +41,7 @@ A recipe is one small file, `key/recipes/<slug>.md`, that names one or more fini
 
 ## The bar
 
-The world-class version is a good kitchen's recipe card: the steps, the parts a cook adjusts, and how to tell it came out right. Its test is the second time. Run for Customer care, a lead recipe asks only what differs, shows the plan, and the new lead answers for its department as the Sales lead did. A shared recipe carries the method and nothing of the business: no answers, no names, no facts. Every recipe on the page points at records that exist, and every step names an entry the dictionary still ships.
+The world-class version is a kitchen's recipe card: the steps, what a cook adjusts, and how to tell it worked. Its test is the second time. Run for Customer care, a lead recipe asks only what differs, shows the plan, and the new lead answers for its department as the Sales lead did. A shared recipe carries the method and nothing of the business: no answers, no names, no facts. Every recipe on the page points at records that exist, and every step names an entry the dictionary still ships.
 
 ## Depth tiers
 
@@ -117,7 +117,7 @@ A recipe, the shape the copywriter writes, for Harbor Studio:
 ---
 name: Add a department lead
 description: One more department lead with its plan, set up the way the Sales lead was.
-runs: [runs/2026-10-06-modify-modules-agentic-department-leads.md]
+runs: [runs/2026-10-06-install-modules-agentic-department-leads.md]
 made: 2026-10-09
 ---
 # Add a department lead
@@ -153,7 +153,7 @@ What the entry builds at Essentials:
 
 **Your recipes** (`/admin/agentic/your-recipes`), the fourth page in the Recipes group, keeps its Open in line and adds above it:
 
-- **Your recipes.** One card per recipe, in the order of `key/key.yaml`: its name, When to use, its steps in plain words, such as "Modify Department leads, at Essentials", when it last ran, and its run and export lines, such as "Avery, run my recipe Add a department lead."
+- **Your recipes.** One card per recipe, in the order of `key/key.yaml`: its name, When to use, its steps in plain words, such as "Install Department leads, at Essentials", when it last ran, and its run and export lines, such as "Avery, run my recipe Add a department lead."
 - **Shared with you.** Recipes with `steps` show "Shared in" and ask every question when run.
 - **Ready to save.** Finished runs no recipe names, newest first, each with the line "Avery, save my <entry> run from <date> as a recipe."
 - **Nothing yet.** "You have no recipes yet. Save a run you liked and run it again in one line.", with the newest save line.
@@ -199,7 +199,7 @@ Not part of this entry. A recipe's steps make their own connections, each throug
 
 **Setup.** The Library is installed, and the Foundation has at least one finished run, such as the install of Department leads.
 
-**The run.** Through Claude, the QA lead saves the owner's chosen run as a recipe, with the owner's answers to question 2, and checks the file against the brief: it names the brief, and holds no line of the brief's `# Brief`. Then the owner runs it again for a second department: "Avery, run my recipe Add a department lead." The run asks only the questions under Asked again and the consents, shows the plan, and on the owner's yes runs to its close with its own brief, `installed` row and proof. Then `npm run recipes -- yours export add-a-department-lead` prints the shared form, which the owner reads and the security reviewer checks line by line.
+**The run.** Through Claude, the QA lead saves the owner's chosen run as a recipe, with the owner's answers to question 2, and checks the file against the brief: it names the brief, and holds no line of the brief's `# Brief`. Then the owner runs it again for a second department: "Avery, run my recipe Add a department lead." Department leads is installed, so the step runs as the modify install's rule offers, asking only the questions under Asked again and the consents, and after the plan's yes runs to its close with its own brief and proof. Then `npm run recipes -- yours export add-a-department-lead` prints the shared form, which the owner reads and the security reviewer checks line by line.
 
 **The completion test.** All of these pass:
 

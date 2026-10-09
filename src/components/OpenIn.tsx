@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { CopyButton } from "@/components/CopyButton";
-import { ChevronDown, Sparkles } from "@/components/frame/icons";
+import { Check, ChevronDown, Folder, GitBranch, Sparkles } from "@/components/frame/icons";
 import { useRepo } from "@/components/RepoProvider";
-import { openInLink, TARGETS, TARGET_HINT, TARGET_LABEL, type Target } from "@/lib/claude/open-in";
+import { LIMIT, openInLink, TARGETS, TARGET_HINT, TARGET_LABEL, type Target } from "@/lib/claude/open-in";
 import { markOpened, readDefault, readFolder, writeDefault, writeFolder } from "@/lib/claude/default";
 import { browserStore, notify, subscribe } from "@/lib/claude/browser-store";
 
@@ -13,13 +14,33 @@ const readStoredFolder = () => readFolder(browserStore());
 const serverTarget = (): Target => "desktop";
 const serverFolder = (): string | null => null;
 
+// Below the sm breakpoint the menu is a bottom sheet above the tab bar.
+const NARROW = "(max-width: 639.98px)";
+const hasMq = () => typeof window !== "undefined" && typeof window.matchMedia === "function";
+const subscribeNarrow = (cb: () => void) => {
+  if (!hasMq()) return () => {};
+  const m = window.matchMedia(NARROW);
+  m.addEventListener("change", cb);
+  return () => m.removeEventListener("change", cb);
+};
+const readNarrow = () => hasMq() && window.matchMedia(NARROW).matches;
+const serverNarrow = () => false;
+
+const TABBABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const visible = (el: HTMLElement) => el.getClientRects().length > 0;
+
+// Where the popover sits: above or below the button, anchored to its right or left edge, and how tall it may grow.
+type Place = { up: boolean; right: boolean; max: number };
+const MENU_WIDTH = 352;
+const MENU_CAP = 512;
+
 /**
  * Opens a prompt in Claude with the owner's repo or folder chosen, and keeps Copy beside it. The main part opens the
  * remembered target (Claude Desktop until they choose otherwise); the chevron opens a picker that sets the default.
  * Nothing is sent: the owner reads the prompt and presses Enter. learn=false hides the setup link before sign-in;
- * align="right" anchors the picker to the right edge of the control.
+ * align="right" always anchors the picker to the chevron, otherwise it anchors there when the page has room.
  */
-export function OpenIn({ prompt, primary = false, learn = true, align = "left", compact = false, label: mainLabel, icon = false, defaultOpen = false }: {
+export function OpenIn({ prompt, primary = false, learn = true, align = "left", compact = false, label: mainLabel, icon = false, defaultOpen = false, copyInMenu = false, extra, className }: {
   prompt: string; primary?: boolean; learn?: boolean; align?: "left" | "right";
   /** Compact: the main part reads the label (Claude by default), and Copy and the repo line move into the menu. */
   compact?: boolean; label?: string;
@@ -27,35 +48,49 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
   icon?: boolean;
   /** Starts with the menu open. For markup tests; the page never sets it. */
   defaultOpen?: boolean;
+  /** Copy lives in the menu, so a narrow card keeps one row of buttons. */
+  copyInMenu?: boolean;
+  /** A quiet line under the repo line, such as a link to the lesson. */
+  extra?: React.ReactNode;
+  /** The wrapper's class. "contents" lets a card's grid place the button row and the repo line. */
+  className?: string;
 }) {
   const { repo, folder: provided, label: repoLabel } = useRepo();
   const savedTarget = useSyncExternalStore(subscribe, readTarget, serverTarget);
   const savedFolder = useSyncExternalStore(subscribe, readStoredFolder, serverFolder);
+  const narrow = useSyncExternalStore(subscribeNarrow, readNarrow, serverNarrow);
   // When storage refuses a write, the choice still holds for this page.
   const [kept, setKept] = useState<{ target?: Target }>({});
   const target = kept.target ?? savedTarget;
   const stored = savedFolder;
   const [open, setOpen] = useState(defaultOpen);
+  const [place, setPlace] = useState<Place>({ up: false, right: align === "right", max: MENU_CAP });
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState("");
-  const root = useRef<HTMLDivElement>(null);
+  const anchor = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const chevron = useRef<HTMLButtonElement>(null);
   const mainRef = useRef<HTMLAnchorElement & HTMLButtonElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const menuId = useId();
 
-  const rows = () => Array.from(root.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? []);
+  const asIcon = compact && icon;
+  const sheet = asIcon || narrow;
+
+  const rows = () => Array.from(panel.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? []);
   const focusChecked = useCallback(() => {
-    const all = Array.from(root.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? []);
+    const all = Array.from(panel.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? []);
     (all.find((r) => r.getAttribute("aria-checked") === "true") ?? all[0])?.focus();
   }, []);
   const later = (fn: () => void) => setTimeout(fn, 0);
+  const inside = (n: Node | null) => !!n && (!!panel.current?.contains(n) || !!anchor.current?.contains(n));
 
   useEffect(() => {
     if (!open) return;
     focusChecked();
     const away = (e: PointerEvent) => {
-      if (root.current && !root.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!panel.current?.contains(t) && !anchor.current?.contains(t)) setOpen(false);
     };
     document.addEventListener("pointerdown", away);
     return () => document.removeEventListener("pointerdown", away);
@@ -65,9 +100,30 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
   const where = { repo, folder };
   const main = openInLink(target, prompt, where);
 
+  // Measured when the menu opens, from the button's place on screen: it opens upward when the room below is short,
+  // and anchors to the chevron unless that would carry it over the sidebar.
+  const measure = (): Place => {
+    const a = anchor.current?.getBoundingClientRect();
+    if (!a || typeof window === "undefined") return place;
+    const vh = window.innerHeight;
+    const cap = Math.min(vh * 0.7, MENU_CAP);
+    const below = vh - a.bottom - 16;
+    // The room above ends at the sticky top bar (or the phone header), with a little air.
+    const bars = Array.from(document.querySelectorAll<HTMLElement>("[data-top-bar], header.bar")).map((el) => el.getBoundingClientRect()).filter((r) => r.height > 0 && r.bottom <= a.top);
+    const ceiling = Math.max(0, ...bars.map((r) => r.bottom));
+    const above = a.top - ceiling - 16;
+    const up = below < cap && above > below;
+    const width = Math.min(MENU_WIDTH, window.innerWidth - 32);
+    const page = document.getElementById("main");
+    const bound = page ? page.getBoundingClientRect().left + parseFloat(getComputedStyle(page).paddingLeft || "0") : 16;
+    const right = align === "right" || a.right - width >= bound;
+    return { up, right, max: Math.max(160, Math.min(cap, up ? above : below)) };
+  };
+
   const openFrom = (el: HTMLElement | null) => {
     opener.current = el;
     setNote("");
+    if (!sheet) setPlace(measure());
     setOpen(true);
   };
   const closeTo = (el: HTMLElement | null) => {
@@ -91,9 +147,35 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
     e.preventDefault();
     all[(to + all.length) % all.length]?.focus();
   };
+  // Tab walks the menu's own stops (the folder field, the rows as one stop, Copy), then closes the menu and moves on
+  // from the button, the way a menu button does. Shift Tab off the first stop returns to the button.
+  const onPanelKey = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab" || !panel.current) return;
+    const stops: HTMLElement[] = [];
+    let rowStop: HTMLElement | null = null;
+    for (const el of Array.from(panel.current.querySelectorAll<HTMLElement>(TABBABLE + ', [role="menuitemradio"]'))) {
+      if (el.matches('[role="menuitemradio"]')) {
+        if (!rowStop) { rowStop = rows().find((r) => r.getAttribute("aria-checked") === "true") ?? el; stops.push(rowStop); }
+      } else if (visible(el)) stops.push(el);
+    }
+    const active = document.activeElement as HTMLElement | null;
+    const at = active?.matches('[role="menuitemradio"]') ? stops.indexOf(rowStop!) : stops.indexOf(active!);
+    const to = at + (e.shiftKey ? -1 : 1);
+    e.preventDefault();
+    if (at >= 0 && to >= 0 && to < stops.length) { stops[to]!.focus(); return; }
+    const trigger = opener.current ?? chevron.current;
+    setOpen(false);
+    setNote("");
+    if (e.shiftKey || !trigger) { trigger?.focus(); return; }
+    const from = chevron.current ?? trigger;
+    const next = Array.from(document.querySelectorAll<HTMLElement>(TABBABLE)).find((el) =>
+      !panel.current?.contains(el) && !from.contains(el) && el.tabIndex >= 0 && visible(el) &&
+      !!(from.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING));
+    (next ?? trigger).focus();
+  };
   const onBlur = (e: React.FocusEvent) => {
     const next = e.relatedTarget as Node | null;
-    if (open && next && root.current && !root.current.contains(next)) setOpen(false);
+    if (open && next && !inside(next)) setOpen(false);
   };
 
   const choose = (t: Target) => {
@@ -117,36 +199,109 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
 
   const look = primary ? "btn-primary" : "btn-quiet";
   const text = compact ? (mainLabel ?? "Claude") : `Open in ${TARGET_LABEL[target]}`;
-  const sm = compact ? " btn-sm" : "";
-  const asIcon = compact && icon;
-  const askFolder = !main.ok && target !== "web" && !folder;
+  // The door's buttons keep the 44px tap floor on a desk too; the top bar stays dense.
+  const size = compact ? " btn-sm" : " md:min-h-11";
+  const askFolder = !folder && target !== "web";
   const fallback = repoLabel === "your Foundation";
   const mainName = asIcon ? { "aria-label": "Open Claude" } : {};
   const mainBody = asIcon ? <Sparkles aria-hidden className="h-5 w-5" /> : text;
+  const PlaceIcon = target === "web" ? GitBranch : Folder;
   const repoLine = (
-    <p className={compact ? "px-2 text-xs text-admin-muted" : "mt-2 text-xs text-admin-muted"}>
+    <p className="text-xs leading-5 text-admin-muted">
+      Opens in{" "}
       {fallback ? (
-        <>Opens in your Foundation folder. Check it is selected before you send.</>
+        <span className="text-admin-ink">your Foundation folder</span>
       ) : (
-        <>Opens in <span className="font-medium text-admin-ink">{repoLabel}</span> · check it is selected before you send.</>
+        <span className="inline-flex items-center gap-1 rounded-control bg-admin-hover pl-1.5 pr-1 align-[-1px] font-mono text-[12px] leading-5 text-admin-ink">
+          <PlaceIcon aria-hidden className="size-3.5 text-admin-muted" />{repoLabel}
+        </span>
       )}
-      {learn && <>{" "}<Link href="/admin/system/setup#work-with-claude" className="underline underline-offset-4">How this works</Link></>}
+      . Check it is selected before you send.
+      {learn && <>{" "}<Link href="/admin/system/setup#work-with-claude" className="-my-3.5 inline-flex min-h-11 items-center underline decoration-admin-line-strong underline-offset-4 hover:text-admin-ink hover:decoration-accent">How this works</Link></>}
     </p>
   );
 
+  const menu = open ? (
+    <div
+      ref={panel}
+      onKeyDown={onPanelKey}
+      style={sheet ? undefined : { maxHeight: place.max }}
+      className={`menu-surface focus-inset overflow-y-auto overscroll-contain p-1.5 text-left ${sheet
+        ? "fixed inset-x-4 bottom-[calc(72px+env(safe-area-inset-bottom))] z-40 max-h-[min(70vh,32rem)]"
+        : `absolute z-30 w-[min(22rem,calc(100vw-2rem))] max-h-[min(70vh,32rem)] ${place.up ? "bottom-full mb-2" : "top-full mt-2"} ${place.right ? "right-0" : "left-0"}`}`}
+    >
+      {askFolder && (
+        <div className="mb-1.5 border-b border-admin-line p-1.5 pb-3">
+          <label htmlFor={`${menuId}-folder`} className="block rounded-control bg-admin-hover px-3 py-2 text-[13px] leading-5 text-admin-muted">
+            Add where your Foundation is on this computer to open it here.
+          </label>
+          <div className="mt-2 flex gap-2">
+            <input
+              id={`${menuId}-folder`}
+              className="field min-h-11 min-w-0 flex-1"
+              placeholder="/Users/you/command-center"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveFolder(); } }}
+            />
+            <button type="button" className="btn-quiet md:min-h-11" onClick={saveFolder}>Save</button>
+          </div>
+        </div>
+      )}
+      <ul id={menuId} role="menu" aria-label="Open in" className="divide-y divide-admin-line" onKeyDown={onMenuKey}>
+        {TARGETS.map((t) => {
+          const built = openInLink(t, prompt, where);
+          const checked = t === target;
+          const needsFolder = !built.ok && t !== "web" && !folder && prompt.length <= LIMIT[t];
+          return (
+            <li key={t} role="none" className="py-0.5">
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={checked}
+                tabIndex={checked ? 0 : -1}
+                className="menu-row grid min-h-11 w-full grid-cols-[1rem_1fr] gap-x-2.5 rounded-control px-2.5 py-2 text-left text-sm text-admin-ink"
+                onClick={() => choose(t)}
+              >
+                <span aria-hidden className="flex h-5 items-center text-accent">{checked && <Check className="size-4" strokeWidth={2.5} />}</span>
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-x-2">
+                    <span className="font-medium">{TARGET_LABEL[t]}</span>
+                    {needsFolder && <span className="rounded-full border border-admin-line-strong px-1.5 text-[11px] leading-4 text-admin-muted">Needs folder</span>}
+                  </span>
+                  <span className="block text-xs leading-5 text-admin-muted">{TARGET_HINT[t]}</span>
+                  {!built.ok && !needsFolder && <span className="block text-xs leading-5 text-admin-muted">{built.reason}</span>}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {(!main.ok || compact || copyInMenu) && (
+        <div className="mt-1.5 border-t border-admin-line p-1.5 pt-3">
+          <CopyButton text={prompt} className="w-full md:min-h-11" onCopied={opened} />
+        </div>
+      )}
+      {compact && <div className="mt-1.5 border-t border-admin-line px-2.5 pb-1 pt-2.5">{repoLine}</div>}
+      <p role="status" className="px-2.5 pb-1 text-xs text-admin-muted empty:hidden">{note}</p>
+    </div>
+  ) : null;
+  // The sheet lives on the page's body, clear of any bar that would trap a fixed element.
+  const portal = sheet && typeof document !== "undefined";
+
   return (
-    <div ref={root} className={asIcon ? undefined : "relative"} onKeyDown={onRootKey} onBlur={onBlur}>
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex items-stretch">
+    <div className={className} onKeyDown={onRootKey} onBlur={onBlur}>
+      <div className="flex flex-wrap items-center gap-3">
+        <div ref={anchor} className={`${asIcon ? "" : "relative "}inline-flex items-stretch`}>
           {main.ok ? (
-            <a ref={mainRef} href={main.href} onClick={opened} className={`${look}${sm} rounded-r-none${asIcon ? " min-h-11 min-w-11 justify-center px-2" : ""}`} {...mainName}>{mainBody}</a>
+            <a ref={mainRef} href={main.href} onClick={opened} className={`${look} rounded-r-none${size}${asIcon ? " min-h-11 min-w-11 justify-center px-2" : ""}`} {...mainName}>{mainBody}</a>
           ) : (
             <button
               ref={mainRef}
               type="button"
               aria-haspopup="menu"
               aria-expanded={open}
-              className={`${look}${sm} rounded-r-none${asIcon ? " min-h-11 min-w-11 justify-center px-2" : ""}`}
+              className={`${look} rounded-r-none${size}${asIcon ? " min-h-11 min-w-11 justify-center px-2" : ""}`}
               {...mainName}
               onClick={(e) => (open ? closeTo(e.currentTarget) : openFrom(e.currentTarget))}
             >{mainBody}</button>
@@ -158,7 +313,7 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
             aria-expanded={open}
             aria-controls={open ? menuId : undefined}
             aria-label="Choose where to open"
-            className={`${look}${sm} min-w-11 rounded-l-none border-l border-l-admin-line-strong px-2`}
+            className={`${look} min-w-11 rounded-l-none${size} border-l border-l-admin-line-strong px-2`}
             onClick={(e) => (open ? closeTo(e.currentTarget) : openFrom(e.currentTarget))}
             onKeyDown={(e) => {
               if (e.key === "ArrowDown" && !open) {
@@ -169,60 +324,17 @@ export function OpenIn({ prompt, primary = false, learn = true, align = "left", 
           >
             <ChevronDown aria-hidden className="h-4 w-4" />
           </button>
+          {!portal && menu}
         </div>
-        {!compact && <CopyButton text={prompt} onCopied={opened} />}
+        {!compact && !copyInMenu && <CopyButton text={prompt} className="md:min-h-11" onCopied={opened} />}
       </div>
-      {open && (
-        <div className={`surface absolute z-20 p-2 shadow-lg ${asIcon ? "inset-x-4 top-full mt-1" : `${align === "right" ? "right-0" : "left-0"} mt-2 w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)]`}`}>
-          <ul id={menuId} role="menu" aria-label="Open in" className="space-y-1" onKeyDown={onMenuKey}>
-            {TARGETS.map((t) => {
-              const built = openInLink(t, prompt, where);
-              const checked = t === target;
-              return (
-                <li key={t} role="none">
-                  <button
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={checked}
-                    tabIndex={checked ? 0 : -1}
-                    className="block min-h-11 w-full rounded-control border border-admin-line p-2 text-left text-sm text-admin-ink hover:bg-admin-hover"
-                    onClick={() => choose(t)}
-                  >
-                    <span className="font-medium">{TARGET_LABEL[t]}</span>
-                    {checked && <span className="ml-2 text-xs text-admin-muted">Default</span>}
-                    <span className="block text-xs text-admin-muted">{TARGET_HINT[t]}</span>
-                    {!built.ok && <span className="block text-xs text-warn">{built.reason}</span>}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          {(!main.ok || compact) && (
-            <div className="mt-2 space-y-2 border-t border-admin-line p-2">
-              {askFolder && (
-                <div>
-                  <label className="block text-sm text-admin-ink" htmlFor={`${menuId}-folder`}>Where is your Foundation on this computer?</label>
-                  <div className="mt-1 flex gap-2">
-                    <input
-                      id={`${menuId}-folder`}
-                      className="min-h-11 min-w-0 flex-1 rounded-control border border-admin-line-strong bg-admin-surface px-3 text-sm text-admin-ink"
-                      placeholder="/Users/you/command-center"
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveFolder(); } }}
-                    />
-                    <button type="button" className="btn-quiet" onClick={saveFolder}>Save</button>
-                  </div>
-                </div>
-              )}
-              <CopyButton text={prompt} className="btn-sm" onCopied={opened} />
-            </div>
-          )}
-          {compact && <div className="mt-2 border-t border-admin-line pt-2">{repoLine}</div>}
-          <p role="status" className="px-2 text-xs text-admin-muted empty:hidden">{note}</p>
+      {!compact && (
+        <div className="mt-2 space-y-1">
+          {repoLine}
+          {extra}
         </div>
       )}
-      {!compact && repoLine}
+      {portal && menu && createPortal(menu, document.body)}
     </div>
   );
 }

@@ -47,16 +47,42 @@ test.describe("phone", () => {
     // The Claude icon is a link on a local server; the chevron beside it opens the menu.
     const icon = page.getByRole("banner").getByRole("link", { name: "Open Claude" });
     await expect(icon).toBeVisible();
-    await icon.locator("xpath=following-sibling::button[@aria-label='Choose where to open']").click();
+    const chevron = icon.locator("xpath=following-sibling::button[@aria-label='Choose where to open']");
     const menu = page.getByRole("menu");
-    await expect(menu).toBeVisible();
+    // A press that lands before the page has hydrated does nothing, so press again until the menu says it is open.
+    await expect(async () => {
+      if ((await chevron.getAttribute("aria-expanded")) !== "true") await chevron.click();
+      await expect(menu).toBeVisible({ timeout: 1000 });
+    }).toPass();
     // Measure the popup surface around the list, which carries the padding.
     const box = await menu.locator("xpath=..").boundingBox();
     expect(box).not.toBeNull();
-    expect(box!.x).toBeGreaterThanOrEqual(0);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+    // A bottom sheet with the page's 16px gutter on both sides, clear of the tab bar.
+    expect(box!.x).toBeGreaterThanOrEqual(16);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(375 - 16);
+    const tabs = await page.getByRole("navigation", { name: "Tabs" }).boundingBox();
+    expect(box!.y + box!.height).toBeLessThanOrEqual(tabs!.y);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
+});
+
+test("Tab closes the menu and moves on, and the open menu stays on screen", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/admin/context/story");
+  const install = page.locator('[data-door="install"]');
+  const chevron = install.getByRole("button", { name: "Choose where to open" });
+  await chevron.click();
+  const surface = page.getByRole("menu").locator("xpath=..");
+  const box = await surface.boundingBox();
+  const vh = page.viewportSize()!.height;
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(vh);
+  await expect(page.locator('[role="menuitemradio"][aria-checked="true"]')).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("menu")).toBeHidden();
+  await expect(chevron).toHaveAttribute("aria-expanded", "false");
+  // Focus moved on to the next stop after the button, Copy prompt.
+  await expect(install.getByRole("button", { name: "Copy prompt" })).toBeFocused();
 });
 
 test("an old Brand address lands on its Context page", async ({ page }) => {

@@ -3,6 +3,7 @@
 Every AI tool working in this project follows `CLAUDE.md`. Read it first. The rules there apply to you in full.
 
 <!-- lb-standards:start v1 2026-10-10 · synced from Light-Brands/qie _qie/core/templates/repo-standards/agents-block.md · edit there, then re-sync -->
+
 ## Light Brands standards
 
 This repo is part of the Light Brands portfolio. Anything above this section that is specific to this repo takes precedence; everything below is the shared default. The source documents live in the private `Light-Brands/qie` repo (org access required). When this repo is opened through the QIE hub, the same files are reachable locally at `_qie/...`.
@@ -15,4 +16,5 @@ This repo is part of the Light Brands portfolio. Anything above this section tha
 - **Git.** Work on a branch and open a PR. Stage files explicitly, pull and rebase on conflict, and leave history intact (no force pushes to shared branches).
 - **Writing voice** for anything a person reads: US English, plain and direct, commas and colons in place of em dashes, and positive claims stated on their own.
 - **Org rules.** New repos are created under the `Light-Brands` org. The canonical hub rules are in [QIE AGENTS.md](https://github.com/Light-Brands/qie/blob/main/AGENTS.md).
+
 <!-- lb-standards:end -->

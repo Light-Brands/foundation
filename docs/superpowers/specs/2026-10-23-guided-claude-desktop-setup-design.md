@@ -29,6 +29,24 @@ Then, any time:
 - **Update my Foundation:** Claude pulls `upstream` into their repository, keeps their own work (`key/` and their changes), shows what changed, and redeploys on their yes.
 - **Put it on my own domain:** the existing `prompts/setup/custom-domain.md`.
 
+## Numbers in the Ninja dictionary (Lawless, 2026-10-23)
+
+The steps join the dictionary as sub-numbers of **0.3 Foundation**, so nothing else is renumbered (three level numbers such as 2.7.1 already exist, and section 0 has no sub-numbers yet):
+
+| # | Title |
+|---|---|
+| 0.3.1 | Get Claude Desktop |
+| 0.3.2 | Bring in your Foundation |
+| 0.3.3 | Connect GitHub |
+| 0.3.4 | Connect Vercel and choose your PIN |
+| 0.3.5 | Connect your database |
+| 0.3.6 | Go live |
+| 0.3.7 | Change my PIN |
+| 0.3.8 | Update my Foundation |
+| 0.3.9 | Put it on my own domain |
+
+Each step page links back to 0.1 Prep, 0.2 Home and 0.3 Foundation and forward to the next number, and the 0.3 entry lists all nine. An owner can say "Claude, follow 0.3.4" the same way they say "follow 2.3 Story and voice". The numbers are added at the dictionary's source in QIE (where `numbers.yaml`, `numbers.lock` and the publisher live), and reach this repository as a dictionary update, since `ninja/` is never edited here. They go into `numbers.lock` so they never move. The 2026-10-05 design's step numbers (1.1, 3.1 and so on) are retired in favor of these.
+
 ## Every step page has four parts (from the 2026-10-05 design)
 
 1. **Check:** confirm the steps before this one are done, from what the owner can see or what Claude can test; when a check fails, name the step to return to.

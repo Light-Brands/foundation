@@ -91,6 +91,19 @@ Every page works cold: a fresh Claude that has never seen the conversation can o
 - A repository created in the wrong account, or public by accident.
 - An owner's copy showing "Build your own with Claude".
 
+## Settled after the builder check (Quinn's calls, 2026-10-23)
+
+- **Claude Desktop means its Code tab** (Claude Code inside Claude Desktop), which runs commands on the owner's computer. Step 1 shows them where it is.
+- **Secrets and logins happen in the owner's own Terminal window.** Claude's command tool cannot take hidden typed input, so for the PIN (`vercel env add FOUNDATION_PIN production`, then preview) and for any sign in that asks questions, Claude gives the owner the exact command to run in a Terminal window they open, and waits. Sign ins that only open a browser may run from Claude.
+- **The PIN is chosen once, in step 4, in Vercel.** Step 2 clones and installs only. Running locally comes after step 5 with `vercel env pull`, which brings their PIN and database address to `.env.local`, so there is never a second PIN to drift. `scripts/setup` stays for people who run locally without Vercel.
+- **Neon's settings:** the app also reads the address Neon's integration sets (`DATABASE_URL`, falling back to `POSTGRES_URL`), and accepts the `sslmode=require` those addresses carry by verifying the certificate itself (Neon's certificates are publicly signed). `FOUNDATION_DATABASE_URL` always wins. Migrations already run on first open (`src/lib/db/index.ts`). Step zero of the plan confirms the names on a real setup.
+- **If `vercel integration add neon` cannot finish from the command line**, the step falls back to the owner clicking Neon in the project's Storage tab on vercel.com, then `vercel env pull`.
+- **The project deploys on every push.** Step 4 connects the repository (`vercel git connect`), which installs Vercel's GitHub app on the owner's account in their browser, so "Update my Foundation" deploys by pushing.
+- **Update my Foundation merges `upstream/main`**, never overwriting `key/`, `.env*` or files only the owner added; any conflict is shown in plain words and resolved with the owner before anything is pushed.
+- **Step 2 clones `main`**, and the revert of `aa7a733` lands before this work merges.
+- **One source per step:** the dictionary page in QIE is the source; the copies in `prompts/setup/` arrive with the dictionary update, the same way `ninja/` does. Step 1's public address is its Dojo Dictionary page (the lb-share link the publisher records in `links.yaml`), which the demo button, README and entry 0.3 link to.
+- **The sub-numbers in the publisher:** each step is a dictionary entry of its own (`frameworks/foundation-setup/<step>`) named by its number in `numbers.yaml`; where `ninja.py` or its checks reject a number under 0.3, they are extended, with tests.
+
 ## Left to the builder
 
 - Exact wording of each prompt, within the rules above and the existing prompt standard.

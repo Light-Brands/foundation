@@ -1,5 +1,7 @@
 # Foundation: free, public, one click to running
 
+> **Superseded on 2026-10-23** by `2026-10-23-guided-claude-desktop-setup-design.md`: the Deploy Button path proved too fragile, and Lawless moved setup into Claude Desktop.
+
 Design agreed with Lawless on 2026-10-23.
 
 ## Intent

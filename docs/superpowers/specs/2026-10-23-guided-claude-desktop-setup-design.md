@@ -45,7 +45,7 @@ The steps join the dictionary as sub-numbers of **0.3 Foundation**, so nothing e
 | 0.3.8 | Update my Foundation |
 | 0.3.9 | Put it on my own domain |
 
-Each step page links back to 0.1 Prep, 0.2 Home and 0.3 Foundation and forward to the next number, and the 0.3 entry lists all nine. An owner can say "Claude, follow 0.3.4" the same way they say "follow 2.3 Story and voice". The numbers are added at the dictionary's source in QIE (where `numbers.yaml`, `numbers.lock` and the publisher live), and reach this repository as a dictionary update, since `ninja/` is never edited here. They go into `numbers.lock` so they never move. The 2026-10-05 design's step numbers (1.1, 3.1 and so on) are retired in favor of these.
+Each step page links back to 0.1 Prep, 0.2 Home and 0.3 Foundation and forward to the next number, and the 0.3 entry lists all nine. An owner can say "Claude, follow 0.3.4" the same way they say "follow 2.3 Story and voice". The numbers are added at the dictionary's source in QIE (`_qie/core/data/ninja-framework/`, published by `_qie/core/tools/ninja/ninja.py`; its latest line is QIE branch `ninja/category-masters`, unpushed and owned by the department masters work, so this work branches from it in its own worktree and never edits that worktree), and reach this repository as a dictionary update, since `ninja/` is never edited here. They go into `numbers.lock` so they never move. The 2026-10-05 design's step numbers (1.1, 3.1 and so on) are retired in favor of these.
 
 ## Every step page has four parts (from the 2026-10-05 design)
 

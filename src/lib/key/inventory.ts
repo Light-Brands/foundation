@@ -12,7 +12,8 @@ function list(v: unknown): Item[] {
 
 const byText = (a: string, b: string) => a.localeCompare(b);
 
-export function buildInventory(keyYamlText: string): string {
+/** The inventory for system.md. With brand, the owner's own look in key/brand.yaml is named too. */
+export function buildInventory(keyYamlText: string, opts: { brand?: boolean } = {}): string {
   const key = (parse(keyYamlText) ?? {}) as Record<string, unknown>;
   const apps = list(key.apps);
   const routines = list(key.routines);
@@ -40,6 +41,9 @@ export function buildInventory(keyYamlText: string): string {
     if (mine.length === 0) lines.push("- No skills yet");
     for (const s of mine) lines.push(`- Skill: ${s.slug}`);
     lines.push("");
+  }
+  if (opts.brand) {
+    lines.push("## Look", "", "The command center wears this business's own brand, kept in key/brand.yaml.", "");
   }
   return lines.join("\n").trimEnd() + "\n";
 }

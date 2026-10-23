@@ -1,6 +1,7 @@
 import { isPairingId, PAIRINGS, type PairingId, type TypeCharacter } from "./pairings";
 import { ADMIN_TONES, TONES, type AdminTone } from "./admin-tone";
 import { contrastRatio } from "./color";
+import { brandTone } from "./neutrals";
 
 // The eleven color slots every surface paints with. One color per slot; shades come from color-mix in CSS.
 export const COLOR_SLOTS = [
@@ -17,12 +18,15 @@ export const SURFACES = ["flat", "soft", "raised", "glass"] as const;
 export const MOTIONS = ["still", "subtle", "full"] as const;
 export const NAV_MARKERS = ["pill", "rail", "tint"] as const;
 export const CHAMBERS = ["glow", "grain", "plain"] as const;
+/** The command center's grays: slate (the default, the tone exactly as it is) or brand (tinted with the brand's hue). */
+export const NEUTRALS = ["slate", "brand"] as const;
 export type TypeRatio = (typeof TYPE_RATIOS)[number];
 export type Density = (typeof DENSITIES)[number];
 export type SurfaceStyle = (typeof SURFACES)[number];
 export type Motion = (typeof MOTIONS)[number];
 export type NavMarker = (typeof NAV_MARKERS)[number];
 export type Chamber = (typeof CHAMBERS)[number];
+export type Neutrals = (typeof NEUTRALS)[number];
 
 export type BrandTokens = {
   colors: Record<ColorSlot, string>;
@@ -44,6 +48,8 @@ export type BrandTokens = {
   type: Partial<TypeCharacter>;
   /** The command center's neutrals: light (the default), dim or dark. */
   adminTone: AdminTone;
+  /** Slate keeps the tone's grays; brand tints them with the primary color's hue at low chroma. */
+  neutrals: Neutrals;
 };
 
 // The light tone's canvas (the fallback for --color-admin-canvas in globals.css).
@@ -51,7 +57,7 @@ export const ADMIN_CANVAS = TONES.light.neutrals.canvas;
 
 /** The admin canvas a brand paints, for places CSS variables cannot reach, such as the app manifest. */
 export function adminCanvas(b: BrandTokens): string {
-  return TONES[b.adminTone].neutrals.canvas;
+  return brandTone(b).neutrals.canvas;
 }
 
 // The Foundation's own default brand, worn until a member sets theirs: a warm canvas, deep green, terracotta and gold.
@@ -82,6 +88,7 @@ export const DEFAULT_BRAND: BrandTokens = {
   chamber: "glow",
   type: {},
   adminTone: "light",
+  neutrals: "slate",
 };
 
 const HEX = /^#[0-9a-f]{6}$/;
@@ -110,9 +117,9 @@ function oneOf<T extends string | number>(list: readonly T[], v: unknown, fallba
 const weight = (v: unknown) => typeof v === "number" && Number.isInteger(v) && v >= 300 && v <= 700 && v % 100 === 0;
 const tracking = (v: unknown) => typeof v === "number" && Number.isFinite(v) && v >= -0.05 && v <= 0.2;
 
-function typeOverrides(v: unknown): Partial<TypeCharacter> {
+function typeOverrides(v: unknown, base: Partial<TypeCharacter> = {}): Partial<TypeCharacter> {
   const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
-  const t: Partial<TypeCharacter> = {};
+  const t: Partial<TypeCharacter> = { ...base };
   if (weight(o.displayWeight)) t.displayWeight = o.displayWeight as number;
   if (weight(o.headingWeight)) t.headingWeight = o.headingWeight as number;
   if (tracking(o.headingTracking)) t.headingTracking = Math.round((o.headingTracking as number) * 1000) / 1000;
@@ -131,8 +138,11 @@ export function typeCharacter(b: BrandTokens): TypeCharacter {
   };
 }
 
-/** Turns whatever is stored into a complete, safe brand. Each field falls back to the default on its own. */
-export function parseBrand(input: unknown): BrandTokens {
+/**
+ * Turns whatever is stored into a complete, safe brand. Each field falls back on its own to the base: the default,
+ * or the layer beneath (the owner's key/brand.yaml under the saved row).
+ */
+export function parseBrand(input: unknown, base: BrandTokens = DEFAULT_BRAND): BrandTokens {
   let raw: unknown = input;
   if (typeof raw === "string") {
     try {
@@ -143,23 +153,93 @@ export function parseBrand(input: unknown): BrandTokens {
   }
   const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const c = (o.colors && typeof o.colors === "object" ? o.colors : {}) as Record<string, unknown>;
-  const colors = Object.fromEntries(COLOR_SLOTS.map((s) => [s, color(c[s], DEFAULT_BRAND.colors[s])])) as Record<ColorSlot, string>;
+  const colors = Object.fromEntries(COLOR_SLOTS.map((s) => [s, color(c[s], base.colors[s])])) as Record<ColorSlot, string>;
   return {
     colors,
-    pairing: isPairingId(o.pairing) ? o.pairing : DEFAULT_BRAND.pairing,
-    radiusCard: radius(o.radiusCard, DEFAULT_BRAND.radiusCard),
-    radiusControl: radius(o.radiusControl, DEFAULT_BRAND.radiusControl),
-    logoUrl: url(o.logoUrl),
-    logoLightUrl: url(o.logoLightUrl),
-    typeRatio: oneOf(TYPE_RATIOS, o.typeRatio, DEFAULT_BRAND.typeRatio),
-    density: oneOf(DENSITIES, o.density, DEFAULT_BRAND.density),
-    surface: oneOf(SURFACES, o.surface, DEFAULT_BRAND.surface),
-    motion: oneOf(MOTIONS, o.motion, DEFAULT_BRAND.motion),
-    navActive: oneOf(NAV_MARKERS, o.navActive, DEFAULT_BRAND.navActive),
-    chamber: oneOf(CHAMBERS, o.chamber, DEFAULT_BRAND.chamber),
-    type: typeOverrides(o.type),
-    adminTone: oneOf(ADMIN_TONES, o.adminTone ?? o.admin_tone, DEFAULT_BRAND.adminTone),
+    pairing: isPairingId(o.pairing) ? o.pairing : base.pairing,
+    radiusCard: radius(o.radiusCard, base.radiusCard),
+    radiusControl: radius(o.radiusControl, base.radiusControl),
+    logoUrl: logo(o, "logoUrl", base.logoUrl),
+    logoLightUrl: logo(o, "logoLightUrl", base.logoLightUrl),
+    typeRatio: oneOf(TYPE_RATIOS, o.typeRatio, base.typeRatio),
+    density: oneOf(DENSITIES, o.density, base.density),
+    surface: oneOf(SURFACES, o.surface, base.surface),
+    motion: oneOf(MOTIONS, o.motion, base.motion),
+    navActive: oneOf(NAV_MARKERS, o.navActive, base.navActive),
+    chamber: oneOf(CHAMBERS, o.chamber, base.chamber),
+    type: typeOverrides(o.type, base.type),
+    adminTone: oneOf(ADMIN_TONES, o.adminTone ?? o.admin_tone, base.adminTone),
+    neutrals: oneOf(NEUTRALS, o.neutrals, base.neutrals),
   };
+}
+
+// A logo the layer leaves out comes from the base. One it sets, even to nothing, is its own: an invalid address
+// gives no logo, as it always has.
+function logo(o: Record<string, unknown>, k: "logoUrl" | "logoLightUrl", fallback: string | null): string | null {
+  return o[k] === undefined ? fallback : url(o[k]);
+}
+
+const LEVERS: Record<string, readonly (string | number)[]> = {
+  typeRatio: TYPE_RATIOS, density: DENSITIES, surface: SURFACES, motion: MOTIONS, navActive: NAV_MARKERS, chamber: CHAMBERS,
+  adminTone: ADMIN_TONES, neutrals: NEUTRALS,
+};
+const TYPE_CHECKS: Record<string, (v: unknown) => boolean> = {
+  displayWeight: weight, headingWeight: weight, headingTracking: tracking, headingCase: (v) => v === "none" || v === "uppercase",
+};
+
+/**
+ * The owner layer's fields that the brand ignores, each named once: a key that is not a brand field, or a value
+ * outside the range the saved row's values must keep. Empty means every value is used.
+ */
+export function brandLayerProblems(input: unknown): string[] {
+  if (input === null || input === undefined) return [];
+  if (typeof input !== "object" || Array.isArray(input)) return ["the file must be a mapping of brand fields, so it is ignored"];
+  const o = input as Record<string, unknown>;
+  const problems: string[] = [];
+  const unknownKey = (k: string) => problems.push(`${k} is not a brand field, so it is ignored`);
+  const badValue = (k: string) => problems.push(`${k} is outside its range, so it is ignored`);
+  for (const [k, v] of Object.entries(o)) {
+    if (k === "colors") {
+      if (!v || typeof v !== "object" || Array.isArray(v)) { badValue(k); continue; }
+      for (const [slot, hex] of Object.entries(v as Record<string, unknown>)) {
+        if (!(COLOR_SLOTS as readonly string[]).includes(slot)) unknownKey(`colors.${slot}`);
+        else if (color(hex, "") === "") badValue(`colors.${slot}`);
+      }
+    } else if (k === "type") {
+      if (!v || typeof v !== "object" || Array.isArray(v)) { badValue(k); continue; }
+      for (const [f, val] of Object.entries(v as Record<string, unknown>)) {
+        if (!TYPE_CHECKS[f]) unknownKey(`type.${f}`);
+        else if (!TYPE_CHECKS[f](val)) badValue(`type.${f}`);
+      }
+    } else if (k === "pairing") {
+      if (!isPairingId(v)) badValue(k);
+    } else if (k === "radiusCard" || k === "radiusControl") {
+      if (radius(v, -1) === -1) badValue(k);
+    } else if (k === "logoUrl" || k === "logoLightUrl") {
+      if (v !== null && url(v) === null) badValue(k);
+    } else if (LEVERS[k]) {
+      if (!LEVERS[k].includes(v as string | number)) badValue(k);
+    } else unknownKey(k);
+  }
+  return problems;
+}
+
+/**
+ * The owner layer with only the values the brand uses: every field brandLayerProblems names is dropped, so what
+ * is ignored is exactly what is reported.
+ */
+export function cleanBrandLayer(input: unknown): Record<string, unknown> {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const o = input as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(o)) {
+    if (k === "colors" || k === "type") {
+      if (!v || typeof v !== "object" || Array.isArray(v)) continue;
+      const inner = Object.fromEntries(Object.entries(v as Record<string, unknown>).filter(([f]) => brandLayerProblems({ [k]: { [f]: (v as Record<string, unknown>)[f] } }).length === 0));
+      out[k] = inner;
+    } else if (brandLayerProblems({ [k]: v }).length === 0) out[k] = v;
+  }
+  return out;
 }
 
 export { contrastRatio };
@@ -184,6 +264,6 @@ const PAIRS: [ColorSlot, ColorSlot, string][] = [
 export function contrastProblems(b: BrandTokens): string[] {
   const problems = PAIRS.filter(([fg, bg]) => contrastRatio(b.colors[fg], b.colors[bg]) < 4.5).map(([, , message]) => message);
   if (contrastRatio(onColor(b.colors.accent), b.colors.accent) < 4.5) problems.push("Text on your buttons is hard to read.");
-  if (contrastRatio(b.colors.accent, TONES[b.adminTone].neutrals.surface) < 3) problems.push("Your accent is hard to see in your command center.");
+  if (contrastRatio(b.colors.accent, brandTone(b).neutrals.surface) < 3) problems.push("Your accent is hard to see in your command center.");
   return problems;
 }

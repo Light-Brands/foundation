@@ -417,3 +417,31 @@ migrations: migrations/
 ```
 
 - **Run `npm test` after any change to the Key.** The format tests read every file in `key/`. Why: a malformed charter or definition is found in seconds here and in days after it is plugged into something else.
+
+## Brand
+
+`key/brand.yaml` is optional: the owner's own look for the command center and the public pages. It holds any subset of the brand fields, by the same names the saved brand uses (`BrandTokens` in `src/lib/brand/tokens.ts`). The brand is built in three layers: the Foundation's default (`DEFAULT_BRAND`), then this file, then the brand saved in the database (`core_brand`), so a field this file leaves out keeps the default and a saved value wins over this file. `colors` takes any of the eleven slots (`canvas`, `canvasMuted`, `ink`, `inkMuted`, `hairline`, `primary`, `primaryDeep`, `accent`, `highlight`, `onHighlight`, `glow`) as `#rrggbb`. `pairing` is `sanctuary`, `modern`, `editorial`, `grotesk`, `classic` or `humanist` (`src/lib/brand/pairings.ts`). `radiusCard` and `radiusControl` are whole pixels from 0 to 32. `logoUrl` and `logoLightUrl` are an `https://` address or a path under `public/`, or `null`. `typeRatio` is `1.2`, `1.25` or `1.333`. `density` is `compact`, `comfortable` or `airy`. `surface` is `flat`, `soft`, `raised` or `glass`. `motion` is `still`, `subtle` or `full`. `navActive` is `pill`, `rail` or `tint`. `chamber` is `glow`, `grain` or `plain`. `type` sets `displayWeight` and `headingWeight` (300 to 700 in hundreds), `headingTracking` (-0.05 to 0.2) and `headingCase` (`none` or `uppercase`). `adminTone` is `light`, `dim` or `dark`. `neutrals` is `slate` (the default, the tone's own grays) or `brand` (the grays take the primary color's hue at low chroma, keeping every contrast pair).
+
+```yaml
+colors:
+  canvas: "#f7f8f6"
+  ink: "#1c2421"
+  primary: "#164e63"
+  primaryDeep: "#0c2f3d"
+  accent: "#0e7490"
+  highlight: "#f2c14e"
+  onHighlight: "#1c2421"
+pairing: editorial
+radiusCard: 12
+radiusControl: 8
+density: comfortable
+surface: raised
+navActive: rail
+type:
+  headingWeight: 500
+adminTone: light
+neutrals: brand
+```
+
+- **Put the owner's look in `key/brand.yaml`, never in `DEFAULT_BRAND` or the admin tones.** Why: the defaults and the three tones are the Foundation's, pinned by its tests and replaced by every update, and the Key is the owner's and is never overwritten.
+- **Use only the field names and values above.** A field the app does not know or a value outside its range is ignored, the rest still applies, and the server log names it once; `npm test` names it too. Why: a typo must never break a page a visitor sees, and it must still be found.

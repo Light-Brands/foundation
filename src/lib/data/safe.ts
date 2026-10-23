@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { getDb } from "@/lib/db";
 import { getBrand } from "@/lib/data/brand";
+import { loadOwnerBrand } from "@/lib/data/owner-brand";
 import { getProfile } from "@/lib/data/profile";
 import { countNewInbox } from "@/lib/data/inbox";
 import { DEFAULT_BRAND, type BrandTokens } from "@/lib/brand/tokens";
@@ -10,10 +11,13 @@ import type { Profile } from "@/lib/validate";
 // Each loader is read once per request (React's cache), however many layouts, pages and metadata functions ask,
 // and a database failure is logged once and answered with a default, never thrown.
 
-/** The saved brand, or the default one when the database cannot be reached. */
+/**
+ * The brand in its three layers: DEFAULT_BRAND, the owner's key/brand.yaml, then the saved row. When the database
+ * cannot be reached it is the default one.
+ */
 export const loadBrand = cache(async (): Promise<BrandTokens> => {
   try {
-    return await getBrand(await getDb());
+    return await getBrand(await getDb(), await loadOwnerBrand());
   } catch (err) {
     console.error("brand: falling back to the default brand", err);
     return DEFAULT_BRAND;

@@ -22,6 +22,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
     <RepoProvider value={where}>
     <AdminFrame
       businessName={profile.business}
+      whatItDoes={profile.what_we_do}
       chiefName={chiefName(profile)}
       logoUrl={brand.logoUrl}
       sections={buildSections(badges)}

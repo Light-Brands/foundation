@@ -93,6 +93,15 @@ Content each step carries (from the spec's path table and its settled calls):
 - [ ] **Step 5:** Commit on `ninja/foundation-setup`: `feat(ninja): Foundation setup in nine numbered steps, 0.3.1 to 0.3.9`.
 - [ ] **Step 6:** Publish with the publisher's publish command, which writes the lb-share links into `foundation/links.yaml`; commit that as `chore(ninja): publish the Foundation setup steps`. Do not push the QIE branch.
 
+### Task 4b: 2.1.2 Identity, the front end design prompt (QIE)
+
+**Files:** in the same QIE worktree and branch as Task 4. Create the entry `modules/brand/identity.md` (the id shape the publisher accepts beside `modules/brand/story`); set `entry: modules/brand/identity` on number 2.1.2 in `foundation/numbers.yaml` and its lock row. Input: `.superpowers/sdd/2026-10-23-guided-claude-desktop-setup/design-recipe.md` in the Foundation worktree (the research of the demo design quality recipe).
+
+- [ ] **Step 1:** Read `design-recipe.md`, `modules/brand/story.md` (the house shape of a brand entry) and the spec's 2.1.2 section.
+- [ ] **Step 2:** Write the entry: the questions first, one at a time; then the full recipe as a builder brief carrying the feeling; the order of work from brand settings to screens and components, going as far as the owner chooses; the proof (before and after screenshots of the same screens, contrast, mobile, speed); links to 2.2.3 Brand kit, 2.1.3 Story and voice and 0.3.8.
+- [ ] **Step 3:** Run the publisher's check and tests; expect PASS.
+- [ ] **Step 4:** Commit `feat(ninja): 2.1.2 Identity, bring your command center up to demo design quality`; publish with Task 4's publish step.
+
 ### Task 5: The dictionary update in the Foundation, and the README
 
 **Files:** Modify `ninja/` (the dictionary update, copied from the QIE branch's published output by the publisher's sync to the Foundation, or by the same copy the dictionary has used before, found in `ninja.py`), `prompts/setup/` (the nine step prompts as copies; `deploy.md`, `run-locally.md`, `set-pin.md` replaced), `prompts/README.md`, `README.md`, `src/lib/setup-links.ts` (`SETUP_START_URL` set to 0.3.1's link from `ninja/foundation/links.yaml`). Test: the existing dictionary and prompt tests (`tests/unit/dictionary.test.ts` and any prompt checks).

@@ -78,6 +78,15 @@ Every page works cold: a fresh Claude that has never seen the conversation can o
 - **Undo the database PIN work:** commit `aa7a733` (PIN state in the database, 1234, Supabase Marketplace settings) is reverted. The PIN stays in `FOUNDATION_PIN`, as today.
 - **Clean up the failed tests,** each on Lawless's yes: the `Light-Brands/foundation-step-zero` repository, the `foundation-step-zero` Vercel project, the `step-zero` branch, and the empty Supabase organization "Autod3v's projects" created by the Marketplace attempt.
 
+## 2.1.2 Identity: bring the front end up to demo quality (Lawless, 2026-10-23)
+
+A prompt entry in the dictionary that lets the owner's Claude raise their command center's look to the design quality of Light Brands' demo command centers. It fills the existing number **2.1.2 Identity** (Brand, Context), which has no entry yet, so nothing is renumbered.
+
+- **As far as they want to go.** No limit: from retuning the brand settings (colors, type, spacing, surfaces, motion in `src/lib/brand/`) to redesigning screens and components. Their changes stay theirs; 0.3.8 Update my Foundation explains any clash with our updates in plain words before anything is pushed.
+- **It asks first,** one question at a time like every other prompt: what they want to change, their brand material (or 2.2.3 Brand kit, or their website), the feeling they want, references they love or dislike.
+- **It carries the recipe in full:** the concrete rules that make the demos look the way they do, taken from the demo engine, the best demos and Kaze's Seven Laws (research in the plan's Task 4b), written as a builder brief with the whole feeling, never a short technical prompt.
+- **Proof:** before and after screenshots of the same screens, contrast checks, mobile, and no slower than before.
+
 ## Non-goals
 
 - No Deploy button, no Vercel Marketplace provisioning from a button, no default PIN, no PIN stored in the database.

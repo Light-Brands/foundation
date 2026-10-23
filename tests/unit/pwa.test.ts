@@ -81,8 +81,8 @@ describe("the safe loaders", () => {
     vi.doMock("@/lib/db", () => ({ getDb: async () => ({ query: async () => { throw new Error("paused"); } }) }));
     vi.spyOn(console, "error").mockImplementation(() => {});
     const { loadBrand, loadProfile } = await import("@/lib/data/safe");
-    const { DEFAULT_BRAND } = await import("@/lib/brand/tokens");
-    expect(await loadBrand()).toEqual(DEFAULT_BRAND);
+    const { loadOwnerBrand } = await import("@/lib/data/owner-brand");
+    expect(await loadBrand()).toEqual(await loadOwnerBrand());
     expect((await loadProfile()).business).toBeTypeOf("string");
     vi.doUnmock("@/lib/db");
     vi.restoreAllMocks();

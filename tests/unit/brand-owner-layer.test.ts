@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { parse } from "yaml";
@@ -110,6 +110,39 @@ neutrals: plaid
     expect(await readOwnerBrand(broken)).toEqual(DEFAULT_BRAND);
     expect(await readOwnerBrand(broken)).toEqual(DEFAULT_BRAND);
     expect(warn.mock.calls.filter((c) => String(c[0]).includes("not valid YAML"))).toHaveLength(1);
+  });
+
+  it("with key/brand.yaml present and the database throwing, loadBrand returns the owner layer", async () => {
+    const r = root(OWNER);
+    const prev = process.env.FOUNDATION_KEY_ROOT;
+    process.env.FOUNDATION_KEY_ROOT = r;
+    try {
+      vi.resetModules();
+      vi.doMock("@/lib/db", () => ({ getDb: async () => ({ query: async () => { throw new Error("paused"); } }) }));
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const { loadBrand } = await import("@/lib/data/safe");
+      const b = await loadBrand();
+      expect(b).toEqual(await readOwnerBrand(r));
+      expect(b).toMatchObject({ pairing: "editorial", radiusCard: 4, neutrals: "brand" });
+      expect(b.colors.accent).toBe("#0e7490");
+    } finally {
+      vi.doUnmock("@/lib/db");
+      if (prev === undefined) delete process.env.FOUNDATION_KEY_ROOT;
+      else process.env.FOUNDATION_KEY_ROOT = prev;
+    }
+  });
+
+  it("a key/brand.yaml that cannot be read is named once, without its contents", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const r = root();
+    mkdirSync(path.join(r, OWNER_BRAND_FILE));
+    expect(await readOwnerBrand(r)).toEqual(DEFAULT_BRAND);
+    expect(await readOwnerBrand(r)).toEqual(DEFAULT_BRAND);
+    const lines = warn.mock.calls.map((c) => String(c[0])).filter((l) => l.includes("could not be read"));
+    expect(lines).toEqual(["key/brand.yaml: could not be read (EISDIR), so the default brand is used"]);
+    warn.mockClear();
+    expect(await readOwnerBrand(root())).toEqual(DEFAULT_BRAND);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it("neutrals defaults to slate and leaves every tone's colors unchanged", () => {

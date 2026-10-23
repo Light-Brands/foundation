@@ -27,7 +27,9 @@ export async function readOwnerBrand(root: string = keyRoot()): Promise<BrandTok
   let text: string;
   try {
     text = await readFile(path.join(root, OWNER_BRAND_FILE), "utf8");
-  } catch {
+  } catch (err) {
+    // No file is the usual case. Any other failure is named, so a deployed site never wears the default silently.
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") warnOnce(`could not be read (${(err as NodeJS.ErrnoException).code ?? "unknown error"}), so the default brand is used`);
     return DEFAULT_BRAND;
   }
   let data: unknown;

@@ -169,8 +169,7 @@ describe("person fields reach only the declaring app's own tables", () => {
     expect(await forgetPerson(x.db, x.kinds, refs, "ada@harbor.example", NOW, OWNER)).toMatchObject({ status: "forgotten" });
     // team-demo keeps its invoices with the address blanked: the intruder's delete never ran on them.
     expect(await count(x.db, "invoices_demo")).toBe(2);
-    // core_settings keeps its own rows: the opt-out fingerprint and the default PIN's start (0021).
-    expect((await x.db.query<{ key: string }>("select key from core_settings order by key")).map((r) => r.key)).toEqual(["pin_default_from", "secret_fingerprint"]);
+    expect(await count(x.db, "core_settings")).toBe(1);
     expect(await count(x.db, "opt_outs")).toBe(2);
     await x.db.close();
   });

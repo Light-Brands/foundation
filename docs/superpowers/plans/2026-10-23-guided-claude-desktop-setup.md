@@ -102,6 +102,23 @@ Content each step carries (from the spec's path table and its settled calls):
 - [ ] **Step 3:** Run the publisher's check and tests; expect PASS.
 - [ ] **Step 4:** Commit `feat(ninja): 2.1.2 Identity, bring your command center up to demo design quality`; publish with Task 4's publish step.
 
+### Task 4c: An owner brand layer and brand tinted neutrals (Foundation)
+
+Found by Task 4b's review: the Identity prompt had no safe place to put the owner's look, so it wrote into `DEFAULT_BRAND` and a fourth admin tone, which breaks pinned tests. This task gives it one.
+
+**Files:** Modify `src/lib/brand/` (tokens and css, and where the brand is loaded: `loadBrand` in `src/lib/data/brand.ts` or `safe.ts`), the brand preview if it reads the brand. Create the reader for `key/brand.yaml`. Test: new `tests/unit/brand-owner-layer.test.ts`; existing brand, admin tone, pwa and frame tests stay byte for byte unchanged and passing.
+
+**Interfaces:**
+- Produces: `key/brand.yaml`, optional, holding any subset of the existing brand fields by their current names. Order of layers: `DEFAULT_BRAND`, then `key/brand.yaml`, then the saved `core_brand` row. Each value passes the same range checks the row's values pass today; an invalid or unknown key is ignored and named once in the server log, never thrown at a visitor.
+- Produces: a new closed brand lever `neutrals: "slate" | "brand"`, default `"slate"`, so today's look is unchanged. With `"brand"`, the admin chrome's neutral grays take the brand's hue at low chroma, applied on top of the current tone; `ADMIN_TONES`, `TONES` and every existing test are unchanged.
+- The Key checks accept `key/brand.yaml` (document it in `docs/standards/key.md`); `system.md` mentions it when present.
+
+- [ ] **Step 1: Write failing tests:** `"without key/brand.yaml the brand equals DEFAULT_BRAND"`, `"key/brand.yaml values override DEFAULT_BRAND"`, `"the saved row overrides key/brand.yaml"`, `"an out of range or unknown key is ignored and logged once"`, `"neutrals defaults to slate and leaves every tone's colors unchanged"`, `"neutrals brand tints the neutral grays with the brand hue and keeps text contrast at 4.5 to 1"`, `"the Key checks accept key/brand.yaml"`.
+- [ ] **Step 2:** Run `npx vitest run tests/unit/brand-owner-layer.test.ts`; expect FAIL.
+- [ ] **Step 3:** Implement.
+- [ ] **Step 4:** Run, then `npm test && npm run typecheck && npm run lint && npm run build`; expect PASS with no existing test changed.
+- [ ] **Step 5:** Commit `feat(brand): an owner brand layer in key/brand.yaml, and brand tinted neutrals`.
+
 ### Task 5: The dictionary update in the Foundation, and the README
 
 **Files:** Modify `ninja/` (the dictionary update, copied from the QIE branch's published output by the publisher's sync to the Foundation, or by the same copy the dictionary has used before, found in `ninja.py`), `prompts/setup/` (the nine step prompts as copies; `deploy.md`, `run-locally.md`, `set-pin.md` replaced), `prompts/README.md`, `README.md`, `src/lib/setup-links.ts` (`SETUP_START_URL` set to 0.3.1's link from `ninja/foundation/links.yaml`). Test: the existing dictionary and prompt tests (`tests/unit/dictionary.test.ts` and any prompt checks).

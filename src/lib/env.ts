@@ -30,6 +30,8 @@ export type FoundationEnv = {
   databaseProblem: "invalid" | "insecure" | null;
   /** Optional PEM certificate authority for the hosted database, when its certificate is not signed by a public one. */
   databaseCa: string | null;
+  /** FOUNDATION_DEMO_DEPLOY is exactly "on": this deployment is the public demo, which shows the build button. */
+  demoDeploy: boolean;
   /** The Supabase project's https origin, for email sign-in. */
   supabaseUrl: string | null;
   /** A new secret API key (sb_secret_...). An old service_role JWT is reported in supabaseKeyProblem, never used. */
@@ -53,12 +55,35 @@ export function insecureSslMode(url: string): boolean {
   return params.getAll("sslmode").some((m) => INSECURE_SSLMODES.has(m.trim().toLowerCase())) || params.getAll("ssl").some((m) => /^(false|0|disable|no-verify|require|prefer|allow)$/i.test(m.trim()));
 }
 
+/**
+ * Neon's own settings (DATABASE_URL, POSTGRES_URL) say sslmode=require and often channel_binding=require. For a
+ * .neon.tech host, whose certificate a public authority signs and the driver always verifies, that is read as
+ * verify-full. channel_binding is dropped: the driver would send it to the server as an unknown setting. Any
+ * other sslmode, or any other host, is left untouched for insecureSslMode to judge.
+ */
+export function neonAddress(url: string): string {
+  const q = url.indexOf("?");
+  if (q === -1) return url;
+  let host = "";
+  try { host = new URL(url).hostname.toLowerCase(); } catch { return url; }
+  if (!host.endsWith(".neon.tech")) return url;
+  const params = new URLSearchParams(url.slice(q + 1));
+  const modes = params.getAll("sslmode").map((m) => m.trim().toLowerCase());
+  if (modes.length === 0 || modes.some((m) => m !== "require" && m !== "verify-full")) return url;
+  params.delete("sslmode");
+  params.delete("channel_binding");
+  params.set("sslmode", "verify-full");
+  return `${url.slice(0, q)}?${params.toString()}`;
+}
+
 export function readEnv(e: Record<string, string | undefined> = process.env, buildSecret: string = BUILD_SECRET): FoundationEnv {
   const raw = e.FOUNDATION_PIN?.trim() ?? "";
   const cron = e.CRON_SECRET?.trim() ?? "";
   const fixed = e.FOUNDATION_SECRET?.trim() ?? "";
   const pinProblem = raw === "" ? "missing" : PIN_FORMAT.test(raw) ? null : "invalid";
-  const dbRaw = e.FOUNDATION_DATABASE_URL?.trim() ?? "";
+  const own = e.FOUNDATION_DATABASE_URL?.trim() ?? "";
+  const vercel = e.DATABASE_URL?.trim() || e.POSTGRES_URL?.trim() || "";
+  const dbRaw = own || neonAddress(vercel);
   const dbOk = /^postgres(ql)?:\/\/\S+$/.test(dbRaw);
   const dbInsecure = dbOk && insecureSslMode(dbRaw);
   let supabaseUrl: string | null = null;
@@ -81,6 +106,7 @@ export function readEnv(e: Record<string, string | undefined> = process.env, bui
     cronSecret: cron.length >= 16 ? cron : null,
     databaseUrl: dbOk && !dbInsecure ? dbRaw : null,
     databaseProblem: dbRaw && !dbOk ? "invalid" : dbInsecure ? "insecure" : null,
+    demoDeploy: e.FOUNDATION_DEMO_DEPLOY === "on",
     databaseCa: e.FOUNDATION_DATABASE_CA?.trim() || null,
     supabaseUrl,
     // Only the new secret keys (sb_secret_...) are accepted. An old service_role JWT is reported, not used.

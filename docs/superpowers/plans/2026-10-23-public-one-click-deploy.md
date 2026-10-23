@@ -1,3 +1,5 @@
+> **Superseded on 2026-10-23** by 2026-10-23-guided-claude-desktop-setup.md.
+
 # Free public Foundation, one click to running: Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

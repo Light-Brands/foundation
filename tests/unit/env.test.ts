@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { readEnv } from "@/lib/env";
+import { deriveSecret, readEnv } from "@/lib/env";
+import { SUPABASE_ROOT_CA } from "@/lib/db/supabase-ca";
 
 describe("readEnv", () => {
   it("accepts a 6 to 12 digit PIN", () => {
@@ -85,5 +86,57 @@ describe("readEnv", () => {
     const text = readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
     expect(text).not.toMatch(/NEXT_PUBLIC_/);
     expect(readFileSync(path.join(process.cwd(), "src/lib/db/postgres.ts"), "utf8").startsWith('import "server-only";')).toBe(true);
+  });
+});
+
+describe("readEnv with the Supabase Marketplace settings", () => {
+  const REF = "abcdefghijklmnopqrst";
+  const SESSION = `postgres://postgres.${REF}:pw@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require&supa=base-pooler.x`;
+  const TRANSACTION = `postgres://postgres.${REF}:pw@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x`;
+  it("reads the Marketplace session pooler address when FOUNDATION_DATABASE_URL is unset", () => {
+    const env = readEnv({ POSTGRES_URL_NON_POOLING: SESSION, POSTGRES_URL: TRANSACTION, SUPABASE_URL: `https://${REF}.supabase.co`, SUPABASE_SECRET_KEY: "sb_secret_market" });
+    expect(env.databaseProblem).toBeNull();
+    const u = new URL(env.databaseUrl as string);
+    expect([u.hostname, u.port]).toEqual(["aws-0-us-east-1.pooler.supabase.com", "5432"]);
+    expect(u.searchParams.has("sslmode")).toBe(false);
+    expect(env.databaseCa).toBe(SUPABASE_ROOT_CA);
+    expect(env.supabaseUrl).toBe(`https://${REF}.supabase.co`);
+    expect(env.supabaseSecretKey).toBe("sb_secret_market");
+    // Only POSTGRES_URL, on the transaction pooler: moved to the session pooler's port.
+    const only = new URL(readEnv({ POSTGRES_URL: TRANSACTION }).databaseUrl as string);
+    expect(only.port).toBe("5432");
+    expect(only.searchParams.has("sslmode")).toBe(false);
+    expect(readEnv({ POSTGRES_URL: `${TRANSACTION.split("?")[0]}?ssl=false` }).databaseUrl).not.toMatch(/ssl/);
+  });
+  it("FOUNDATION_DATABASE_URL wins over the Marketplace address", () => {
+    const mine = "postgresql://me:pw@db.example.com:5432/postgres";
+    const env = readEnv({ FOUNDATION_DATABASE_URL: mine, POSTGRES_URL_NON_POOLING: SESSION, POSTGRES_URL: TRANSACTION, FOUNDATION_DATABASE_CA: "MYCA", FOUNDATION_SUPABASE_URL: "https://mine.example.com", SUPABASE_URL: `https://${REF}.supabase.co`, FOUNDATION_SUPABASE_SECRET_KEY: "sb_secret_mine", SUPABASE_SECRET_KEY: "sb_secret_market" });
+    expect(env.databaseUrl).toBe(mine);
+    expect(env.databaseCa).toBe("MYCA");
+    expect(env.supabaseUrl).toBe("https://mine.example.com");
+    expect(env.supabaseSecretKey).toBe("sb_secret_mine");
+    // A non-Supabase host gets no Supabase certificate, and an explicit insecure address is still refused, never replaced.
+    expect(readEnv({ FOUNDATION_DATABASE_URL: mine }).databaseCa).toBeNull();
+    const insecure = readEnv({ FOUNDATION_DATABASE_URL: `${mine}?sslmode=require`, POSTGRES_URL_NON_POOLING: SESSION });
+    expect([insecure.databaseUrl, insecure.databaseProblem]).toEqual([null, "insecure"]);
+  });
+  it("derives a stable 64 character secret from SUPABASE_JWT_SECRET", () => {
+    const jwt = "j".repeat(40);
+    const a = readEnv({ SUPABASE_JWT_SECRET: jwt }, "buildsecret");
+    const b = readEnv({ SUPABASE_JWT_SECRET: jwt }, "buildsecret");
+    expect(a.secret).toMatch(/^[0-9a-f]{64}$/);
+    expect(a.secret).toBe(b.secret);
+    expect(a.secret).toBe(deriveSecret(jwt));
+    expect(a.fixedSecret).toBe(a.secret);
+    expect(a.secret).not.toBe("buildsecret");
+    expect(deriveSecret("k".repeat(40))).not.toBe(a.secret);
+    // FOUNDATION_SECRET always wins.
+    expect(readEnv({ SUPABASE_JWT_SECRET: jwt, FOUNDATION_SECRET: "m".repeat(32) }, "buildsecret")).toMatchObject({ secret: "m".repeat(32), fixedSecret: "m".repeat(32) });
+    // A JWT secret under 32 characters counts as unset, like a short FOUNDATION_SECRET.
+    expect(readEnv({ SUPABASE_JWT_SECRET: "short" }, "buildsecret")).toMatchObject({ secret: "buildsecret", fixedSecret: null });
+  });
+  it("demoDeploy is on only for the exact value on", () => {
+    expect(readEnv({ FOUNDATION_DEMO_DEPLOY: "on" }).demoDeploy).toBe(true);
+    for (const v of [undefined, "", "On", "ON", "true", "1", " on", "yes"]) expect(readEnv({ FOUNDATION_DEMO_DEPLOY: v }).demoDeploy).toBe(false);
   });
 });

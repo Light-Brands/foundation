@@ -27,7 +27,12 @@ The same flow works for someone who clones or forks the repository and runs it o
 
 A fresh copy is unclaimed until someone signs in with 1234 and chooses a PIN, and its home page is public. To keep a stranger from claiming it first, **1234 expires 7 days after the deploy** (Lawless, 2026-10-23). After that, the home page stops showing it and the sign-in page explains recovery.
 
-Recovery, for an expired 1234 or a forgotten PIN, is proof through the owner's own Vercel account, which only they can open: add `FOUNDATION_PIN` (6 to 12 digits) under the project's Environment Variables, press Redeploy (about a minute, nothing is lost), and sign in with it. The existing `prompts/setup/set-pin.md` walks them through it with Claude, rewritten for this flow. How a hosting PIN and a chosen PIN live together afterwards (for example, signing in with the hosting PIN leads straight to choosing a new PIN) is the builder's to design, as long as there is always exactly one way back in for the owner and none for anyone else.
+Recovery has two paths (Lawless, 2026-10-23, after the Vercel only route was judged too much friction):
+
+- **Forgot PIN, the common case: an emailed code.** The screen where they choose their PIN on first sign in also asks for their email (one field). "Forgot PIN?" on the sign in page sends a 6 digit code to that email; entering it lets them choose a new PIN. Sending uses the Supabase project created at deploy (its built-in auth email), so the owner sets up nothing. Supabase's built-in sender is rate limited and only delivers to addresses on the Supabase account; the owner's own address is on it because the account was created through their Vercel sign in. Confirm this in the early end-to-end test, and if it does not hold, stop and bring the fallback to Lawless before building around it. The code expires quickly, is single use and goes through the existing sign in limiter.
+- **1234 expired before they ever signed in, the rare case: their Vercel account.** No email is known yet, so the proof is the owner's own Vercel account, which only they can open: add `FOUNDATION_PIN` (6 to 12 digits) under the project's Environment Variables, press Redeploy (about a minute, nothing is lost), and sign in with it, which leads straight to choosing a PIN and giving an email. The sign in page explains this when 1234 has expired, and `prompts/setup/set-pin.md` is rewritten to walk it with Claude.
+
+How a hosting PIN and a chosen PIN live together is the builder's to design, as long as the owner always has exactly one way back in and nobody else has any.
 
 ## Updates keep flowing
 
@@ -97,6 +102,7 @@ Fields, short for low friction: name; business name and what the business does (
 - The same holds when the repository is cloned and run locally.
 - The demo shows "Deploy your own"; the fresh copy does not.
 - 1234 stops working 7 days after the deploy, and recovery through Vercel works.
+- "Forgot PIN?" emails a code to the owner's address and lets them set a new PIN, with no hosting step.
 - The build request form opens a correctly filled email to hello@lightbrands.ai.
 - An update published upstream reaches a Deploy button copy as a pull request, and a fork can sync.
 - The secrets scan over every commit is clean, and the repository is public.

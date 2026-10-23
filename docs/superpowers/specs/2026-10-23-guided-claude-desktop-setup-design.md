@@ -93,6 +93,7 @@ Every page works cold: a fresh Claude that has never seen the conversation can o
 
 ## Settled after the builder check (Quinn's calls, 2026-10-23)
 
+- **A paid Claude plan is expected (Lawless):** owners sign up for Claude Pro, about $20 a month, because the Code tab needs a paid plan. Step 0.3.1 says so first, before anything else.
 - **Claude Desktop means its Code tab** (Claude Code inside Claude Desktop), which runs commands on the owner's computer. Step 1 shows them where it is.
 - **Secrets and logins happen in the owner's own Terminal window.** Claude's command tool cannot take hidden typed input, so for the PIN (`vercel env add FOUNDATION_PIN production`, then preview) and for any sign in that asks questions, Claude gives the owner the exact command to run in a Terminal window they open, and waits. Sign ins that only open a browser may run from Claude.
 - **The PIN is chosen once, in step 4, in Vercel.** Step 2 clones and installs only. Running locally comes after step 5 with `vercel env pull`, which brings their PIN and database address to `.env.local`, so there is never a second PIN to drift. `scripts/setup` stays for people who run locally without Vercel.

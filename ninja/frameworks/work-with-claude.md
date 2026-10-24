@@ -45,7 +45,7 @@ After the shared questionnaire, one per message:
 1. "Where do you like to work with Claude: the Claude app on your computer, Claude in your web browser, or your terminal?" Default: Claude Desktop, the door every command center starts on.
 2. "Is your command center open on Vercel, on your own computer, or both?" Default: the one the owner has open right now, read from the address bar.
 3. At Complete, on a deployed command center: "Where is your Foundation folder on this computer?" The answer is the full path, starting with `/` or a drive letter. Typing `pwd` in a terminal inside the folder shows it. Default: the folder [Foundation](foundation.md) cloned into, when the owner remembers it.
-4. At Complete: "Is your Foundation's repository on GitHub, and is it the one named under the Open in button?" Default: yes, the repository the Deploy button made.
+4. At Complete: "Is your Foundation's repository on GitHub, and is it the one named under the Open in button?" Default: yes, the owner's own private `foundation-command-center` repository, made in [Connect GitHub](foundation-setup/connect-github.md).
 5. At Mastery: "Have you run Claude Code in your terminal on this computer before?" Default: no, and the run starts it once.
 6. At Mastery: "Do you work from more than one computer or browser?" Default: no.
 
@@ -89,7 +89,7 @@ Not part of this entry.
 - **Claude Desktop.** The Claude app on the owner's computer, signed in with their own Claude account. The link opens its Code tab, and the app asks the owner to confirm the folder.
 - **claude.ai/code.** Claude Code on the web, signed in with the owner's own Claude account and connected to their GitHub, so it can open the repository the link names.
 - **Claude Code in the terminal.** Installed by [Prep](prep.md) at Mastery. The link opens it in the owner's terminal once it has run on that computer at least once.
-- **GitHub.** The repository the Deploy button made. It is how claude.ai/code finds the Foundation, and how the command center names it on the repo line.
+- **GitHub.** The owner's own private `foundation-command-center` repository, made in [Connect GitHub](foundation-setup/connect-github.md). It is how claude.ai/code finds the Foundation, and how the command center names it on the repo line.
 
 ## Autopilot
 

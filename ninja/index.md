@@ -4,7 +4,7 @@ Your business is a set of departments, and each department is a set of jobs. The
 
 Start with [the guide](guide.md). It is short, and it shows you how to ask.
 
-Dictionary version 0.3.1.
+Dictionary version 0.4.0.
 
 ## How to ask for anything
 
@@ -64,6 +64,7 @@ Recurring work on a schedule or a trigger.
 
 A whole job, with its screen, its data and the work that runs on its own.
 
+- [Marketing](modules/attract.md): your whole Marketing department from one request, which knows what it can add, reads what you have, and builds the next piece around how you win customers.
 - [Story and voice](modules/brand/story.md): your story and your voice in one guide, with every draft your business writes checked against it.
 
 ### Agentic

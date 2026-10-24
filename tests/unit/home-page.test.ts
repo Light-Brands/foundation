@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { SETUP_START_URL } from "@/lib/setup-links";
 
 // The public home page: on the demo deployment (FOUNDATION_DEMO_DEPLOY=on) its one action is the way to set up your
 // own command center with Claude; on every owner's copy it stays Get in touch. The build request never appears here.
@@ -15,13 +14,13 @@ const links = (h: string) => h.match(/<a [^>]*>[\s\S]*?<\/a>/g) ?? [];
 afterEach(() => vi.unstubAllEnvs());
 
 describe("the public home page", () => {
-  it("with demoDeploy the home page offers Build your own with Claude linking SETUP_START_URL", async () => {
+  it("with demoDeploy the home page offers Build your business with Claude linking /start", async () => {
     vi.stubEnv("FOUNDATION_BUSINESS_NAME", "Harbor Studio");
     vi.stubEnv("FOUNDATION_DEMO_DEPLOY", "on");
     const h = await render();
-    const button = links(h).find((a) => a.includes("Build your own with Claude"));
+    const button = links(h).find((a) => a.includes("Build your business with Claude"));
     expect(button).toBeDefined();
-    expect(button).toContain(`href="${SETUP_START_URL}"`);
+    expect(button).toContain('href="/start"');
     expect(h).not.toContain("Get in touch");
     expect(h).toContain("rise");
   });
@@ -33,8 +32,8 @@ describe("the public home page", () => {
       else vi.stubEnv("FOUNDATION_DEMO_DEPLOY", value);
       const h = await render();
       expect(links(h).find((a) => a.includes("Get in touch"))).toContain('href="/contact"');
-      expect(h).not.toContain("Build your own with Claude");
-      expect(h).not.toContain(SETUP_START_URL);
+      expect(h).not.toContain("Build your business with Claude");
+      expect(h).not.toContain("/start");
     }
   });
 

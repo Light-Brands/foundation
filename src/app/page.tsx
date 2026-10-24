@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { loadProfile } from "@/lib/data/safe";
 import { readEnv } from "@/lib/env";
-import { SETUP_START_URL } from "@/lib/setup-links";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +11,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // A simple branded welcome until the landing page entry builds the real one: a faint glow field, an eyebrow
 // between hairlines, the name in the display face, and one action. Each part rises once, in order. On the public demo
-// (FOUNDATION_DEMO_DEPLOY=on) the action is the way to set up your own with Claude; every owner's copy keeps Get in touch.
+// (FOUNDATION_DEMO_DEPLOY=on) the action is Build your business with Claude, which opens the three step /start page; every owner's copy keeps Get in touch.
 export default async function PublicHome() {
   const profile = await loadProfile();
-  const action = readEnv().demoDeploy ? { href: SETUP_START_URL, label: "Build your own with Claude" } : { href: "/contact", label: "Get in touch" };
+  const action = readEnv().demoDeploy ? { href: "/start", label: "Build your business with Claude" } : { href: "/contact", label: "Get in touch" };
   const at = (i: number) => ({ "--i": i }) as React.CSSProperties;
   return (
     <main className="public relative isolate flex min-h-dvh flex-col items-center justify-center overflow-hidden px-5 py-24 text-center">

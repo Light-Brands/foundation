@@ -31,12 +31,12 @@ describe("safeNext percent-encoding", () => {
 
 describe("isPublicPath", () => {
   it("lets the public page, the sign-in, the contact page and static files through", () => {
-    for (const p of ["/", "/admin/login", "/api/gate", "/contact", "/_next/static/x.js", "/favicon.ico", "/pwa/app.webmanifest", "/pwa/icon-192.png", "/pwa/apple-touch-icon.png", "/sw.js", "/offline", "/robots.txt"]) {
+    for (const p of ["/", "/admin/login", "/api/gate", "/contact", "/start", "/_next/static/x.js", "/favicon.ico", "/pwa/app.webmanifest", "/pwa/icon-192.png", "/pwa/apple-touch-icon.png", "/sw.js", "/offline", "/robots.txt"]) {
       expect(isPublicPath(p)).toBe(true);
     }
   });
   it("guards the admin and everything else", () => {
-    for (const p of ["/admin", "/admin/command/inbox", "/admin/system/setup", "/admin/loginx", "/gateway", "/contacts", "/pwa/secret.png", "/sw.jsx", "/manifest.webmanifest"]) {
+    for (const p of ["/admin", "/admin/command/inbox", "/admin/system/setup", "/admin/loginx", "/gateway", "/contacts", "/start/x", "/starts", "/pwa/secret.png", "/sw.jsx", "/manifest.webmanifest"]) {
       expect(isPublicPath(p)).toBe(false);
     }
   });

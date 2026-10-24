@@ -172,8 +172,12 @@ describe("webhook declarations in the Key checker", () => {
     expect((await checkKeyFolder(root)).join("\n")).toMatch(/verifier must be a \.ts file inside key\/connections\/demo-pay\//);
     writeFileSync(yamlFile(root), base.replace("DEMO_PAY_WEBHOOK_SECRET", "NEXT_PUBLIC_PAY"));
     expect((await checkKeyFolder(root)).join("\n")).toMatch(/secret_setting must be a setting name/);
-    writeFileSync(yamlFile(root), base.replace("DEMO_PAY_WEBHOOK_SECRET", "FOUNDATION_SECRET"));
-    expect((await checkKeyFolder(root)).join("\n")).toMatch(/secret_setting must be a setting name/);
+    for (const bad of ["FOUNDATION_SECRET", "DATABASE_URL", "POSTGRES_URL", "POSTGRES_PRISMA_URL", "PGPASSWORD", "PGHOST", "NEON_PROJECT_ID"]) {
+      writeFileSync(yamlFile(root), base.replace("DEMO_PAY_WEBHOOK_SECRET", bad));
+      expect((await checkKeyFolder(root)).join("\n"), bad).toMatch(/secret_setting must be a setting name/);
+    }
+    writeFileSync(yamlFile(root), base.replace("DEMO_PAY_WEBHOOK_SECRET", "RESEND_API_KEY"));
+    expect((await checkKeyFolder(root)).join("\n")).not.toMatch(/secret_setting must be a setting name/);
   });
   it("reports a declared verifier file that does not exist", async () => {
     const root = copyFixture();

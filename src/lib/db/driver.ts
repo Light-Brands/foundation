@@ -16,5 +16,5 @@ export function emailSignIn(env: Pick<FoundationEnv, "databaseUrl" | "onVercel" 
 
 export const SIGNIN_NEEDS_SECRET = "Email sign-in needs one more setting, FOUNDATION_SECRET. Your setup guide adds it.";
 
-export const DATABASE_INSECURE_MESSAGE =
-  "FOUNDATION_DATABASE_URL turns off the database's certificate check (its sslmode). Remove the sslmode part, or set it to verify-full, then start again.";
+export const databaseInsecureMessage = (setting: string = "FOUNDATION_DATABASE_URL") =>
+  `${setting} turns off the database's certificate check (its sslmode). Remove the sslmode part, or set it to verify-full, then start again.`;

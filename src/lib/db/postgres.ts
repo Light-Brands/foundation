@@ -2,7 +2,7 @@ import "server-only";
 import postgres from "postgres";
 import type { Db, Tx } from "./types";
 import { insecureSslMode } from "@/lib/env";
-import { DATABASE_INSECURE_MESSAGE } from "./driver";
+import { databaseInsecureMessage } from "./driver";
 
 // The hosted Postgres database (Neon recommended), reached through its pooler in transaction mode. postgres.js runs the
 // same raw SQL with $1 parameters as PGlite and gives each transaction its own connection.
@@ -37,8 +37,8 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
  * would skip that check), against Node's public authorities or the given ca. Only a database on this computer,
  * such as one a test starts, connects without TLS.
  */
-export function connectionOptions(url: string, opts: { max?: number; ca?: string | null } = {}) {
-  if (insecureSslMode(url)) throw new Error(DATABASE_INSECURE_MESSAGE);
+export function connectionOptions(url: string, opts: { max?: number; ca?: string | null; setting?: string } = {}) {
+  if (insecureSslMode(url)) throw new Error(databaseInsecureMessage(opts.setting));
   let host = "";
   try { host = new URL(url).hostname; } catch { /* postgres() reports a malformed address itself */ }
   const ssl = LOCAL_HOSTS.has(host) ? (false as const) : { rejectUnauthorized: true as const, ...(opts.ca ? { ca: opts.ca } : {}) };
@@ -48,7 +48,7 @@ export function connectionOptions(url: string, opts: { max?: number; ca?: string
   };
 }
 
-export function openPostgres(url: string, opts: { max?: number; ca?: string | null } = {}): Db {
+export function openPostgres(url: string, opts: { max?: number; ca?: string | null; setting?: string } = {}): Db {
   const sql = postgres(url, connectionOptions(url, opts));
   return {
     ...wrap(sql),

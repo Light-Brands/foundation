@@ -46,7 +46,7 @@ test("the first win: in with the PIN, profile saved, a real message in the Inbox
 
   await page.goto("/admin/deliver/booking");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Book appointments");
-  await expect(page.getByText("Have Light Brands build it")).toBeVisible();
+  await expect(page.locator("p.kicker", { hasText: "Have Light Brands build it" })).toBeVisible();
   // The shipped dictionary has no install entry for this job yet, so the doors say what comes next.
   // No chief of staff is named yet, so the doors say Claude. named-prompts runs after this file (playwright.config.ts).
   await expect(page.getByText("Until the install ships, Claude asks what you want", { exact: false })).toBeVisible();

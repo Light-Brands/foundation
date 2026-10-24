@@ -5,7 +5,7 @@ export const BUILD_REQUEST_TO = "hello@lightbrands.ai";
 
 export const WORTH_QUESTION = "What would it be worth to you to have this built and running?";
 
-/** The worth bands, in order. They follow the Light Brands ladder, from a done-for-you install upward. */
+/** The worth bands, in order. Each is a range of what the work is worth to the owner. */
 export const WORTH_PICKS = [
   "Under $2,500",
   "$2,500 to $10,000",
@@ -42,7 +42,7 @@ export const QUESTIONS: Record<keyof BuildRequest, string> = {
   worthNote: "Anything you'd like us to know about that?",
 };
 
-/** The longest answer each field takes, so the whole message fits in the address every email app opens. */
+/** The longest answer each field takes. Long answers are trimmed, and the Copy fallback covers an email app that cuts the message short. */
 export const ANSWER_MAX: Record<keyof BuildRequest, number> = {
   name: 120, business: 120, whatItDoes: 300, email: 200, phone: 40, want: 1000, when: 120, worth: 40, worthNote: 400,
 };

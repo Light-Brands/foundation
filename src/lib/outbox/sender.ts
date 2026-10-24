@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { parse } from "yaml";
-import { connectionsDir } from "@/lib/hooks/declaration";
+import { connectionsDir, CORE_SETTING } from "@/lib/hooks/declaration";
 import { EMAIL_SENDING } from "@/lib/data/connections";
 import type { OutgoingEmail } from "@/lib/data/outbox";
 import { loadConnectionModule } from "@/lib/connections/module";
@@ -26,8 +26,7 @@ export type EmailSender = {
 };
 
 const SETTING = /^[A-Z][A-Z0-9_]{2,63}$/;
-/** Settings the Foundation itself relies on, never handed to a Key's code as its provider key. */
-export const CORE_SETTING = /^(NEXT_PUBLIC_|FOUNDATION_|VERCEL|CRON_SECRET$|SUPABASE_|DATABASE_URL$)/;
+export { CORE_SETTING };
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
 /** Checks one connection file's sender block. Only email-sending may declare one. No block returns no declaration. */

@@ -28,6 +28,8 @@ export type FoundationEnv = {
   databaseUrl: string | null;
   /** invalid: not a postgres address. insecure: its sslmode turns off the server certificate check. */
   databaseProblem: "invalid" | "insecure" | null;
+  /** The setting the database address was read from (FOUNDATION_DATABASE_URL, DATABASE_URL or POSTGRES_URL), or null when none is set. */
+  databaseSetting: "FOUNDATION_DATABASE_URL" | "DATABASE_URL" | "POSTGRES_URL" | null;
   /** Optional PEM certificate authority for the hosted database, when its certificate is not signed by a public one. */
   databaseCa: string | null;
   /** FOUNDATION_DEMO_DEPLOY is exactly "on": this deployment is the public demo, which shows the build button. */
@@ -83,6 +85,7 @@ export function readEnv(e: Record<string, string | undefined> = process.env, bui
   const pinProblem = raw === "" ? "missing" : PIN_FORMAT.test(raw) ? null : "invalid";
   const own = e.FOUNDATION_DATABASE_URL?.trim() ?? "";
   const vercel = e.DATABASE_URL?.trim() || e.POSTGRES_URL?.trim() || "";
+  const databaseSetting = own ? "FOUNDATION_DATABASE_URL" : e.DATABASE_URL?.trim() ? "DATABASE_URL" : e.POSTGRES_URL?.trim() ? "POSTGRES_URL" : null;
   const dbRaw = own || neonAddress(vercel);
   const dbOk = /^postgres(ql)?:\/\/\S+$/.test(dbRaw);
   const dbInsecure = dbOk && insecureSslMode(dbRaw);
@@ -105,6 +108,7 @@ export function readEnv(e: Record<string, string | undefined> = process.env, bui
     dataDir: e.FOUNDATION_DATA_DIR?.trim() || ".data/pglite",
     cronSecret: cron.length >= 16 ? cron : null,
     databaseUrl: dbOk && !dbInsecure ? dbRaw : null,
+    databaseSetting,
     databaseProblem: dbRaw && !dbOk ? "invalid" : dbInsecure ? "insecure" : null,
     demoDeploy: e.FOUNDATION_DEMO_DEPLOY === "on",
     databaseCa: e.FOUNDATION_DATABASE_CA?.trim() || null,

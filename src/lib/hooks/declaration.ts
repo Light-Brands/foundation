@@ -22,8 +22,11 @@ export type Verifier = {
 
 const VERIFIER = /^[a-z0-9][a-z0-9_.-]*(\/[a-z0-9][a-z0-9_.-]*)*\.ts$/;
 const SETTING = /^[A-Z][A-Z0-9_]{2,63}$/;
-// Settings the Foundation itself relies on, never handed to a Key's code as its webhook secret.
-const CORE_SETTING = /^(NEXT_PUBLIC_|FOUNDATION_|VERCEL|CRON_SECRET$|SUPABASE_|DATABASE_URL$)/;
+/**
+ * Settings the Foundation itself relies on, never handed to a Key's code as a webhook secret or provider key:
+ * its own, the host's, and every name a database address can arrive under (DATABASE_*, POSTGRES_*, PG*, NEON_*).
+ */
+export const CORE_SETTING = /^(NEXT_PUBLIC_|FOUNDATION_|VERCEL|CRON_SECRET$|SUPABASE_|DATABASE_|POSTGRES|PG|NEON_)/;
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);

@@ -22,10 +22,10 @@ export default function StartPage() {
   return (
     <main className="public relative isolate flex min-h-dvh flex-col items-center overflow-hidden px-5 py-20 text-center sm:py-28">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_50%_at_50%_20%,color-mix(in_oklch,var(--color-glow)_18%,transparent),transparent)]" />
-      <p className="rise flex items-center gap-4 font-label text-[11px] uppercase tracking-[0.3em] text-ink-muted" style={at(0)}>
-        <span aria-hidden className="h-px w-10 bg-hairline" />
+      <p className="rise flex items-center gap-3 whitespace-nowrap font-label text-[11px] uppercase tracking-[0.3em] text-ink-muted sm:gap-4" style={at(0)}>
+        <span aria-hidden className="h-px w-5 bg-hairline sm:w-10" />
         Your own command center
-        <span aria-hidden className="h-px w-10 bg-hairline" />
+        <span aria-hidden className="h-px w-5 bg-hairline sm:w-10" />
       </p>
       <h1 className="rise display-title mt-6 max-w-3xl" style={at(1)}>Build your business with Claude</h1>
       <p className="rise mt-6 max-w-xl text-lg text-ink-muted" style={at(2)}>Three steps, about ten minutes. Everything you build is yours: your code, your site and your data.</p>

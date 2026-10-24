@@ -30,7 +30,7 @@ The owner, who decides when their customers see a change, and the run lead, who 
 
 - [The Foundation primer](../foundation/primer.md), especially the app and the hosting, or [the Ninja home](../foundation/ninja-home.md), which has no app to deploy.
 - [The rules](../foundation/rules.md).
-- In a Foundation, `prompts/setup/deploy.md`, which sets up the Vercel project the first time, and the standards in `docs/standards/`, above all `stack.md` and `security.md`.
+- In a Foundation, `prompts/setup/connect-vercel.md`, which sets up the Vercel project the first time, and the standards in `docs/standards/`, above all `stack.md` and `security.md`.
 
 ## What I never do
 

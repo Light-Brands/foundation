@@ -60,7 +60,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
                     ? "Your command center is deployed. One step left: set your PIN."
                     : "Your PIN needs to be 6 to 12 digits. One quick change and you are in."}
                 </p>
-                <RepoProvider value={where}><PromptBox name="setup/set-pin" title="Set your PIN with Claude" learn={false} webReason="Open this from your command center after you sign in, or copy the prompt." /></RepoProvider>
+                <RepoProvider value={where}><PromptBox name="setup/change-my-pin" title="Set your PIN with Claude" learn={false} webReason="Open this from your command center after you sign in, or copy the prompt." /></RepoProvider>
               </div>
             ) : (
               <Keypad next={safeNext(next)} />

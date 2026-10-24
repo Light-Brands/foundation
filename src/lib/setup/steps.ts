@@ -25,13 +25,13 @@ export function stackStatus(env: Record<string, string | undefined>, facts: { st
   if (facts.emailSending) doneIds.add("email");
 
   const base: Omit<StackStep, "status">[] = [
-    { id: "github", label: "GitHub", unlocks: "Your code, its history, and updates from Light Brands.", custom: true, prompt: "setup/deploy" },
-    { id: "vercel", label: "Vercel", unlocks: "Your command center, live on its own address.", custom: true, prompt: "setup/deploy" },
+    { id: "github", label: "GitHub", unlocks: "Your code, its history, and updates from Light Brands.", custom: true, prompt: "setup/connect-github" },
+    { id: "vercel", label: "Vercel", unlocks: "Your command center, live on its own address.", custom: true, prompt: "setup/connect-vercel" },
     { id: "database", label: "Database", unlocks: "Saving on your live site with your own Neon database, your inbox going live, and team accounts.", custom: true },
     { id: "owner", label: "Your account", unlocks: "Signing in with your email in place of the PIN.", custom: true },
-    { id: "domain", label: "Your domain", unlocks: "Your command center on your own address, like command.yourbusiness.com.", custom: true, prompt: "setup/custom-domain" },
+    { id: "domain", label: "Your domain", unlocks: "Your command center on your own address, like command.yourbusiness.com.", custom: true, prompt: "setup/own-domain" },
     { id: "email", label: "Email sending", unlocks: "Confirmations and reminders sent from your own domain.", custom: true },
-    { id: "claude", label: "Claude", unlocks: "Building every part of your business with prompts, and a working local copy.", custom: true, prompt: "setup/run-locally" },
+    { id: "claude", label: "Claude", unlocks: "Building every part of your business with prompts, and a working local copy.", custom: true, prompt: "setup/bring-in-your-foundation" },
     { id: "dojo", label: "The Dojo", unlocks: "Lessons, verification, and your next three modules named for your business.", custom: true },
   ];
 

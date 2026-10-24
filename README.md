@@ -2,6 +2,8 @@
 
 The Dojo Foundation is a free command center that is yours and runs one business. You set it up with Claude, one step at a time, and then build it out with prompts.
 
+The quickest start: [foundation.lightbrands.ai/start](https://foundation.lightbrands.ai/start)
+
 ## Start at 0.3.1
 
 [0.3.1 Get Claude Desktop](https://lb-share.lightbrands.ai/s/2o3nlvcnkvhs0y59) is where you begin. Claude Pro is expected, because the Code tab in Claude Desktop needs a paid plan. Each step has a page in the Dojo Dictionary and a prompt you paste into Claude Desktop, and each step tells you what you should see when it worked.

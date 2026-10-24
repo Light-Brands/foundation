@@ -4,7 +4,7 @@ import type { GateLimiter } from "@/lib/auth/limit";
 
 export const ADMIN = "/admin";
 
-const PUBLIC = [/^\/$/, /^\/admin\/login$/, /^\/api\/gate$/, /^\/contact$/, /^\/f\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/api\/hooks\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/u\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}$/, /^\/_next\/static\//, /^\/_next\/image$/, /^\/favicon\.ico$/, /^\/pwa\/app\.webmanifest$/, /^\/pwa\/(?:icon-192|icon-512|icon-maskable|apple-touch-icon)\.png$/, /^\/sw\.js$/, /^\/offline$/, /^\/robots\.txt$/];
+const PUBLIC = [/^\/$/, /^\/admin\/login$/, /^\/api\/gate$/, /^\/contact$/, /^\/start$/, /^\/f\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/api\/hooks\/[a-z0-9]+(?:-[a-z0-9]+)*$/, /^\/u\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}$/, /^\/_next\/static\//, /^\/_next\/image$/, /^\/favicon\.ico$/, /^\/pwa\/app\.webmanifest$/, /^\/pwa\/(?:icon-192|icon-512|icon-maskable|apple-touch-icon)\.png$/, /^\/sw\.js$/, /^\/offline$/, /^\/robots\.txt$/];
 
 const LEGACY = /^\/(command|attract|sell|deliver|keep|money|team|plan|vendors|risk|system)(\/.*)?$/;
 

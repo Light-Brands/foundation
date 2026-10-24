@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { loadProfile } from "@/lib/data/safe";
+import { readEnv } from "@/lib/env";
+import { SETUP_START_URL } from "@/lib/setup-links";
 
 export const dynamic = "force-dynamic";
 
@@ -9,9 +11,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 // A simple branded welcome until the landing page entry builds the real one: a faint glow field, an eyebrow
-// between hairlines, the name in the display face, and one action. Each part rises once, in order.
+// between hairlines, the name in the display face, and one action. Each part rises once, in order. On the public demo
+// (FOUNDATION_DEMO_DEPLOY=on) the action is the way to set up your own with Claude; every owner's copy keeps Get in touch.
 export default async function PublicHome() {
   const profile = await loadProfile();
+  const action = readEnv().demoDeploy ? { href: SETUP_START_URL, label: "Build your own with Claude" } : { href: "/contact", label: "Get in touch" };
   const at = (i: number) => ({ "--i": i }) as React.CSSProperties;
   return (
     <main className="public relative isolate flex min-h-dvh flex-col items-center justify-center overflow-hidden px-5 py-24 text-center">
@@ -24,11 +28,11 @@ export default async function PublicHome() {
       <h1 className="rise display-title mt-6 max-w-3xl" style={at(1)}>{profile.business}</h1>
       {profile.what_we_do && <p className="rise mt-6 max-w-xl text-lg text-ink-muted" style={at(2)}>{profile.what_we_do}</p>}
       <a
-        href="/contact"
+        href={action.href}
         className="rise mt-10 inline-flex rounded-full bg-highlight px-8 py-4 font-label text-[11px] uppercase tracking-[0.15em] text-on-highlight transition-[translate] duration-500 ease-breath hover:-translate-y-0.5"
         style={at(3)}
       >
-        Get in touch
+        {action.label}
       </a>
     </main>
   );

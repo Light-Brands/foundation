@@ -5,12 +5,15 @@ import { useId, useState } from "react";
 import { lockGate } from "./lock";
 import type { NavHeading, NavSection } from "@/lib/layout/sections";
 import { activeEntry, entryState, hubOwner } from "@/lib/layout/sections";
-import { SECTION_ICONS, Settings, ExternalLink, ChevronLeft, ChevronDown, Lock } from "./icons";
+import { SECTION_ICONS, Settings, ExternalLink, ChevronLeft, ChevronDown, Lock, Sparkles } from "./icons";
+import { BuildRequestButton } from "@/components/BuildRequest";
 import { Monogram } from "./Monogram";
 import { StateDot } from "./SectionHub";
 
 type Props = {
   businessName: string;
+  /** What the business does, which the build request fills in. */
+  whatItDoes?: string;
   logoUrl: string | null;
   sections: NavSection[];
   settings: NavHeading[];
@@ -18,7 +21,7 @@ type Props = {
   onToggle: () => void;
 };
 
-export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, onToggle }: Props) {
+export function Sidebar({ businessName, whatItDoes = "", logoUrl, sections, settings, collapsed, onToggle }: Props) {
   const pathname = usePathname();
   const uid = useId();
   const active = activeEntry(pathname, sections, settings);
@@ -151,6 +154,15 @@ export function Sidebar({ businessName, logoUrl, sections, settings, collapsed, 
           <ExternalLink size={16} aria-hidden className="text-admin-ghost" />
           {!collapsed && <span>View my site</span>}
         </a>
+        <BuildRequestButton
+          business={businessName}
+          whatItDoes={whatItDoes}
+          title={collapsed ? "Have Light Brands build it for you" : undefined}
+          className={`flex w-full items-center gap-2.5 rounded-control px-3 py-2 text-left text-[13px] font-medium transition-colors ${quiet} ${collapsed ? "justify-center" : ""}`}
+        >
+          <Sparkles size={16} aria-hidden className="shrink-0 text-admin-ghost" />
+          {collapsed ? <span className="sr-only">Have Light Brands build it for you</span> : <span className="leading-snug">Have Light Brands build it for you</span>}
+        </BuildRequestButton>
         <button
           type="button"
           title={collapsed ? (lockFailed ? "Could not lock. Try again." : "Lock") : undefined}

@@ -1,6 +1,7 @@
 import { COLOR_SLOTS, onColor, typeCharacter, type BrandTokens, type Chamber, type Density, type Motion, type NavMarker, type SurfaceStyle } from "./tokens";
 import { PAIRINGS, NUMERIC_FONT } from "./pairings";
 import { toneVars, type AdminTone } from "./admin-tone";
+import { brandTone, scaleVars } from "./neutrals";
 
 const kebab = (s: string) => s.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
 const round = (n: number) => Number(n.toFixed(3));
@@ -138,7 +139,8 @@ export function brandCss(b: BrandTokens): string {
     `--chamber-shaft:${chamber.shaft};`,
     `--chamber-grain:${chamber.grain};`,
     `--chamber-floor:${chamber.floor};`,
-    ...toneVars(b.adminTone),
+    // Slate writes the tone exactly as it always has; brand writes the same names with the grays tinted.
+    ...(b.neutrals === "brand" ? scaleVars(brandTone(b)) : toneVars(b.adminTone)),
   ];
   return `:root{${vars.join("")}}`;
 }

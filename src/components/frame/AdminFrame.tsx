@@ -15,8 +15,10 @@ export function isSidebarToggle(e: KeyboardEvent): boolean {
   return !(t && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName ?? "")));
 }
 
-export function AdminFrame({ businessName, chiefName, logoUrl, sections, settings, banner, children }: {
+export function AdminFrame({ businessName, whatItDoes, chiefName, logoUrl, sections, settings, banner, children }: {
   businessName: string;
+  /** What the business does, from the profile, which the build request fills in. */
+  whatItDoes: string;
   /** The chief of staff's name, which Check my system opens with. */
   chiefName: string;
   logoUrl: string | null;
@@ -66,7 +68,7 @@ export function AdminFrame({ businessName, chiefName, logoUrl, sections, setting
     <div className="min-h-dvh overflow-x-clip bg-admin-canvas">
       <a href="#main" className="btn-primary sr-only fixed left-3 top-3 z-50 focus:not-sr-only">Skip to content</a>
       <aside className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-admin-line transition-[width] duration-300 ease-breath md:flex ${collapsed ? "w-20" : "w-64"}`}>
-        <Sidebar businessName={businessName} logoUrl={logoUrl} sections={sections} settings={settings} collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+        <Sidebar businessName={businessName} whatItDoes={whatItDoes} logoUrl={logoUrl} sections={sections} settings={settings} collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       </aside>
       <MobileHeader sections={sections} settings={settings} businessName={businessName} logoUrl={logoUrl} chiefName={chiefName} />
       <main id="main" tabIndex={-1} className={`min-h-dvh outline-none pb-[calc(72px+env(safe-area-inset-bottom))] transition-[padding] duration-300 ease-breath md:pb-0 ${collapsed ? "md:pl-20" : "md:pl-64"}`}>

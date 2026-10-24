@@ -205,7 +205,7 @@ describe("the Key checker and the sender seat", () => {
     const root = copyFixture();
     const yaml = path.join(root, "key/connections/email-sending.yaml");
     const base = readFileSync(yaml, "utf8");
-    for (const bad of ["FOUNDATION_SECRET", "NEXT_PUBLIC_KEY", "lower"]) {
+    for (const bad of ["FOUNDATION_SECRET", "NEXT_PUBLIC_KEY", "lower", "DATABASE_URL", "POSTGRES_URL", "POSTGRES_URL_NON_POOLING", "PGPASSWORD", "PGHOST", "NEON_PROJECT_ID"]) {
       writeFileSync(yaml, base.replace("DEMO_MAIL_API_KEY", bad));
       expect((await checkKeyFolder(root)).join("\n"), bad).toMatch(/sender secret_setting must be a setting name/);
     }

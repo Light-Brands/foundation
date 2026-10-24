@@ -1,7 +1,7 @@
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
 import { readEnv } from "@/lib/env";
-import { DATABASE_INSECURE_MESSAGE, selectDriver, type DriverKind } from "./driver";
+import { databaseInsecureMessage, selectDriver, type DriverKind } from "./driver";
 import { openPglite } from "./pglite";
 import { openPostgres } from "./postgres";
 import { tablesWithoutRls } from "./rls";
@@ -31,9 +31,9 @@ async function openLocal(dataDir: string): Promise<Db> {
 async function open(): Promise<Db | null> {
   const env = readEnv();
   const kind = selectDriver(env);
-  if (env.databaseProblem === "insecure") console.error(DATABASE_INSECURE_MESSAGE);
+  if (env.databaseProblem === "insecure") console.error(databaseInsecureMessage(env.databaseSetting ?? undefined));
   if (kind === "preview") return null;
-  const db = kind === "postgres" ? openPostgres(env.databaseUrl as string, { ca: env.databaseCa }) : await openLocal(env.dataDir);
+  const db = kind === "postgres" ? openPostgres(env.databaseUrl as string, { ca: env.databaseCa, setting: env.databaseSetting ?? undefined }) : await openLocal(env.dataDir);
   try {
     await migrateAll(db, process.cwd());
     // One statement, so two starts at once never seed two rows.

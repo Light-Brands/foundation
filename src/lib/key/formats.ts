@@ -6,6 +6,7 @@ import { parseFrontMatter, SLUG } from "./frontmatter";
 import { CORE_TABLES, readDeclarations } from "./declarations";
 import { checkWebhook } from "@/lib/hooks/declaration";
 import { checkSender, SENDER_FILE } from "@/lib/outbox/sender";
+import { brandLayerProblems } from "@/lib/brand/tokens";
 import { compareDefinition, ownedPersonRefs, personFieldProblems, rlsProblems, type InstalledApp } from "@/lib/key/schema";
 
 export const COMMIT_ID = /^[0-9a-f]{40}$/;
@@ -55,6 +56,17 @@ function inOrder(found: string[], wanted: string[]): string[] {
   if (missing.length) return [`missing section${missing.length > 1 ? "s" : ""} ${missing.join(", ")}`];
   const seq = found.filter((h) => wanted.includes(h));
   return seq.join("|") === wanted.join("|") ? [] : [`sections out of order, expected ${wanted.join(", ")}`];
+}
+
+/**
+ * The owner's brand layer, key/brand.yaml: any subset of the brand fields by their names. The app ignores a field
+ * named here and renders the rest, so the check is the early warning.
+ */
+export function checkBrandYaml(file: string, text: string): string[] {
+  const p: string[] = [];
+  const d = loadYaml(file, text, p);
+  if (d === undefined) return p;
+  return brandLayerProblems(d).map((m) => `${file}: ${m}`);
 }
 
 export function checkKeyYaml(file: string, text: string): string[] {
@@ -413,6 +425,8 @@ export async function checkKeyFolder(root: string): Promise<string[]> {
       problems.push(`${rel(f)}: sender ${SENDER_FILE} is not in key/connections/${name}/`);
     }
   }
+  const brandYaml = path.join(key, "brand.yaml");
+  if (await exists(brandYaml)) problems.push(...checkBrandYaml(rel(brandYaml), await read(brandYaml)));
   for (const f of await files(path.join(key, "runs"), ".md")) problems.push(...checkRunBrief(rel(f), await read(f)));
   for (const f of await files(path.join(key, "log"), ".md")) problems.push(...checkLogText(rel(f), await read(f)));
   return problems;

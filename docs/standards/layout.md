@@ -7,6 +7,7 @@ Every folder has one job. Put a file where its job is listed, and never where th
 - `key/`: the business's knowledge, roles and skills, kept in one folder. Never customer details, business records or secrets.
   - `key/key.yaml`: the ring, the list of the roles, skills, apps and routines.
   - `key/CLAUDE.md`: one line, the business's own instruction.
+  - `key/brand.yaml`: optional, the owner's own look, layered between the default brand and the saved one (see `key.md`).
   - `key/knowledge/`: `context-block.yaml` (the business facts) and `system.md` (what is built).
   - `key/agents/<role>/charter.md`: one charter per role.
   - `key/skills/<slug>/SKILL.md`: one skill per folder.

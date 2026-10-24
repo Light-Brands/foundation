@@ -38,10 +38,19 @@ describe("selectDriver", () => {
       expect(selectDriver(env), mode).toBe("pglite");
     }
     for (const mode of ["verify-full", "verify-ca"]) expect(readEnv({ FOUNDATION_DATABASE_URL: `${base}?sslmode=${mode}` }).databaseProblem).toBeNull();
-    const { DATABASE_INSECURE_MESSAGE } = await import("@/lib/db/driver");
-    expect(DATABASE_INSECURE_MESSAGE).toMatch(/sslmode/);
+    const { databaseInsecureMessage } = await import("@/lib/db/driver");
+    expect(databaseInsecureMessage()).toMatch(/sslmode/);
     const { openPostgres } = await import("@/lib/db/postgres");
-    expect(() => openPostgres(`${base}?sslmode=no-verify`)).toThrow(DATABASE_INSECURE_MESSAGE);
+    expect(() => openPostgres(`${base}?sslmode=no-verify`)).toThrow(databaseInsecureMessage());
+    // The message names the setting that was actually read.
+    for (const [name, setting] of [["FOUNDATION_DATABASE_URL", "FOUNDATION_DATABASE_URL"], ["DATABASE_URL", "DATABASE_URL"], ["POSTGRES_URL", "POSTGRES_URL"]] as const) {
+      const env = readEnv({ [name]: `${base}?sslmode=no-verify` });
+      expect(env.databaseSetting).toBe(setting);
+      expect(databaseInsecureMessage(env.databaseSetting ?? undefined)).toMatch(new RegExp(`^${setting} turns off`));
+      expect(() => openPostgres(`${base}?sslmode=no-verify`, { setting })).toThrow(new RegExp(`^${setting} turns off`));
+    }
+    expect(readEnv({}).databaseSetting).toBeNull();
+    expect(readEnv({ FOUNDATION_DATABASE_URL: `${base}?sslmode=verify-full`, DATABASE_URL: base }).databaseSetting).toBe("FOUNDATION_DATABASE_URL");
   });
   it("verifies the server certificate, and skips TLS only for a database on this computer", async () => {
     const { connectionOptions } = await import("@/lib/db/postgres");

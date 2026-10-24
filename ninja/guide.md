@@ -55,7 +55,7 @@ Levels describe what the weekly calls teach. Choose your own level and your own 
 | 2 | Automate your work: build agents, skills and routines, install modules | modules, agents, skills, routines, connections |
 | 3 | Weave it all into one complete system | weave, blueprints |
 
-The weekly workshop is always Level 1, run live: a Foundation set up from the Dojo link.
+Level 1 starts with a Foundation set up step by step in Claude Desktop, from [Get Claude Desktop](frameworks/foundation-setup/get-claude-desktop.md) to [Go live](frameworks/foundation-setup/go-live.md).
 
 ## Momentum, with steering
 

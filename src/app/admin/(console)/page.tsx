@@ -16,6 +16,7 @@ import { InstallHint } from "@/components/pwa/InstallHint";
 import { PREVIEW_INBOX_LINE } from "@/lib/setup/preview";
 import { SetupCard } from "./SetupCard";
 import { NeedsYouCard, NEEDS_YOU_ROWS } from "./NeedsYouCard";
+import { BuildRequestButton } from "@/components/BuildRequest";
 
 export default async function Home() {
   const db = await getDb();
@@ -105,6 +106,15 @@ export default async function Home() {
             );
           })}
         </div>
+      </section>
+
+      {/* One quiet card at the end of Today: the owner can ask Light Brands to build something, by their own email. */}
+      <section data-build-request="" aria-labelledby="today-build" className="surface rise flex flex-col gap-4 p-card sm:flex-row sm:items-center sm:justify-between md:p-card-lg" style={{ "--i": 4 } as React.CSSProperties}>
+        <div className="max-w-2xl">
+          <h2 id="today-build" className="kicker">Built for you</h2>
+          <p className="mt-2 text-admin-muted">Light Brands can build what you need into your command center. Tell us what you want, and it goes to us as an email from your own address.</p>
+        </div>
+        <BuildRequestButton business={profile.business} whatItDoes={profile.what_we_do} className="btn-quiet shrink-0" />
       </section>
     </div>
   );

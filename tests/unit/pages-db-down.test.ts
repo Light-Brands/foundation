@@ -48,6 +48,14 @@ describe("pages that need no data still open when the database is down", () => {
     expect(html).toContain('id="pin"');
   });
 
+  it("a copy with no PIN points at the Connect Vercel step, and an invalid PIN at change my PIN", async () => {
+    const { pinStep } = await import("@/lib/auth/pin-step");
+    expect(pinStep("missing")).toEqual({ name: "setup/connect-vercel", title: "Connect Vercel and set your PIN with Claude" });
+    expect(pinStep("invalid").name).toBe("setup/change-my-pin");
+    const { readPrompt } = await import("@/lib/prompts");
+    expect(await readPrompt("setup/connect-vercel")).toContain("0.3.4");
+  });
+
   it("the sign-in page's first heading is the one that names it", async () => {
     vi.stubEnv("FOUNDATION_PIN", "24681012");
     const { default: SignIn } = await import("@/app/admin/login/page");

@@ -86,4 +86,41 @@ describe("readEnv", () => {
     expect(text).not.toMatch(/NEXT_PUBLIC_/);
     expect(readFileSync(path.join(process.cwd(), "src/lib/db/postgres.ts"), "utf8").startsWith('import "server-only";')).toBe(true);
   });
+  describe("the database address Vercel's Neon sets", () => {
+    const NEON = "postgresql://u:p@ep-cool-1.us-east-2.aws.neon.tech/neondb";
+    it("reads DATABASE_URL when FOUNDATION_DATABASE_URL is unset", () => {
+      expect(readEnv({ DATABASE_URL: `${NEON}?sslmode=verify-full` }).databaseUrl).toBe(`${NEON}?sslmode=verify-full`);
+    });
+    it("falls back to POSTGRES_URL", () => {
+      expect(readEnv({ POSTGRES_URL: `${NEON}?sslmode=verify-full` }).databaseUrl).toBe(`${NEON}?sslmode=verify-full`);
+    });
+    it("FOUNDATION_DATABASE_URL wins over DATABASE_URL", () => {
+      const own = "postgresql://a:b@aws-0.pooler.supabase.com:6543/postgres?sslmode=verify-full";
+      expect(readEnv({ FOUNDATION_DATABASE_URL: own, DATABASE_URL: `${NEON}?sslmode=verify-full` }).databaseUrl).toBe(own);
+    });
+    it("a neon.tech address with sslmode=require is accepted as verify-full", () => {
+      const env = readEnv({ DATABASE_URL: `${NEON}?sslmode=require&channel_binding=require` });
+      expect(env.databaseProblem).toBeNull();
+      expect(env.databaseUrl).toBe(`${NEON}?sslmode=verify-full`);
+    });
+    it("a neon.tech address with sslmode=disable is still refused", () => {
+      for (const mode of ["disable", "allow", "prefer", "no-verify"]) {
+        const env = readEnv({ POSTGRES_URL: `${NEON}?sslmode=${mode}` });
+        expect([env.databaseUrl, env.databaseProblem]).toEqual([null, "insecure"]);
+      }
+    });
+    it("a DATABASE_URL on another host with sslmode=require is still refused", () => {
+      const env = readEnv({ DATABASE_URL: "postgresql://u:p@db.example.com/x?sslmode=require" });
+      expect([env.databaseUrl, env.databaseProblem]).toEqual([null, "insecure"]);
+    });
+    it("FOUNDATION_DATABASE_URL with sslmode=require is still refused, as today", () => {
+      const env = readEnv({ FOUNDATION_DATABASE_URL: `${NEON}?sslmode=require` });
+      expect([env.databaseUrl, env.databaseProblem]).toEqual([null, "insecure"]);
+    });
+    it("demoDeploy is on only for the exact value on", () => {
+      expect(readEnv({ FOUNDATION_DEMO_DEPLOY: "on" }).demoDeploy).toBe(true);
+      for (const v of ["ON", "true", "1", "off", " on", ""]) expect(readEnv({ FOUNDATION_DEMO_DEPLOY: v }).demoDeploy).toBe(false);
+      expect(readEnv({}).demoDeploy).toBe(false);
+    });
+  });
 });

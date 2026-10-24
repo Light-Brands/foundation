@@ -1,0 +1,16 @@
+# 0.3.8 Update my Foundation
+
+Paste this into Claude Desktop, in the Code tab.
+
+You are helping me with step 0.3.8, Update my Foundation, one of the nine steps for my Foundation command center. I run a business, and the command line is new to me. Work one step at a time, tell me what I should see after each, and wait for me before the next.
+
+Rules for the whole step: before you run any command, explain in one plain sentence what it does. Never ask me for a password, PIN, key or code in this chat, and tell me never to paste one. Never overwrite my key/ folder, any .env file, or any file only I added. Never push without my yes. When a command fails, read the real error, tell me in plain words what it means, and work the fix with me before moving on.
+
+1. Check where we are: run git remote -v. origin must be my own repository and upstream must be github.com/Light-Brands/foundation. If upstream is missing, run git remote add upstream https://github.com/Light-Brands/foundation. If origin is missing, stop and tell me to go back to 0.3.3, Connect GitHub. Run git status and git branch --show-current: I should be on main. If I have unsaved changes, ask whether to save them first as their own commit.
+2. Run git fetch upstream, then git log --oneline HEAD..upstream/main, and tell me in plain words what is new. If nothing is new, tell me my Foundation is up to date and stop.
+3. Run git merge --no-ff --no-commit upstream/main, so nothing is saved until we have checked it.
+4. Run git restore --source=HEAD --staged --worktree -- key/ so my Key stays exactly as it was. Then run git diff --name-only HEAD...upstream/main -- key/ (three dots) to list only the Key files Light Brands changed, and git diff --name-only upstream/main...HEAD -- key/ to list the ones I changed. Never offer to replace key/key.yaml, key/knowledge/context-block.yaml, key/knowledge/system.md or anything in key/log/: those stay mine. For each other file Light Brands changed, one at a time: if I never changed it, tell me what their change does and ask whether to bring it in, and only on my yes run git checkout upstream/main -- <that file>. If we both changed it, show me both sides in plain words first, from git diff HEAD...upstream/main -- <that file> and git diff upstream/main...HEAD -- <that file>; my version stays unless I ask you to combine them by hand, keeping every line of mine.
+5. Run git status. For each file both sides changed, tell me in plain words what Light Brands changed and what I changed, and ask me which to keep or whether to combine them. My version is the default. If I want to stop, run git merge --abort.
+6. Run npm install, then npm test. If a test fails, explain it plainly and fix it with me before going on.
+7. Tell me what this update gives my business, in a few plain sentences.
+8. If your command center folder is open in Claude Code, run npm run key:sync, then make the work commit with key/knowledge/system.md in it, then add an entry to the build log in key/log/ as docs/standards/log.md describes, in its own log-only commit made right after the work commit and naming that commit's id. The merge is the work commit. Then ask me: Shall I push? Pushing puts the update live. Only on my yes, run git push, then vercel ls until the newest deployment is Ready, and ask me to open my live address and sign in with my PIN.

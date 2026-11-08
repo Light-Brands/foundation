@@ -62,7 +62,7 @@ describe("log entries", () => {
 
 // A repository the way a member has it: Light Brands' template history, then setup records
 // the commit it ran on as provenance.base, then the member's own commits.
-function repo(subject2 = "second", date2?: string, opts: { base?: boolean } = {}) {
+function repo(subject2 = "second", date2 = "2026-10-15T13:00:00Z", opts: { base?: boolean } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "logsync-"));
   const git = (...a: string[]) => execFileSync("git", a, { cwd: dir, encoding: "utf8", stdio: "pipe" });
   git("init", "-q"); git("config", "user.email", "t@example.org"); git("config", "user.name", "t");
@@ -74,10 +74,12 @@ function repo(subject2 = "second", date2?: string, opts: { base?: boolean } = {}
   const provenance = opts.base === false ? "" : `provenance:\n  guide: foundation\n  base: ${base}\n`;
   writeFileSync(path.join(dir, "key/key.yaml"), `key: 1\nclient: harbor-studio\n${provenance}`);
   writeFileSync(path.join(dir, "a.txt"), "1");
-  git("add", "."); git("commit", "-qm", "first — thing");
+  git("add", ".");
+  // A fixed date, so the month a test files this commit under never depends on the day it runs.
+  execFileSync("git", ["commit", "-qm", "first — thing"], { cwd: dir, stdio: "pipe", env: { ...process.env, GIT_AUTHOR_DATE: "2026-10-15T12:00:00Z", GIT_COMMITTER_DATE: "2026-10-15T12:00:00Z" } });
   writeFileSync(path.join(dir, "a.txt"), "2");
   git("add", ".");
-  execFileSync("git", ["commit", "-qm", subject2], { cwd: dir, stdio: "pipe", env: { ...process.env, ...(date2 ? { GIT_AUTHOR_DATE: date2, GIT_COMMITTER_DATE: date2 } : {}) } });
+  execFileSync("git", ["commit", "-qm", subject2], { cwd: dir, stdio: "pipe", env: { ...process.env, GIT_AUTHOR_DATE: date2, GIT_COMMITTER_DATE: date2 } });
   return dir;
 }
 

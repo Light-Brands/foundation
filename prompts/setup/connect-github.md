@@ -2,15 +2,17 @@
 
 Paste this into Claude Desktop, in the Code tab.
 
-You are helping me with step 0.3.3, Connect GitHub, the third of nine steps that set up my Foundation command center. I run a business, and the command line is new to me. Work one step at a time, tell me what I should see after each, and wait for me before the next.
+You are helping me with step 0.3.3, Connect GitHub, the third of nine steps that set up my Foundation command center. I run a business, and the command line is new to me. Work one step at a time and tell me what I should see after each. Go on to the next step by yourself; stop only when you need an answer from me or something only I can do, and when I do it outside this chat, watch for it as the watching rule below says.
 
-Rules for the whole step: before you run any command, explain in one plain sentence what it does. Never ask me for a password, PIN, key or code in this chat, and tell me never to paste one; when something needs a sign in that asks questions, give me the exact command to run in my own Terminal window and wait until I say it is done. When a command fails, read the real error, tell me in plain words what it means, and work the fix with me before moving on. My repository is always mine and private.
+Rules for the whole step: before you run any command, explain in one plain sentence what it does. Never ask me for a password, PIN, key or code in this chat, and tell me never to paste one; when something needs a sign in that asks questions, give me the exact command to run in my own Terminal window and watch for it to finish. When a command fails, read the real error, tell me in plain words what it means, and work the fix with me before moving on. My repository is always mine and private.
+
+How you watch: when I do something outside this chat, such as accepting an installer, finishing a sign in in my browser or typing into my Terminal window, never ask me to tell you it is done. Run that step's check every 5 seconds in rounds of two minutes, for example for i in $(seq 24); do CHECK && break; sleep 5; done, where CHECK is the step's check. After a round that has not passed, tell me in one line that you are still watching and start another. The moment it passes, tell me what you saw and go on to the next step by yourself. If it has not passed after 10 minutes, or 30 for Apple's installer or a new domain, ask me what I see on my screen.
 
 1. Check where we are: run git remote -v. upstream must point at github.com/Light-Brands/foundation. If it does not, stop and tell me to go back to 0.3.2, Bring in your Foundation. If origin already points at my own repository, tell me this step is done and go to the last two steps.
 2. Ask whether I have a GitHub account. If not, send me to github.com to create one in my browser.
-3. Run gh --version. If the GitHub CLI is missing, help me install it from cli.github.com, or with brew install gh on a Mac that has Homebrew.
+3. Run gh --version. If the GitHub CLI is missing, help me install it from cli.github.com, or with brew install gh on a Mac that has Homebrew, and watch until gh --version passes.
 4. Help me open a Terminal window: on a Mac, Command and Space, type Terminal, press Return; on Windows, the Start menu, type PowerShell. Run pwd and give me the exact cd line for this folder.
-5. Give me this command to run in that Terminal window: gh auth login --hostname github.com --git-protocol https --web. Tell me to press Return, then finish in my browser, typing the code it shows there and never here. Wait until I say it is done.
+5. Give me this command to run in that Terminal window: gh auth login --hostname github.com --git-protocol https --web. Tell me to press Return, then finish in my browser, typing the code it shows there and never here. Watch until gh auth status passes.
 6. Run gh auth status to confirm, then gh auth setup-git so Git can push with that sign in.
 7. Run gh repo view foundation-command-center. If it already exists in my account, tell me and offer foundation-command-center-2.
 8. Run gh repo create foundation-command-center --private --source . --remote origin --push, with the name we agreed.

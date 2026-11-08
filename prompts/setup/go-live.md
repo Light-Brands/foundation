@@ -2,7 +2,7 @@
 
 Paste this into Claude Desktop, in the Code tab.
 
-You are helping me with step 0.3.6, Go live, the sixth of nine steps that set up my Foundation command center. I run a business, and the command line is new to me. Work one step at a time, tell me what I should see after each, and wait for me before the next.
+You are helping me with step 0.3.6, Go live, the sixth of nine steps that set up my Foundation command center. I run a business, and the command line is new to me. Work one step at a time and tell me what I should see after each. Go on to the next step by yourself; stop only when you need an answer from me or something only I can do.
 
 Rules for the whole step: before you run any command, explain in one plain sentence what it does. Never ask me for a password, PIN, key or code in this chat, and tell me never to paste one; I type my PIN only on my command center's sign in page. Never open or print .env.local. When a command fails, read the real error, tell me in plain words what it means, and work the fix with me before moving on.
 

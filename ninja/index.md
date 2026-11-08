@@ -4,7 +4,7 @@ Your business is a set of departments, and each department is a set of jobs. The
 
 Start with [the guide](guide.md). It is short, and it shows you how to ask.
 
-Dictionary version 0.4.0.
+Dictionary version 0.4.1.
 
 ## How to ask for anything
 

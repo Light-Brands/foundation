@@ -125,7 +125,7 @@ The push deploys the update on its own, because the project is connected to the 
 **The prompt to copy.** Paste this into the Code tab of Claude Desktop, with the `foundation-command-center` folder open.
 
 ```text
-You are helping me with step 0.3.8, Update my Foundation, one of the nine steps for my Foundation command center. I run a business, and the command line is new to me. Work one step at a time, tell me what I should see after each, and wait for me before the next.
+You are helping me with step 0.3.8, Update my Foundation, one of the nine steps for my Foundation command center. I run a business, and the command line is new to me. Work one step at a time and tell me what I should see after each. Go on to the next step by yourself; stop only when you need an answer from me or something only I can do.
 
 Rules for the whole step: before you run any command, explain in one plain sentence what it does. Never ask me for a password, PIN, key or code in this chat, and tell me never to paste one. Never overwrite my key/ folder, any .env file, or any file only I added. Never push without my yes. When a command fails, read the real error, tell me in plain words what it means, and work the fix with me before moving on.
 
